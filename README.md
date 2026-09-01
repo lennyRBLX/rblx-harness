@@ -1,46 +1,38 @@
 # rblx-harness
 
-`rblx-harness` is a controlled development harness for Roblox projects. It
-supplies the project rules, lifecycle hooks, write gates, review agents,
-scaffolding tools, validation tools, and reusable Luau packages for Codex and
-Claude Code.
+Use `rblx-harness` to build controlled Roblox projects w/ rules, lifecycle
+hooks, write gates, review agents, scaffolds, validators, & shared Luau pkgs.
 
-A managed project has an empty `.roblox` file at its Git root. The harness is
-stored in that project as the revision-pinned `.roblox-harness` Git submodule.
-Generated hooks run the files from this local submodule. A project update does
-not change the harness until the submodule revision changes.
+Mark each managed Git root w/ an empty `.roblox` file. Pin the harness as the
+`.roblox-harness` Git submodule. Run generated hooks from that local rev.
+Update the harness by updating the submodule rev.
 
-The harness supplies three skills:
+Use 3 skills:
 
-- `roblox-new-game` is a user skill. It interviews the user, installs the
-  harness with consent, and creates a deterministic game tree. Install it only
-  at user scope for Codex or Claude Code.
-- `roblox-writer` is a project skill. It controls Roblox code changes through
-  research, type, write, optimization, debug, review, and validation gates.
-  The project relinker installs this skill from `.roblox-harness`; do not
-  install it at user scope.
-- `math-tool` is a user skill. It runs bounded symbolic calculations that the
-  harness requests.
+- Install `roblox-new-game` at user scope for Codex or Claude Code. Use it to
+  gather inputs, install the harness w/ consent, & create a fixed game tree.
+- Install `roblox-writer` per project via the scaffold or relinker. Use it to
+  gate Roblox research, types, writes, optimization, debug, review, & checks.
+- Install `math-tool` at user scope. Use it for bounded symbolic math.
 
 ## Requirements
 
-Install these items before you use the harness:
+Install & set up:
 
 - Python 3.
 - Git.
-- GitHub CLI (`gh`). Authenticate it with `gh auth login`. The account must
-  have access to `lennyRBLX/rblx-harness`.
-- [Argon](https://argon.wiki/docs/installation). The `argon` command must be
-  on `PATH`. Install the Studio plugin with `argon plugin install`. The harness
-  uses Argon project files as the source map between the file tree and the
+- GitHub CLI (`gh`): run `gh auth login` w/ access to
+  `lennyRBLX/rblx-harness`.
+- [Argon](https://argon.wiki/docs/installation): add `argon` to `PATH`, then
+  run `argon plugin install`. Use Argon project files to map files to the
   Roblox DataModel.
-- [Serena MCP](https://github.com/oraios/serena). The harness uses Serena for
-  symbol and reference queries in project code.
-- [Roblox Studio](https://create.roblox.com/docs/studio/setup). Install the
-  current release. In Studio, open **Assistant > ... > Manage MCP Servers** and
-  enable **Studio as MCP server**. Keep the applicable project place open when
-  a task needs DataModel, console, or playtest information.
-- Codex or Claude Code with project trust and hook support.
+- [Serena MCP](https://github.com/oraios/serena): use it for project symbol &
+  ref queries.
+- [Roblox Studio](https://create.roblox.com/docs/studio/setup): install the
+  current release. Open **Assistant > ... > Manage MCP Servers**, enable
+  **Studio as MCP server**, & keep the target place open for DataModel,
+  console, or playtest tasks.
+- Codex or Claude Code w/ project trust & hook support.
 
 ### Install Serena MCP
 
@@ -51,19 +43,19 @@ uv tool install -p 3.13 serena-agent
 serena init
 ```
 
-Connect Serena to each host that you use:
+Connect each host:
 
 ```bash
 serena setup codex
 serena setup claude-code
 ```
 
-See the [Serena client configuration](https://oraios.github.io/serena/02-usage/030_clients.html)
-if a host does not show the Serena tools.
+Use the [Serena client config](https://oraios.github.io/serena/02-usage/030_clients.html)
+to expose Serena tools in each host.
 
 ## Install the skills
 
-Clone this repository first:
+Clone & enter the repo:
 
 ```bash
 gh repo clone lennyRBLX/rblx-harness
@@ -72,134 +64,125 @@ cd rblx-harness
 
 ### macOS or Linux
 
-Install `roblox-new-game` at user scope for Codex and Claude Code. Install the
-optional Codex display metadata. Then install `math-tool` and its lifecycle
-hooks.
+Install `roblox-new-game` for Codex & Claude Code, add Codex metadata, then
+install `math-tool` & its lifecycle hooks:
 
 ```bash
-HARNESS_ROOT="$(pwd)"
-CODEX_NEW_GAME="$HOME/.agents/skills/roblox-new-game"
-CLAUDE_NEW_GAME="$HOME/.claude/skills/roblox-new-game"
+R="$(pwd)"
+C="$HOME/.agents/skills/roblox-new-game"
+L="$HOME/.claude/skills/roblox-new-game"
 
-mkdir -p "$CODEX_NEW_GAME/agents" "$CLAUDE_NEW_GAME"
-cp -R "$HARNESS_ROOT/shared/skills/roblox-new-game/." "$CODEX_NEW_GAME/"
-cp "$HARNESS_ROOT/openai/skills/roblox-new-game/agents/openai.yaml" "$CODEX_NEW_GAME/agents/openai.yaml"
-cp -R "$HARNESS_ROOT/shared/skills/roblox-new-game/." "$CLAUDE_NEW_GAME/"
-python3 "$HARNESS_ROOT/openai/setup/math_tool.py" --install
+mkdir -p "$C/agents" "$L"
+cp -R "$R/shared/skills/roblox-new-game/." "$C/"
+cp "$R/openai/skills/roblox-new-game/agents/openai.yaml" "$C/agents/"
+cp -R "$R/shared/skills/roblox-new-game/." "$L/"
+python3 "$R/openai/setup/math_tool.py" --install
 ```
 
-Codex reads user skills from `$HOME/.agents/skills`. Claude Code reads user
-skills from `$HOME/.claude/skills`. Restart the host if it does not detect the
-new skills.
-
-Do not install `roblox-writer` at user scope. The scaffold or relinker installs
-it into the managed project.
+Load Codex skills from `$HOME/.agents/skills` & Claude Code skills from
+`$HOME/.claude/skills`. Restart each host to load new skills. Install
+`roblox-writer` per managed project via its scaffold or relinker.
 
 ### Windows
 
-Run these commands in PowerShell from the harness checkout:
+Run in PowerShell from the harness checkout:
 
 ```powershell
-$HarnessRoot = (Get-Location).Path
-$CodexNewGame = Join-Path $env:USERPROFILE ".agents\skills\roblox-new-game"
-$ClaudeNewGame = Join-Path $env:USERPROFILE ".claude\skills\roblox-new-game"
+$R = (Get-Location).Path
+$C = Join-Path $env:USERPROFILE ".agents\skills\roblox-new-game"
+$L = Join-Path $env:USERPROFILE ".claude\skills\roblox-new-game"
 
-New-Item -ItemType Directory -Force (Join-Path $CodexNewGame "agents"), $ClaudeNewGame | Out-Null
-Copy-Item (Join-Path $HarnessRoot "shared\skills\roblox-new-game\*") $CodexNewGame -Recurse -Force
-Copy-Item (Join-Path $HarnessRoot "openai\skills\roblox-new-game\agents\openai.yaml") (Join-Path $CodexNewGame "agents\openai.yaml") -Force
-Copy-Item (Join-Path $HarnessRoot "shared\skills\roblox-new-game\*") $ClaudeNewGame -Recurse -Force
-py -3 (Join-Path $HarnessRoot "openai\setup\math_tool.py") --install
+New-Item -ItemType Directory -Force (Join-Path $C "agents"), $L | Out-Null
+Copy-Item (Join-Path $R "shared\skills\roblox-new-game\*") $C -Recurse -Force
+Copy-Item (Join-Path $R "openai\skills\roblox-new-game\agents\openai.yaml") (Join-Path $C "agents") -Force
+Copy-Item (Join-Path $R "shared\skills\roblox-new-game\*") $L -Recurse -Force
+py -3 (Join-Path $R "openai\setup\math_tool.py") --install
 ```
 
-For a managed project on Windows, run `.roblox-harness\setup_windows.bat` from
-the project root after the submodule is initialized.
+From each managed project root, init the submodule, then run:
+
+```powershell
+.roblox-harness\setup_windows.bat
+```
 
 ## Create a game
 
-Start a new host session and request the user skill:
+Start a new host session & request:
 
 ```text
-Use $roblox-new-game to create a new Roblox game.
+Use $roblox-new-game to create a Roblox game.
 ```
 
-The skill completes the interview before it changes the destination. It then
-asks for explicit consent to install the harness. After consent, it creates or
-uses the project Git root, creates the empty `.roblox` marker, adds the
-`.roblox-harness` submodule, clones it, and relinks the project integration.
-The relinker installs `roblox-writer`, the Codex and Claude agent definitions,
-and the Codex and Claude project hooks locally. Gates and rules execute from
-the revision-pinned dependency. It does not install Roblox harness hooks at
-user scope. The skill records the accepted interview answers and emits the
-scaffold before it asks the user to authorize the project hooks. After the
-scaffold is complete, the user must trust the project, review changed hooks,
-select the Roblox permission profile, and allow the current session to pass
-`SessionStart` before feature work starts.
+Follow the skill flow:
 
-Run the approved Codex setup command outside the sandbox. The sandbox can deny
-macOS keyring access and produce a false invalid-token result from `gh`. A
-failed integration can leave `.gitmodules` and `.roblox-harness` staged. After
-the dependency remote is updated, rerun the same setup command; it reuses and
-updates a clean partial submodule before it retries integration.
+1. Define the test loop, places, Services, Controllers, name, & path.
+2. Approve the harness install.
+3. Run the approved Codex setup cmd outside the sandbox for keyring access.
+4. Trust the project.
+5. Review the installed hooks.
+6. Select the Roblox permission profile.
+7. Allow `SessionStart`, then start feature work.
 
-The scaffold creates one Argon project per place. It also creates the shared
-and place-specific source trees, the confirmed Service and Controller modules,
-the project instructions, the host hooks, the review-agent definitions, and
-the prescribed package and service templates.
+The skill records confirmed inputs, creates or uses the Git root, adds the
+empty `.roblox` marker, adds & pins `.roblox-harness`, then relinks the project.
+The relinker installs `roblox-writer`, agent defs, & project hooks for Codex &
+Claude Code. The scaffold creates 1 Argon project per place plus shared &
+place source trees, confirmed Service & Controller modules, project rules,
+hooks, review agents, & pkg/service templates.
+
+For a partial setup, update the dependency remote & rerun the same setup cmd.
+Let the relinker reuse & update the partial submodule, then retry integration.
 
 ## Example `roblox-new-game` interview
 
 ```text
-Agent: What are players doing in the current test?
+Agent: What do players do in the test?
 
-User: Players leave a lobby, enter a timed ruin, collect relics, and return to
-the lobby to bank them.
+User: Exit a lobby, enter a timed ruin, collect relics, return, & bank them.
 
-Agent: Which places should exist now? For this loop, an example is
-`Lobby, Ruin`.
+Agent: Which places? Example: `Lobby, Ruin`.
 
-User: Use `Lobby, Ruin`.
+User: `Lobby, Ruin`.
 
-Agent: Which shared and place-scoped Services should exist? For this loop, an
-example is `shared: RelicInventory; Ruin: ExpeditionRound`. PlayerData,
-Payments, Updates, and Effects already ship with the harness.
+Agent: Which shared & place Services? Example:
+`shared: RelicInventory; Ruin: ExpeditionRound`.
+PlayerData, Payments, Updates, & Effects ship w/ the harness.
 
-User: Use `shared: RelicInventory; Ruin: ExpeditionRound`.
+User: `shared: RelicInventory; Ruin: ExpeditionRound`.
 
-Agent: Which shared and place-scoped Controllers should exist? For this loop,
-an example is `shared: RelicHud; Ruin: RelicInteraction`. Effects, Gui, and
-Updates already ship with the harness.
+Agent: Which shared & place Controllers? Example:
+`shared: RelicHud; Ruin: RelicInteraction`.
+Effects, Gui, & Updates ship w/ the harness.
 
-User: Use `shared: RelicHud; Ruin: RelicInteraction`.
+User: `shared: RelicHud; Ruin: RelicInteraction`.
 
-Agent: What project name and destination directory should I use?
+Agent: Project name & path?
 
-User: Use `RelicRun` in `/path/to/RelicRun`.
+User: `RelicRun` at `/path/to/RelicRun`.
 
-Agent: Do you want to install rblx-harness? This will install it from
-https://github.com/lennyRBLX/rblx-harness.git into /path/to/RelicRun,
-initialize Git when needed, and install its hooks, gates, and rules. [y/N]
+Agent: Install `rblx-harness` from
+https://github.com/lennyRBLX/rblx-harness.git in `/path/to/RelicRun`, init Git,
+& install hooks, gates, & rules? [y/N]
 
 User: Yes.
 
-Agent: Scaffolding is complete. Trust the project, select the Roblox permission
-profile, and review and approve the installed project hooks. Tell me when that
-host authorization is complete so I can retry `SessionStart`.
+Agent: Scaffold complete. Trust the project, select the Roblox permission
+profile, review & approve its hooks, then confirm host auth for `SessionStart`.
 ```
 
-Before the authorization request, the skill records each confirmed
-file-shaping answer and emits the `RelicRun` scaffold. The gameplay-loop text
-is proposal context only. It is not stored as a project constraint.
+Treat gameplay-loop text as proposal context. Persist confirmed file-shaping
+answers in the `RelicRun` scaffold.
 
 ## Existing managed projects
 
-Initialize the harness after you clone a managed project:
+Init & relink after cloning:
 
 ```bash
 git submodule update --init --recursive -- .roblox-harness
 python3 .roblox-harness/openai/setup/permissions_harness.py --relink
 ```
 
-Run the project check from the managed project root:
+Run the project check from its root:
 
 ```bash
 python3 .roblox-harness/tools/project_gate/project_gate.py --project-root "$(pwd)"

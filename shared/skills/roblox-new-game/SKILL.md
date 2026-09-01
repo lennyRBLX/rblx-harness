@@ -84,8 +84,11 @@ python3 <SKILL_DIR>/scripts/dependency.py setup --root <dir>
 
 The tool returns `CONSENT_REQUIRED` with the exact question beginning
 `Do you want to install rblx-harness?` and makes no change. Ask the user that
-question and stop. Do not infer consent from the new-game request or interview
-answers, and do not pipe or synthesize an answer. After an explicit yes, run:
+question as the final response, then end the current agent turn immediately.
+Do not call another tool or enter an internal wait state. Resume only after a
+new user message explicitly answers the question. Do not infer consent from the
+new-game request or interview answers, and do not pipe or synthesize an answer.
+After an explicit yes, run:
 
 ```bash
 python3 <SKILL_DIR>/scripts/dependency.py setup --root <dir> --yes
@@ -180,7 +183,10 @@ After `emit` reports `EMITTED`, tell the user that scaffolding is complete.
 Then ask the user to trust the project and authorize the installed hooks. When
 setup or emit reported a changed permission profile or hook definition, ask
 the user to select `Roblox` and review and approve the changed hooks. Do not
-perform feature work before this post-scaffold authorization.
+perform feature work before this post-scaffold authorization. Make this request
+the final response, then end the current agent turn immediately. Do not call
+another tool, retry `SessionStart`, or enter an internal wait state. Resume only
+after a new user message confirms that the host action is complete.
 
 After the user completes the host action, retry `SessionStart` in the current
 task. Continue only after current-task authorization succeeds. Exact hook bytes

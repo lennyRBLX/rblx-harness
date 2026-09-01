@@ -6201,6 +6201,9 @@ def _(tmp):
     assert "do not run `scaffold.py answer` yet" in skill_words
     assert "do not require current-task authorization" in skill_words
     assert "After `emit` reports `EMITTED`" in skill
+    assert skill_words.count("end the current agent turn immediately") == 2
+    assert skill_words.count("Resume only after a new user message") == 2
+    assert skill_words.count("enter an internal wait state") == 2
 
     milestone = run(sc + ["emit", "--root", root, "--name", "X", "--milestone"], env=environment)
     assert milestone.returncode == 2 and "no build-stage mode" in milestone.stdout
