@@ -117,13 +117,19 @@ PLACEHOLDER_PATTERNS = (
 COMPONENT_RE = re.compile(r"^[A-Za-z][A-Za-z0-9]*$")
 
 
-def permission_preflight(root):
+def scaffold_preflight(root):
     if not gatelib.is_roblox_project(root):
-        print("REFUSED|.roblox sentinel absent|run bootstrap and relink, review changed integration, then retry")
+        print("REFUSED|.roblox sentinel absent|run dependency setup, then retry")
         return False
     sentinel = os.path.join(root, ".roblox")
     if os.path.islink(sentinel) or os.path.getsize(sentinel) != 0:
         print("REFUSED|.roblox sentinel invalid|replace it with an empty regular file, then retry")
+        return False
+    return True
+
+
+def permission_preflight(root):
+    if not scaffold_preflight(root):
         return False
     session_id = os.environ.get("CODEX_THREAD_ID", "")
     if not gatelib.session_authorized(root, session_id):
@@ -419,7 +425,7 @@ def criteria_validation(criteria):
 
 
 def cmd_answer(root, flag, text):
-    if not permission_preflight(root):
+    if not scaffold_preflight(root):
         return 2
     if flag not in BLOCKING_SET:
         print("REFUSED|%s|not a blocking-set flag" % flag)
@@ -1151,7 +1157,7 @@ def relink(root, host="all"):
 
 
 def cmd_emit(root, name):
-    if not permission_preflight(root):
+    if not scaffold_preflight(root):
         return 2
     if not require_project_harness(root):
         return 2

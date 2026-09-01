@@ -129,9 +129,11 @@ uses the project Git root, creates the empty `.roblox` marker, adds the
 The relinker installs `roblox-writer`, the Codex and Claude agent definitions,
 and the Codex and Claude project hooks locally. Gates and rules execute from
 the revision-pinned dependency. It does not install Roblox harness hooks at
-user scope. The user must trust the project, review changed hooks, select the
-Roblox permission profile, and allow the current session to pass
-`SessionStart` before the skill records the interview or emits files.
+user scope. The skill records the accepted interview answers and emits the
+scaffold before it asks the user to authorize the project hooks. After the
+scaffold is complete, the user must trust the project, review changed hooks,
+select the Roblox permission profile, and allow the current session to pass
+`SessionStart` before feature work starts.
 
 Run the approved Codex setup command outside the sandbox. The sandbox can deny
 macOS keyring access and produce a false invalid-token result from `gh`. A
@@ -178,9 +180,13 @@ https://github.com/lennyRBLX/rblx-harness.git into /path/to/RelicRun,
 initialize Git when needed, and install its hooks, gates, and rules. [y/N]
 
 User: Yes.
+
+Agent: Scaffolding is complete. Trust the project, select the Roblox permission
+profile, and review and approve the installed project hooks. Tell me when that
+host authorization is complete so I can retry `SessionStart`.
 ```
 
-After project authorization succeeds, the skill records each confirmed
+Before the authorization request, the skill records each confirmed
 file-shaping answer and emits the `RelicRun` scaffold. The gameplay-loop text
 is proposal context only. It is not stored as a project constraint.
 

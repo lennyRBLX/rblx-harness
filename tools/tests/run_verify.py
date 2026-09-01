@@ -1344,7 +1344,7 @@ def _(tmp):
     assert before == metadata_manifest(unmanaged)
 
 
-@case("PERMISSIONS_HARNESS: corrected profile verifies and scaffolder refuses missing session authorization")
+@case("PERMISSIONS_HARNESS: new-game scaffold precedes session authorization")
 def _(tmp):
     good_home = os.path.join(tmp, "configuration-home")
     good = write(good_home, ".codex/config.toml", required_config())
@@ -1355,11 +1355,26 @@ def _(tmp):
     good_environment = verified_environment(good_root)
     good_environment["CODEX_THREAD_ID"] = "verify-session"
     good_cache = os.path.join(good_environment["HOME"], ".cache", "harness")
+    for authorization in glob.glob(
+        os.path.join(good_environment["HOME"], ".cache", "harness", "sessions", "*", "*.ready")
+    ):
+        os.remove(authorization)
+    for flag, answer in (
+        ("places", "Main"),
+        ("services", "none"),
+        ("controllers", "none"),
+    ):
+        result = run(
+            [PY, SCAFFOLD, "answer", flag, answer, "--root", good_root],
+            env=good_environment,
+        )
+        assert result.returncode == 0, result.stdout + result.stderr
     result = run(
-        [PY, SCAFFOLD, "answer", "places", "Main", "--root", good_root],
+        [PY, SCAFFOLD, "emit", "--root", good_root, "--name", "BeforeHooks"],
         env=good_environment,
     )
-    assert result.returncode == 0 and os.path.isfile(os.path.join(good_root, ".criteria.json"))
+    assert result.returncode == 0 and "EMITTED|BeforeHooks|Main" in result.stdout, result.stdout + result.stderr
+    assert not os.path.exists(os.path.join(good_root, ".criteria.json"))
     assert os.path.isfile(os.path.join(good_cache, "api_globals.luau"))
 
     root = os.path.join(tmp, "game")
@@ -5970,7 +5985,7 @@ def _(tmp):
         assert open(p).read() == before, "emitter and formatter disagree on " + rel
 
 
-@case("scaffold: marker-only bootstrap leaves interview writes locked until authorization")
+@case("scaffold: marker-only bootstrap permits interview writes before authorization")
 def _(tmp):
     absent = os.path.join(tmp, "not-created")
     refused_absent = run([PY, SCAFFOLD, "bootstrap", "--root", absent])
@@ -6001,20 +6016,12 @@ def _(tmp):
     second = scaffold_bootstrap(root)
     assert "|exact;" in second.stdout and metadata_manifest(root) == after
 
-    unauthorized = run(
+    preauthorization = run(
         [PY, SCAFFOLD, "answer", "places", "Main", "--root", root],
         env=dict(os.environ, CODEX_THREAD_ID="not-authorized", PYTHONDONTWRITEBYTECODE="1"),
     )
-    assert unauthorized.returncode == 2 and "Start a new Codex task" in unauthorized.stdout
-    assert metadata_manifest(root) == after and not os.path.exists(os.path.join(root, ".criteria.json"))
-
-    environment = verified_environment(root)
-    environment["CODEX_THREAD_ID"] = "verify-session"
-    authorized = run(
-        [PY, SCAFFOLD, "answer", "places", "Main", "--root", root],
-        env=environment,
-    )
-    assert authorized.returncode == 0 and os.path.isfile(os.path.join(root, ".criteria.json"))
+    assert preauthorization.returncode == 0 and "ACCEPTED|places" in preauthorization.stdout
+    assert os.path.isfile(os.path.join(root, ".criteria.json"))
 
 
 @case("scaffold: copied user skill resolves the project harness and exact bootstrap stays in-session")
@@ -6050,10 +6057,10 @@ def _(tmp):
     write(root, ".criteria.json", json.dumps(criteria, indent=1) + "\n")
     assert scaffold_tool.place_names(places_answer) == list(places)
 
-    original_preflight = scaffold_tool.permission_preflight
+    original_preflight = scaffold_tool.scaffold_preflight
     original_relink = scaffold_tool.relink
     original_materialized = scaffold_tool.materialized_runtime
-    scaffold_tool.permission_preflight = lambda _root: True
+    scaffold_tool.scaffold_preflight = lambda _root: True
     scaffold_tool.relink = lambda _root: 0
     scaffold_tool.materialized_runtime = lambda: True
     try:
@@ -6107,7 +6114,7 @@ def _(tmp):
         assert os.path.isfile(os.path.join(claude_skill, "SKILL.md"))
         assert not os.path.islink(claude_skill)
     finally:
-        scaffold_tool.permission_preflight = original_preflight
+        scaffold_tool.scaffold_preflight = original_preflight
         scaffold_tool.relink = original_relink
         scaffold_tool.materialized_runtime = original_materialized
 
@@ -6188,8 +6195,12 @@ def _(tmp):
     assert "GUI responsibility is fixed, not interviewed" in skill
     assert "temporary proposal context" in skill_words and "--milestone" not in skill
     assert skill.index("## Phase 0 — the interview") < skill.index("## Phase 1 — harness consent")
+    assert skill.index("## Phase 1 — harness consent") < skill.index("## Phase 2 — record and scaffold")
+    assert skill.index("## Phase 2 — record and scaffold") < skill.index("## Phase 3 — authorize project hooks")
     assert skill.index("Start by obtaining the gameplay loop") < skill.index("Do you want to install rblx-harness?")
     assert "do not run `scaffold.py answer` yet" in skill_words
+    assert "do not require current-task authorization" in skill_words
+    assert "After `emit` reports `EMITTED`" in skill
 
     milestone = run(sc + ["emit", "--root", root, "--name", "X", "--milestone"], env=environment)
     assert milestone.returncode == 2 and "no build-stage mode" in milestone.stdout

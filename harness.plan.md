@@ -44,8 +44,9 @@ cached input in logical tokens and separately in cached-input tokens.
   `DATA37` retain their meaning.
 - `roblox-new-game` keeps a gameplay-loop-first blocking interview, explicit
   post-interview harness-install consent, Git and GitHub-auth preflight, the
-  pinned `.roblox-harness` submodule, authorization prerequisite, deterministic
-  scaffold, `.roblox` sentinel, source-of-truth rule, and repair boundary.
+  pinned `.roblox-harness` submodule, deterministic scaffold, post-scaffold
+  hook authorization prerequisite, `.roblox` sentinel, source-of-truth rule,
+  and repair boundary.
 - `roblox-writer` keeps conditional evidence roles, type/data gates, native
   file edits, exact recovery commands, dependency joins, settled review-target
   hashing, one malformed-return repair, and typed incomplete states.

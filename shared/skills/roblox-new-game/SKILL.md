@@ -1,11 +1,11 @@
 ---
 name: roblox-new-game
-description: Conducts a gameplay-loop-first file-shaping interview, then obtains consent to install the GitHub-hosted rblx-harness dependency, installs its project integration, and deterministically scaffolds a Roblox game. Use when starting a Roblox project; do not use for routine feature changes.
+description: Conducts a gameplay-loop-first file-shaping interview, obtains consent to install the GitHub-hosted rblx-harness dependency, deterministically scaffolds a Roblox game, then requests project-hook authorization. Use when starting a Roblox project; do not use for routine feature changes.
 ---
 
 # roblox-new-game — interview and scaffold
 
-Three ordered phases; never skip to the scaffold or invent file-shaping
+Four ordered phases; never skip to the scaffold or invent file-shaping
 decisions.
 
 Resolve `<SKILL_DIR>` as the real directory that contains this `SKILL.md`.
@@ -16,16 +16,13 @@ project. The cloned `.roblox-harness` dependency is the only source for the
 project-local `roblox-writer`, agents, hooks, gates, and rules. Project setup
 does not install Roblox harness hooks at user scope.
 
-`answer`, `emit`, and `backfill` require the empty `.roblox` sentinel and the
-schema-3 authorization created by a successful documented host
-`SessionStart`. The standalone
-`permissions_harness.py` command validates Codex configuration only. On
-`BLOCKED|PERMISSIONS_HARNESS`, do not write interview state, project files,
-generated cache, Studio, or patches. The human must trust the project, review
-and approve the hooks, then install and select Roblox. Retry `SessionStart` in
-the current task; an approval prompt does not satisfy this prerequisite. The
-conversational interview is permitted before authorization; recording its
-answers is not.
+`answer` and `emit` require the empty `.roblox` sentinel and initialized
+project-local dependency. They do not require schema-3 session authorization:
+the new-game scaffold must finish before the user is asked to authorize its
+new project hooks. `backfill` and all post-scaffold project work require the
+schema-3 authorization created by a successful documented host `SessionStart`.
+The standalone `permissions_harness.py` command validates Codex configuration
+only. An approval prompt does not create runtime authorization.
 
 ## Phase 0 — the interview
 
@@ -118,17 +115,16 @@ relinker. A clean partial `.roblox-harness` install is updated from its
 registered remote on retry. Existing staged `.gitmodules` and
 `.roblox-harness` entries are reused.
 
-When setup reports changed profile or hook discovery, select `Roblox`, review
-the changed hooks, retry host discovery in the current task, and continue after
-current-task authorization succeeds. Exact bytes need no retry. Setup never
-creates runtime authorization. No interview-state or scaffold write is
-permitted before authorization.
+When setup reports changed profile or hook discovery, retain that result for
+Phase 3. Do not ask the user to select `Roblox`, approve hooks, or retry host
+discovery yet. Setup never creates runtime authorization. Continue directly to
+the scaffold.
 
 ## Phase 2 — record and scaffold
 
-After current-task authorization succeeds, record every accepted file-shaping
-answer separately, including fields supplied together. Do not repeat the
-interview:
+Record every accepted file-shaping answer separately, including fields supplied
+together. Do not repeat the interview and do not require current-task
+authorization:
 
 ```bash
 python3 <SKILL_DIR>/scripts/scaffold.py answer <flag> "<text>" --root <dir>
@@ -140,8 +136,8 @@ python3 <SKILL_DIR>/scripts/scaffold.py emit --root <dir> --name <ProjectName>
 
 The scaffolder refuses to emit until the three file-shaping fields are complete
 and names the unanswered items — re-ask exactly those. On success it preserves
-the pre-authorized empty root-level `.roblox` managed-project sentinel and
-emits the tree,
+the pre-created empty root-level `.roblox` managed-project sentinel and emits
+the tree,
 both runtime instruction files — CLAUDE.md (Claude Code: import + two
 blocks) and AGENTS.md (Codex/ChatGPT: reads CORE.md + CODEX.md, same two
 blocks) — one Argon project per place, confirmed keystone module files, the
@@ -177,6 +173,19 @@ afterward. Playtests, temporary Free-for-All slices, mechanics such as Double
 Jump, mode changes, and changes to player count are ordinary feature work.
 They may add, retain, or remove Services and Controllers without a stage,
 milestone, final-build path, or new-game re-interview.
+
+## Phase 3 — authorize project hooks
+
+After `emit` reports `EMITTED`, tell the user that scaffolding is complete.
+Then ask the user to trust the project and authorize the installed hooks. When
+setup or emit reported a changed permission profile or hook definition, ask
+the user to select `Roblox` and review and approve the changed hooks. Do not
+perform feature work before this post-scaffold authorization.
+
+After the user completes the host action, retry `SessionStart` in the current
+task. Continue only after current-task authorization succeeds. Exact hook bytes
+do not need another hook approval, but they still require a successful
+documented `SessionStart` for a task that has no authorization.
 
 ## Repairs
 
