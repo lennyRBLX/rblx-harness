@@ -1,0 +1,41 @@
+{
+	"hooks": {
+		"SessionStart": [
+			{
+				"matcher": "^(startup|resume|clear|compact)$",
+				"hooks": [
+					{
+						"type": "command",
+						"command": "PYTHONDONTWRITEBYTECODE=1 python3 \"$(git rev-parse --show-toplevel)/shared/gates/harness_gate.py\" --host codex --event SessionStart",
+						"commandWindows": "powershell.exe -NoProfile -Command \"$root = git rev-parse --show-toplevel; & py -3 -B (Join-Path $root 'shared\\gates\\harness_gate.py') --host codex --event SessionStart\"",
+						"timeout": 30
+					}
+				]
+			}
+		],
+		"UserPromptSubmit": [
+			{
+				"hooks": [
+					{
+						"type": "command",
+						"command": "PYTHONDONTWRITEBYTECODE=1 python3 \"$(git rev-parse --show-toplevel)/shared/gates/harness_gate.py\" --host codex --event UserPromptSubmit",
+						"commandWindows": "powershell.exe -NoProfile -Command \"$root = git rev-parse --show-toplevel; & py -3 -B (Join-Path $root 'shared\\gates\\harness_gate.py') --host codex --event UserPromptSubmit\"",
+						"timeout": 30
+					}
+				]
+			}
+		],
+		"Stop": [
+			{
+				"hooks": [
+					{
+						"type": "command",
+						"command": "PYTHONDONTWRITEBYTECODE=1 python3 \"$(git rev-parse --show-toplevel)/shared/gates/harness_gate.py\" --host codex --event Stop",
+						"commandWindows": "powershell.exe -NoProfile -Command \"$root = git rev-parse --show-toplevel; & py -3 -B (Join-Path $root 'shared\\gates\\harness_gate.py') --host codex --event Stop\"",
+						"timeout": 60
+					}
+				]
+			}
+		]
+	}
+}

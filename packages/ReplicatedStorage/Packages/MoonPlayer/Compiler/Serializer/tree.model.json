@@ -1,0 +1,37 @@
+{
+    "className": "StringValue",
+
+    "children": [
+        {
+            "name": "defaults",
+            "className": "StringValue"
+        },
+
+        {
+            "name": "dict",
+            "className": "StringValue"
+        },
+
+        {
+            "name": "frames",
+            "className": "StringValue"
+        },
+
+        {
+            "name": "hierarchy",
+            "className": "StringValue"
+        },
+        {
+            "name": "markers",
+            "className": "StringValue"
+        },
+        {
+            "name": "sequence",
+            "className": "StringValue"
+        },
+        {
+            "name": "cframes",
+            "className": "Configuration"
+        }
+    ]
+}

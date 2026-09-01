@@ -1,0 +1,41 @@
+{
+  "encoding": "o200k_base",
+  "semantic_rule": "Preserve required meaning. Compress in this order: DELETE → SIMPLIFY → CONTRACT → PROTECT-LUAU. Reject any edit that changes facts, scope, negation, conditions, numbers/units, names/code, tone, accessibility, or TTS clarity, or has more than one plausible meaning. Use no glyph or slash substitutions.",
+  "records": [
+    {
+      "agent": "researcher",
+      "source": "researcher: FOUND\n\nclass|Dexterity|number|is required to preserve character dexterity in order to continue",
+      "expected": "researcher: FOUND\n\nclass|Dexterity|number|must preserve character dex to continue",
+      "before_tokens": 23,
+      "after_tokens": 18
+    },
+    {
+      "agent": "debugger",
+      "source": "debugger: FIX\n\nfix|12|worker is required to preserve input and output|writer is able to update both in order to pass",
+      "expected": "debugger: FIX\n\nfix|12|worker must preserve input and output|writer can update both to pass",
+      "before_tokens": 28,
+      "after_tokens": 22
+    },
+    {
+      "agent": "optimizer",
+      "source": "optimizer: MEASURED\n\nopt|42|loop is required to process input and output|worker is able to batch both in order to save 4 ms",
+      "expected": "optimizer: MEASURED\n\nopt|42|loop must process input and output|worker can batch both to save 4 ms",
+      "before_tokens": 32,
+      "after_tokens": 26
+    },
+    {
+      "agent": "maintainer",
+      "source": "maintainer: READY\n\nrepair|git-sync|input and output|python3 tools/input and output.py",
+      "expected": "maintainer: READY\n\nrepair|git-sync|input and output|python3 tools/input and output.py",
+      "before_tokens": 21,
+      "after_tokens": 21
+    },
+    {
+      "agent": "reviewer",
+      "source": "reviewer: BLOCKED\n\n42|7|WRIT33!|input and output declaration is required to be current|obtain the exact declaration in order to continue",
+      "expected": "reviewer: BLOCKED\n\n42|7|WRIT33!|input and output declaration is required to be current|obtain the exact declaration in order to continue",
+      "before_tokens": 34,
+      "after_tokens": 34
+    }
+  ]
+}

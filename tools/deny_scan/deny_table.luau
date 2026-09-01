@@ -1,0 +1,76 @@
+-- deny_scan entry table — one entry per rule id; the rules read their entry
+-- through context.options. Every entry names a live rule id (session-gate
+-- check #3 verifies).
+return {
+	BC3 = {
+		id = "BC3",
+		pattern = { "wait", "spawn", "delay" },
+		paths = {},
+		except = {},
+		presence = false,
+		message = "Replace %s w/ task.%s; retry.",
+	},
+	WRIT18 = {
+		id = "WRIT18",
+		pattern = { "getfenv", "setfenv", "loadstring", "setmetatable", "newproxy" },
+		paths = { "shared/src/", "places/", "src/" },
+		except = {},
+		presence = false,
+		message = "Remove this API from game code; use supported Luau structure; retry.",
+	},
+	DATA29 = {
+		id = "DATA29",
+		pattern = { "IsStudio", "Mock" },
+		paths = { "Services/PlayerData/" },
+		except = {},
+		presence = true,
+		message = "Add RunService:IsStudio() selecting PlayerData.Mock; retry.",
+	},
+	OPT11 = {
+		id = "OPT11",
+		pattern = {},
+		paths = {},
+		except = {},
+		presence = false,
+		message = "Set the property in Roblox Studio; remove the code assignment; retry.",
+	},
+	WRIT11 = {
+		id = "WRIT11",
+		pattern = { "^Request%u" },
+		paths = {},
+		except = {},
+		presence = false,
+		message = "Remove Request; use the bare intent; retry.",
+	},
+	BC1 = {
+		id = "BC1",
+		pattern = { "api_key", "apikey", "secret", "token", "password", "auth_key" },
+		paths = {
+			"ReplicatedStorage/",
+			"ReplicatedFirst/",
+			"StarterPlayer/",
+			"StarterGui/",
+			"StarterPack/",
+			"Workspace/",
+		},
+		except = { "rbxassetid", "http" },
+		presence = false,
+		message = "Move the secret to ServerScriptService; retry.",
+	},
+	BC7 = {
+		id = "BC7",
+		pattern = { "LocalPlayer" },
+		paths = { "ServerScriptService/", "ServerStorage/", ".server.luau", ".server.lua" },
+		except = {},
+		presence = false,
+		message = "Remove LocalPlayer; resolve Player on the server; retry.",
+	},
+	OPT12 = {
+		id = "OPT12",
+		pattern = { "workspace" },
+		paths = { "StarterPlayer/", "StarterGui/", "Controllers/" },
+		except = { "CurrentCamera", "Terrain" },
+		presence = false,
+		message = "Use WaitForChild or FindFirstChild + nil check; retry.",
+	},
+}

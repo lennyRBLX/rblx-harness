@@ -1,0 +1,6 @@
+# House overlay — human-ruled behavior the docs omit, keyed by class or
+# class:member. Merged into api_dump records and marked `house`.
+# Entries are human-ruled, never agent-authored: an agent that finds
+# undocumented behavior PROPOSES an entry (record_check relays it), and the
+# human rules it into this file from a harness/ session.
+Humanoid:ApplyDescriptionResetAsync|deletes every limb in the character and replaces them

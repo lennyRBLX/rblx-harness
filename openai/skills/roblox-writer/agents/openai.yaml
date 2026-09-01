@@ -1,0 +1,4 @@
+interface:
+  display_name: "Roblox Writer"
+  short_description: "Run the gated Roblox code-writing workflow"
+  default_prompt: "Use $roblox-writer to implement this Roblox game-code change through the harness gates."
