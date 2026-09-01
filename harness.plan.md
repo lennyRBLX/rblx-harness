@@ -461,8 +461,7 @@ not run.
 
 | Hook | Current function | Final disposition |
 |---|---|---|
-| User `SessionStart` (Codex) | Verify trust, permission profile, user hooks, and generated integration; create authorization. | Remain hard for host/session/project identity. Auto-relink static integration, refresh trust/profile/hook bytes, report changed hooks as maintenance advisory, and continue the same task. |
-| User `PreToolUse` (Codex) | Re-run the complete write gate before all tools. | Soften to bootstrap authorization only. Do not fetch, scan source, or repeat project-scope checks here. |
+| Project `SessionStart` (Codex) | Verify trust, permission profile, project hooks, and generated integration; create authorization. | Remain hard for host/session/project identity. Auto-relink static project integration, refresh trust/profile/hook bytes, report changed project hooks as a maintenance advisory, and continue the same task. |
 | Project `SessionStart` | Verify project hooks and payload; prepare corpus, globals, type cache, toolchain, Git, Studio, links, agents, and place map; create authorization. | Remain hard for hook/session identity and mutation prerequisites. Auto-fix deterministic local state. Make Studio, place-map, corpus, and toolchain checks conditional on the requested operation. |
 | `UserPromptSubmit` | Bind a turn baseline; clear stale receipts, type records, and veto state. | Remain. Auto-fix stale per-turn state. Deny only when a source-changing turn cannot obtain a baseline. |
 | Project `PreToolUse` | Authorize all tools; fetch origin; check environment; parse and scan writes; format full writes. | Remain hard for source mutations, exact maintenance commands, and Studio `execute_luau`. Read-only tools receive authorization validation only. Run the remote check once at the first mutation, not before every tool. |
@@ -472,8 +471,8 @@ not run.
 | `Stop` | Deliver mailbox returns; run type, style, replication, LSP, review, boot, structure, and performance checks. | Remain hard once per changed settled input for Luau correctness and review receipt. Cache success by turn/target/checker/auth digest; invalidate on input change. Auto-format; optional analyzers remain advisory. |
 
 Claude uses the same project-hook dispositions. Its `fork` SessionStart source
-remains valid. Codex retains both user and project bootstrap scopes, but only
-the project scope performs source and environment enforcement.
+remains valid. Codex and Claude project hooks perform source and environment
+enforcement; user-scope harness hooks are not part of project installation.
 
 ### Harness repository
 

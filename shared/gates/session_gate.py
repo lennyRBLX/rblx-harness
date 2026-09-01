@@ -40,7 +40,6 @@ def discovery_snapshot(cwd, host="codex"):
     if host == "codex":
         paths += [
             ("<user>/config.toml", gatelib.codex_config_path()),
-            ("<user>/hooks.json", gatelib.codex_hooks_path()),
         ]
     for relative, path in paths:
         if not os.path.lexists(path):
@@ -82,7 +81,7 @@ def auto_relink(cwd, host="codex"):
         return False, False, False
     after = discovery_snapshot(root, host)
     after_by_path = {entry[0]: entry[1:] for entry in after}
-    hook_paths = (".codex/hooks.json", "<user>/hooks.json") if host == "codex" else (".claude/settings.json",)
+    hook_paths = (".codex/hooks.json",) if host == "codex" else (".claude/settings.json",)
     hook_changed = any(before_by_path.get(path) != after_by_path.get(path) for path in hook_paths)
     relink_reported_change = "discovery exact; no new task required." not in result.stdout
     return True, relink_reported_change or before != after, hook_changed
@@ -181,7 +180,10 @@ def main(argv=None):
             session_id=session_id,
         )
 
-    if (host == "codex" and scope == "user") or (host == "claude" and scope == "project"):
+    if scope == "project":
+        if not gatelib.project_uses_harness(cwd):
+            visible = gatelib.blocker_instruction("hooks", cwd)
+            return stop(gatelib.session_block(host, visible, cwd), visible, host, cwd, session_id)
         if host == "codex":
             trusted, trust_detail = gatelib.project_trust_status(cwd)
             if not trusted:

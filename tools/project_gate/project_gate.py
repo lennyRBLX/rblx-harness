@@ -186,7 +186,7 @@ def generated_integration(root, host, reporter, allow_project_writes=True):
         return False
     after = lifecycle_session_gate.discovery_snapshot(root, host)
     after_by_path = {entry[0]: entry[1:] for entry in after}
-    hook_paths = (".codex/hooks.json", "<user>/hooks.json") if host == "codex" else (".claude/settings.json",)
+    hook_paths = (".codex/hooks.json",) if host == "codex" else (".claude/settings.json",)
     hook_changed = any(before_by_path.get(path) != after_by_path.get(path) for path in hook_paths)
     changed = before != after or "discovery exact; no new task required." not in result.stdout
     hook_path = os.path.join(root, ".codex", "hooks.json") if host == "codex" else os.path.join(root, ".claude", "settings.json")

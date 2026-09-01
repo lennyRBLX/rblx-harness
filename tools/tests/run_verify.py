@@ -35,6 +35,14 @@ LUTE = os.path.join(TOOLS, "bin", "lute")
 PY = sys.executable
 SCAFFOLD = os.path.join(HARNESS, "shared", "skills", "roblox-new-game", "scripts", "scaffold.py")
 DEPENDENCY = os.path.join(HARNESS, "project.py")
+DEPENDENCY_SCRIPT = os.path.join(
+    HARNESS,
+    "shared",
+    "skills",
+    "roblox-new-game",
+    "scripts",
+    "dependency.py",
+)
 PERMISSIONS_SETUP = os.path.join(HARNESS, "openai", "setup", "permissions_harness.py")
 HOOKS_SETUP = os.path.join(HARNESS, "openai", "setup", "hooks_harness.py")
 MATH_SCRIPTS = os.path.join(HARNESS, "shared", "skills", "math-tool", "scripts")
@@ -58,6 +66,9 @@ windows_spec.loader.exec_module(setup_windows_codex)
 scaffold_spec = importlib.util.spec_from_file_location("scaffold_tool", SCAFFOLD)
 scaffold_tool = importlib.util.module_from_spec(scaffold_spec)
 scaffold_spec.loader.exec_module(scaffold_tool)
+dependency_spec = importlib.util.spec_from_file_location("dependency_tool", DEPENDENCY_SCRIPT)
+dependency_tool = importlib.util.module_from_spec(dependency_spec)
+dependency_spec.loader.exec_module(dependency_tool)
 sys.path.insert(0, MATH_SCRIPTS)
 import math_state as math_state_tool  # noqa: E402
 import math_tool as math_tool_core  # noqa: E402
@@ -455,7 +466,7 @@ enabled = false
     assert "sandbox_mode" not in config and os.path.exists(authorization)
     stable = write(home, ".cache/harness/sessions/root/stable.ready", "stable\n")
     second = run(command, env=environment)
-    assert second.returncode == 0 and "permissions-harness|exact|hooks=exact" in second.stdout
+    assert second.returncode == 0 and "permissions-harness|exact" in second.stdout
     assert "no new task required" in second.stdout and "/hooks" not in second.stdout
     assert os.path.exists(stable), "a byte-exact scaffold install must preserve authorization"
     assert open(config_path, encoding="utf-8").read() == installed
@@ -514,7 +525,7 @@ def _(tmp):
         'owner = "preserved-owner"\n'
         '[agents.researcher]\n'
         'description = "legacy duplicate"\n'
-        'config_file = "../../harness/openai/agents/researcher.toml"\n',
+        'config_file = "../../.roblox-harness/openai/agents/researcher.toml"\n',
     )
     result = run([PY, PERMISSIONS_SETUP, "--relink"], cwd=root, env=environment)
     assert result.returncode == 0, result.stdout + result.stderr
@@ -854,9 +865,9 @@ def _(tmp):
         '[project_metadata]\nowner = "windows-owner"\n'
         '[agents.researcher]\n'
         'description = "legacy duplicate"\n'
-        'config_file = "../../harness/openai/agents/researcher.toml"\n',
+        'config_file = "../../.roblox-harness/openai/agents/researcher.toml"\n',
     )
-    runtime_harness = r"C:\Work\lua\harness"
+    runtime_harness = r"C:\Work\lua\Arena\.roblox-harness"
     python_executable = r"C:\Program Files\Python\python.exe"
     first_change = setup_windows_codex.render_windows_project(
         HARNESS,
@@ -1558,6 +1569,7 @@ def _(tmp):
 @case("session-gate: any failed precheck stops the turn without authorization")
 def _(tmp):
     write(tmp, ".roblox", "")
+    ensure_project_harness(tmp)
     path = os.path.join(GATES, "session_gate.py")
     spec = importlib.util.spec_from_file_location("session_gate_test", path)
     module = importlib.util.module_from_spec(spec)
@@ -1565,6 +1577,8 @@ def _(tmp):
     original_payload = module.gatelib.read_payload
     original_snapshot = module.gatelib.verified_session_snapshot
     original_authorize = module.gatelib.authorize_session
+    original_trust = module.gatelib.project_trust_status
+    original_relink = module.auto_relink
     original_run = module.subprocess.run
     original_cache = module.gatelib.CACHE
     try:
@@ -1574,8 +1588,11 @@ def _(tmp):
             "session_id": "current",
             "source": "startup",
             "hook_event_name": "SessionStart",
+            "permission_mode": "default",
             "_harness_host": "codex",
         }
+        module.gatelib.project_trust_status = lambda *args: (True, "")
+        module.auto_relink = lambda *args: (True, False, False)
         module.gatelib.verified_session_snapshot = lambda *args: (True, "", {"root": "verified"})
         for output in (
             "session-gate: DEGRADED\n",
@@ -1603,6 +1620,8 @@ def _(tmp):
         module.gatelib.read_payload = original_payload
         module.gatelib.verified_session_snapshot = original_snapshot
         module.gatelib.authorize_session = original_authorize
+        module.gatelib.project_trust_status = original_trust
+        module.auto_relink = original_relink
         module.subprocess.run = original_run
         module.gatelib.CACHE = original_cache
 
@@ -1628,6 +1647,7 @@ def _(tmp):
         "_harness_host": "codex",
     }
     original_payload = module.gatelib.read_payload
+    original_relink = module.auto_relink
     original_run = module.subprocess.run
     original_cache = module.gatelib.CACHE
     saved_environment = {key: os.environ.get(key) for key in ("HOME", "CODEX_HOME", "PYTHONDONTWRITEBYTECODE")}
@@ -1641,6 +1661,7 @@ def _(tmp):
         )
         module.gatelib.CACHE = cache
         module.gatelib.read_payload = lambda: payload
+        module.auto_relink = lambda *args: (True, False, False)
         module.subprocess.run = lambda *args, **kwargs: subprocess.CompletedProcess(args, 0, "session-gate: READY\n", "")
         stdout = io.StringIO()
         with redirect_stdout(stdout):
@@ -1652,6 +1673,7 @@ def _(tmp):
         assert all(record[key] for key in ("root", "session", "profile_definition", "hook_definition"))
     finally:
         module.gatelib.read_payload = original_payload
+        module.auto_relink = original_relink
         module.subprocess.run = original_run
         module.gatelib.CACHE = original_cache
         for key, value in saved_environment.items():
@@ -1664,12 +1686,16 @@ def _(tmp):
 @case("session-gate: recoverable precheck creates command-only degraded state")
 def _(tmp):
     write(tmp, ".roblox", "")
+    ensure_project_harness(tmp)
     path = os.path.join(GATES, "session_gate.py")
     spec = importlib.util.spec_from_file_location("session_gate_degraded_test", path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     original_payload = module.gatelib.read_payload
     original_snapshot = module.gatelib.verified_session_snapshot
+    original_project_harness = module.gatelib.project_uses_harness
+    original_trust = module.gatelib.project_trust_status
+    original_relink = module.auto_relink
     original_run = module.subprocess.run
     original_cache = module.gatelib.CACHE
     try:
@@ -1679,8 +1705,12 @@ def _(tmp):
             "session_id": "recoverable",
             "source": "startup",
             "hook_event_name": "SessionStart",
+            "permission_mode": "default",
             "_harness_host": "codex",
         }
+        module.gatelib.project_trust_status = lambda *args: (True, "")
+        module.gatelib.project_uses_harness = lambda *args: True
+        module.auto_relink = lambda *args: (True, False, False)
         snapshot = {"host": "codex", "root": "r", "session": "s", "preconditions": []}
         module.gatelib.verified_session_snapshot = lambda *args: (True, "", snapshot)
         output = "session-gate: DEGRADED\nGATE4|corpus stale: fixture|Sync the harness API cache"
@@ -1690,7 +1720,7 @@ def _(tmp):
             assert module.main(["--host", "codex", "--hook-scope", "project"]) == 0
         result = json.loads(stdout.getvalue())
         context = result["hookSpecificOutput"]["additionalContext"]
-        assert context.startswith("ROBLOX_HARNESS_RECOVERY_ONLY")
+        assert context.startswith("ROBLOX_HARNESS_RECOVERY_ONLY"), json.dumps(result, sort_keys=True)
         assert gatelib.recovery_command(gatelib.RECOVERY_API_SYNC, tmp) in context
         state = module.gatelib.read_session_failure_record(tmp, "recoverable")
         assert state["status"] == "DEGRADED|RECOVERABLE"
@@ -1700,6 +1730,9 @@ def _(tmp):
     finally:
         module.gatelib.read_payload = original_payload
         module.gatelib.verified_session_snapshot = original_snapshot
+        module.gatelib.project_uses_harness = original_project_harness
+        module.gatelib.project_trust_status = original_trust
+        module.auto_relink = original_relink
         module.subprocess.run = original_run
         module.gatelib.CACHE = original_cache
 
@@ -1974,7 +2007,7 @@ def _(tmp):
     assert not os.path.exists(os.path.join(root, "gates", ".preconditions"))
 
 
-@case("write-gate: user bootstrap is independent; project scope requires both SessionStart hooks")
+@case("write-gate: project SessionStart independently authorizes project enforcement")
 def _(tmp):
     root = make_project(tmp)
     session_id = "dual-scope"
@@ -2042,25 +2075,24 @@ def _(tmp):
     assert "authorized only the user integration" in blocked.stderr, blocked.stdout + blocked.stderr
     assert "project integration did not complete" in blocked.stderr, blocked.stdout + blocked.stderr
 
-    complete = dict(
+    project_only = dict(
         base,
-        hooks={"project": project_digest, "user": user_digest},
-        schema=4,
+        hook_definition=project_digest,
+        hook_scope="project",
+        schema=3,
     )
-    write(home, os.path.relpath(authorization_path, home), json.dumps(complete, sort_keys=True) + "\n")
+    write(home, os.path.relpath(authorization_path, home), json.dumps(project_only, sort_keys=True) + "\n")
     accepted = run(project_command, stdin=json.dumps(payload), cwd=root, env=environment)
     assert accepted.returncode == 0, accepted.stdout + accepted.stderr
 
 
-@case("session bootstrap: user hook auto-relinks .roblox project & requests changed-hook approval")
+@case("session bootstrap: project hook auto-relinks .roblox project & requests changed-hook approval")
 def _(tmp):
     root = make_project(tmp)
     environment = verified_environment(root, "bootstrap-session")
-    installed = run([PY, HOOKS_SETUP, "--install"], env=environment)
-    assert installed.returncode == 0
     os.remove(os.path.join(root, ".codex", "hooks.json"))
     result = run(
-        [PY, os.path.join(GATES, "session_gate.py"), "--host", "codex", "--hook-scope", "user"],
+        [PY, os.path.join(GATES, "session_gate.py"), "--host", "codex", "--hook-scope", "project"],
         stdin=json.dumps(
             {
                 "cwd": root,
@@ -2092,7 +2124,7 @@ def _(tmp):
     assert gatelib.hook_definition_status(root, "project")[0]
 
     result = run(
-        [PY, os.path.join(GATES, "session_gate.py"), "--host", "codex", "--hook-scope", "user"],
+        [PY, os.path.join(GATES, "session_gate.py"), "--host", "codex", "--hook-scope", "project"],
         stdin=json.dumps(
             {
                 "cwd": root,
@@ -2123,7 +2155,7 @@ def _(tmp):
     os.unlink(optimizer)
 
     result = run(
-        [PY, os.path.join(GATES, "session_gate.py"), "--host", "codex", "--hook-scope", "user"],
+        [PY, os.path.join(GATES, "session_gate.py"), "--host", "codex", "--hook-scope", "project"],
         stdin=json.dumps(
             {
                 "cwd": root,
@@ -2182,7 +2214,7 @@ def _(tmp):
     before = metadata_manifest(root)
 
     result = run(
-        [PY, os.path.join(GATES, "session_gate.py"), "--host", "codex", "--hook-scope", "user"],
+        [PY, os.path.join(GATES, "session_gate.py"), "--host", "codex", "--hook-scope", "project"],
         stdin=json.dumps(
             {
                 "cwd": root,
@@ -2226,7 +2258,7 @@ def _(tmp):
             for path in user_paths
         }
         result = run(
-            [PY, os.path.join(GATES, "session_gate.py"), "--host", "codex", "--hook-scope", "user"],
+            [PY, os.path.join(GATES, "session_gate.py"), "--host", "codex", "--hook-scope", "project"],
             stdin=json.dumps(
                 {
                     "cwd": root,
@@ -2268,7 +2300,7 @@ def _(tmp):
     write(environment["HOME"], ".codex/config.toml", config)
 
     result = run(
-        [PY, os.path.join(GATES, "session_gate.py"), "--host", "codex", "--hook-scope", "user"],
+        [PY, os.path.join(GATES, "session_gate.py"), "--host", "codex", "--hook-scope", "project"],
         stdin=json.dumps(
             {
                 "cwd": root,
@@ -6446,7 +6478,7 @@ def _(tmp):
     assert namespace["CANDIDATE"] == expected
 
 
-@case("scaffold: relink bootstraps profile/hooks for same-task retry without forging authorization")
+@case("scaffold: relink bootstraps profile/project hooks without forging authorization")
 def _(tmp):
     root = os.path.join(tmp, "bootstrap")
     home = os.path.join(tmp, "bootstrap-home")
@@ -6477,8 +6509,7 @@ def _(tmp):
     assert open(os.path.join(root, ".gitignore")).read() == "keep-me\n"
     hooks = json.load(open(os.path.join(root, ".codex", "hooks.json")))
     assert hooks["hooks"]["PreToolUse"][0]["matcher"] == ".*"
-    user_hooks = json.load(open(os.path.join(home, ".codex", "hooks.json")))
-    assert user_hooks["hooks"]["PreToolUse"][0]["matcher"] == ".*"
+    assert not os.path.exists(os.path.join(home, ".codex", "hooks.json"))
     assert not glob.glob(os.path.join(home, ".cache", "harness", "sessions", "*", "*.ready"))
     exact = run([PY, SCAFFOLD, "relink", "--root", root], env=environment)
     assert exact.returncode == 0 and "discovery exact; no new task required" in exact.stdout
@@ -6574,6 +6605,8 @@ def _(tmp):
     ).read()
     assert "dependency.py setup --root <dir>" in skill
     assert "CONSENT_REQUIRED" in skill and "dependency.py setup --root <dir> --yes" in skill
+    assert "`roblox-new-game` is a user-scope skill" in skill
+    assert "does not install Roblox harness hooks at user scope" in skill
 
     source = os.path.join(tmp, "harness-source")
     os.makedirs(source)
@@ -6630,7 +6663,21 @@ def _(tmp):
     run(["git", "config", "user.email", "t@t"], cwd=source)
     run(["git", "config", "user.name", "Test"], cwd=source)
     write(source, "shared/CORE.md", "project rules\n")
-    write(source, "shared/gates/gatelib.py", "# project gates\n")
+    write(
+        source,
+        "shared/gates/gatelib.py",
+        (
+            "import os\n"
+            "PROJECT_LOCAL_INSTALL_SCHEMA = 1\n"
+            "PROJECT_HARNESS_DIR = '.roblox-harness'\n"
+            "HANDOFF_RELATIVE = 'shared/handoff.md'\n"
+            "def project_harness_root(cwd):\n"
+            "    return os.path.join(os.path.realpath(cwd), PROJECT_HARNESS_DIR)\n"
+        ),
+    )
+    write(source, "shared/gates/session_gate.py", "# session gate\n")
+    write(source, "shared/gates/write_gate.py", "# write gate\n")
+    write(source, "shared/gates/done_gate.py", "# done gate\n")
     write(source, "openai/hooks/adapter.py", "# hook adapter\n")
     write(
         source,
@@ -6638,11 +6685,22 @@ def _(tmp):
         (
             "import os\n"
             "root = os.getcwd()\n"
-            "os.makedirs(os.path.join(root, '.codex'), exist_ok=True)\n"
-            "os.makedirs(os.path.join(root, '.claude'), exist_ok=True)\n"
-            "open(os.path.join(root, '.codex', 'hooks.json'), 'w').write('{}\\n')\n"
-            "open(os.path.join(root, '.claude', 'settings.json'), 'w').write('{}\\n')\n"
-            "print('relinked|fixture hooks')\n"
+            "agents = ('reviewer', 'debugger', 'optimizer', 'researcher', 'maintainer')\n"
+            "files = [\n"
+            "    '.codex/config.toml',\n"
+            "    '.codex/hooks.json',\n"
+            "    '.agents/skills/roblox-writer/SKILL.md',\n"
+            "    '.agents/skills/roblox-writer/agents/openai.yaml',\n"
+            "    '.claude/settings.json',\n"
+            "    '.claude/skills/roblox-writer/SKILL.md',\n"
+            "]\n"
+            "files += ['.codex/agents/%s.toml' % name for name in agents]\n"
+            "files += ['.claude/agents/%s.md' % name for name in agents]\n"
+            "for relative in files:\n"
+            "    path = os.path.join(root, relative)\n"
+            "    os.makedirs(os.path.dirname(path), exist_ok=True)\n"
+            "    open(path, 'w').write('fixture\\n')\n"
+            "print('relinked|fixture project integration')\n"
         ),
     )
     run(["git", "add", "."], cwd=source)
@@ -6669,6 +6727,8 @@ def _(tmp):
         GIT_ALLOW_PROTOCOL="file:https",
         PYTHONDONTWRITEBYTECODE="1",
     )
+    environment.pop("CODEX_SANDBOX", None)
+    environment.pop("CODEX_SANDBOX_NETWORK_DISABLED", None)
     default_url = "https://github.com/lennyRBLX/rblx-harness.git"
     rewrite = "url.file://%s.insteadOf" % remote
     configured = run(["git", "config", "--global", rewrite, default_url], env=environment)
@@ -6679,6 +6739,18 @@ def _(tmp):
     consent = run([PY, DEPENDENCY, "setup", "--root", project], env=environment)
     assert consent.returncode == 1
     assert "CONSENT_REQUIRED|Do you want to install rblx-harness?" in consent.stdout
+    assert os.listdir(project) == []
+
+    write(fake_bin, "gh", "#!/bin/sh\necho 'token is invalid' >&2\nexit 1\n")
+    os.chmod(gh, 0o755)
+    sandboxed_environment = dict(environment, CODEX_SANDBOX="seatbelt")
+    sandboxed = run(
+        [PY, DEPENDENCY, "setup", "--root", project, "--yes"],
+        env=sandboxed_environment,
+    )
+    assert sandboxed.returncode == 2
+    assert "authentication is unavailable inside the Codex sandbox" in sandboxed.stderr
+    assert "does not mean that the user authentication is invalid" in sandboxed.stderr
     assert os.listdir(project) == []
 
     write(fake_bin, "gh", "#!/bin/sh\nexit 1\n")
@@ -6697,17 +6769,116 @@ def _(tmp):
     assert installed.returncode == 0, installed.stdout + installed.stderr
     assert "github-auth|ready|repository=lennyRBLX/rblx-harness" in installed.stdout
     assert "project-preflight|git=initialized|marker=created" in installed.stdout
-    assert "harness-integrated|hooks=installed" in installed.stdout
+    assert "harness-integrated|roblox-writer=installed|agents=installed|hooks=project-local" in installed.stdout
     assert "dependency-setup|complete|path=.roblox-harness" in installed.stdout
     assert os.path.isfile(os.path.join(project, ".roblox"))
     assert os.path.isfile(os.path.join(project, ".codex", "hooks.json"))
     assert os.path.isfile(os.path.join(project, ".claude", "settings.json"))
     assert os.path.isfile(os.path.join(project, ".roblox-harness", "shared", "CORE.md"))
     assert os.path.isfile(os.path.join(project, ".roblox-harness", "shared", "gates", "gatelib.py"))
+    for relative in dependency_tool.local_integration_files():
+        assert os.path.isfile(os.path.join(project, *relative.split("/"))), relative
+    assert not os.path.exists(os.path.join(project, ".agents", "skills", "roblox-new-game"))
+    assert not os.path.exists(os.path.join(project, ".claude", "skills", "roblox-new-game"))
+    assert not os.path.exists(os.path.join(fake_home, ".codex", "hooks.json"))
     modules = open(os.path.join(project, ".gitmodules"), encoding="utf-8").read()
     assert default_url in modules and "path = .roblox-harness" in modules
     stage = run(["git", "ls-files", "--stage", ".roblox-harness"], cwd=project)
     assert stage.stdout.startswith("160000 "), stage.stdout
+
+
+@case("project dependency setup: incompatible partial install updates and retries safely")
+def _(tmp):
+    source = os.path.join(tmp, "harness-source")
+    os.makedirs(source)
+    run(["git", "init", "-q"], cwd=source)
+    run(["git", "config", "user.email", "t@t"], cwd=source)
+    run(["git", "config", "user.name", "Test"], cwd=source)
+    write(source, "shared/CORE.md", "old rules\n")
+    write(source, "shared/gates/gatelib.py", "# old API without project-local fields\n")
+    write(source, "openai/hooks/adapter.py", "# old adapter\n")
+    write(
+        source,
+        "openai/setup/permissions_harness.py",
+        "print('REFUSED|old relinker ran')\nraise SystemExit(2)\n",
+    )
+    run(["git", "add", "."], cwd=source)
+    run(["git", "commit", "-q", "-m", "old"], cwd=source)
+    run(["git", "branch", "-M", "main"], cwd=source)
+    remote = os.path.join(tmp, "harness.git")
+    run(["git", "clone", "-q", "--bare", source, remote])
+    run(["git", "symbolic-ref", "HEAD", "refs/heads/main"], cwd=remote)
+
+    project = os.path.join(tmp, "game")
+    os.makedirs(project)
+    environment = dict(os.environ, GIT_ALLOW_PROTOCOL="file", PYTHONDONTWRITEBYTECODE="1")
+    first = run(
+        [PY, DEPENDENCY, "setup", "--root", project, "--url", remote, "--yes"],
+        env=environment,
+    )
+    assert first.returncode == 2
+    assert "cloned .roblox-harness is incompatible with project-local installation" in first.stderr
+    assert "HANDOFF_RELATIVE" in first.stderr and "project_harness_root" in first.stderr
+    assert "old relinker ran" not in first.stdout
+    old_commit = run(
+        ["git", "-C", os.path.join(project, ".roblox-harness"), "rev-parse", "HEAD"]
+    ).stdout.strip()
+    staged = run(["git", "status", "--short"], cwd=project).stdout
+    assert "A  .gitmodules" in staged and "A  .roblox-harness" in staged
+
+    write(source, "shared/CORE.md", "project rules\n")
+    write(
+        source,
+        "shared/gates/gatelib.py",
+        (
+            "import os\n"
+            "PROJECT_LOCAL_INSTALL_SCHEMA = 1\n"
+            "PROJECT_HARNESS_DIR = '.roblox-harness'\n"
+            "HANDOFF_RELATIVE = 'shared/handoff.md'\n"
+            "def project_harness_root(cwd):\n"
+            "    return os.path.join(os.path.realpath(cwd), PROJECT_HARNESS_DIR)\n"
+        ),
+    )
+    write(source, "shared/gates/session_gate.py", "# session gate\n")
+    write(source, "shared/gates/write_gate.py", "# write gate\n")
+    write(source, "shared/gates/done_gate.py", "# done gate\n")
+    write(
+        source,
+        "openai/setup/permissions_harness.py",
+        (
+            "import os\n"
+            "root = os.getcwd()\n"
+            "agents = ('reviewer', 'debugger', 'optimizer', 'researcher', 'maintainer')\n"
+            "files = [\n"
+            "    '.codex/config.toml', '.codex/hooks.json',\n"
+            "    '.agents/skills/roblox-writer/SKILL.md',\n"
+            "    '.agents/skills/roblox-writer/agents/openai.yaml',\n"
+            "    '.claude/settings.json', '.claude/skills/roblox-writer/SKILL.md',\n"
+            "]\n"
+            "files += ['.codex/agents/%s.toml' % name for name in agents]\n"
+            "files += ['.claude/agents/%s.md' % name for name in agents]\n"
+            "for relative in files:\n"
+            "    path = os.path.join(root, relative)\n"
+            "    os.makedirs(os.path.dirname(path), exist_ok=True)\n"
+            "    open(path, 'w').write('fixture\\n')\n"
+        ),
+    )
+    run(["git", "add", "."], cwd=source)
+    run(["git", "commit", "-q", "-m", "project-local"], cwd=source)
+    run(["git", "push", "-q", remote, "main"], cwd=source)
+
+    retry = run(
+        [PY, DEPENDENCY, "setup", "--root", project, "--url", remote, "--yes"],
+        env=environment,
+    )
+    assert retry.returncode == 0, retry.stdout + retry.stderr
+    assert "dependency-setup|complete|path=.roblox-harness" in retry.stdout
+    new_commit = run(
+        ["git", "-C", os.path.join(project, ".roblox-harness"), "rev-parse", "HEAD"]
+    ).stdout.strip()
+    assert new_commit != old_commit
+    modules = open(os.path.join(project, ".gitmodules"), encoding="utf-8").read()
+    assert modules.count("path = .roblox-harness") == 1
 
 
 @case("agent defs: every emitted record shape round-trips record_check clean")

@@ -504,7 +504,7 @@ def main(argv):
         r = run([sys.executable, os.path.join(TOOLS, "api_dump", "api_dump.py"), "--check-overlay"])
         if r.returncode == 2:
             for line in r.stdout.splitlines():
-                reports.append((8, "overlay entry dead: %s - a harness/ session repairs it" % line))
+                reports.append((8, "overlay entry dead: %s - a .roblox-harness/ session repairs it" % line))
         elif r.returncode == 3:
             reports.append((8, "API overlay check failed"))
     else:

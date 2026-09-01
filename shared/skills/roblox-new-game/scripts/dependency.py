@@ -12,6 +12,32 @@ import sys
 
 DEPENDENCY_PATH = ".roblox-harness"
 DEFAULT_URL = "https://github.com/lennyRBLX/rblx-harness.git"
+AGENT_NAMES = ("reviewer", "debugger", "optimizer", "researcher", "maintainer")
+PROJECT_LOCAL_INSTALL_SCHEMA = 1
+
+
+def local_integration_files():
+    """Files that prove both project-local host integrations were installed."""
+    files = [
+        ".codex/config.toml",
+        ".codex/hooks.json",
+        ".agents/skills/roblox-writer/SKILL.md",
+        ".agents/skills/roblox-writer/agents/openai.yaml",
+        ".claude/settings.json",
+        ".claude/skills/roblox-writer/SKILL.md",
+    ]
+    files.extend(".codex/agents/%s.toml" % name for name in AGENT_NAMES)
+    files.extend(".claude/agents/%s.md" % name for name in AGENT_NAMES)
+    return tuple(files)
+
+
+DEPENDENCY_INTEGRATION_FILES = (
+    "shared/CORE.md",
+    "shared/gates/gatelib.py",
+    "shared/gates/session_gate.py",
+    "shared/gates/write_gate.py",
+    "shared/gates/done_gate.py",
+)
 
 
 class DependencyError(RuntimeError):
@@ -67,11 +93,23 @@ def github_auth_support(url):
         raise DependencyError("GitHub CLI is unavailable; install gh and authenticate before retrying")
     auth = command([gh, "auth", "status", "--hostname", "github.com"], check=False)
     if auth.returncode != 0:
+        if os.environ.get("CODEX_SANDBOX"):
+            raise DependencyError(
+                "GitHub CLI authentication is unavailable inside the Codex sandbox; "
+                "this does not mean that the user authentication is invalid. "
+                "Rerun the approved setup command outside the sandbox"
+            )
         raise DependencyError(
             (auth.stderr or auth.stdout or "GitHub CLI is not authenticated").strip()[:600]
         )
     visible = command([gh, "repo", "view", slug, "--json", "nameWithOwner"], check=False)
     if visible.returncode != 0:
+        if os.environ.get("CODEX_SANDBOX"):
+            raise DependencyError(
+                "GitHub repository access is unavailable inside the Codex sandbox; "
+                "this does not mean that the user authentication is invalid. "
+                "Rerun the approved setup command outside the sandbox"
+            )
         raise DependencyError(
             (visible.stderr or visible.stdout or "GitHub dependency repository is not accessible").strip()[:600]
         )
@@ -222,12 +260,74 @@ def checkout_ref(dependency, ref, github_auth=False):
     git(dependency, "checkout", "--detach", "FETCH_HEAD")
 
 
+def ensure_dependency_contract(dependency):
+    """Reject a clone that predates the project-local installation API."""
+    probe = """
+import os
+import sys
+
+root = os.path.realpath(sys.argv[1])
+sys.path.insert(0, os.path.join(root, "shared", "gates"))
+import gatelib
+
+missing = []
+if getattr(gatelib, "PROJECT_LOCAL_INSTALL_SCHEMA", 0) < %d:
+    missing.append("PROJECT_LOCAL_INSTALL_SCHEMA")
+if getattr(gatelib, "PROJECT_HARNESS_DIR", "") != ".roblox-harness":
+    missing.append("PROJECT_HARNESS_DIR")
+if not isinstance(getattr(gatelib, "HANDOFF_RELATIVE", None), str):
+    missing.append("HANDOFF_RELATIVE")
+if not callable(getattr(gatelib, "project_harness_root", None)):
+    missing.append("project_harness_root")
+if missing:
+    sys.stderr.write(", ".join(missing))
+    raise SystemExit(2)
+""" % PROJECT_LOCAL_INSTALL_SCHEMA
+    result = command([sys.executable, "-B", "-c", probe, dependency], check=False)
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout or "project-local installation API").strip()[:300]
+        raise DependencyError(
+            "cloned .roblox-harness is incompatible with project-local installation "
+            "(missing or invalid %s); update the dependency remote and retry setup" % detail
+        )
+
+
+def sync_existing_dependency(root, dependency, url, ref=""):
+    registered = registered_url(root)
+    if registered != url:
+        raise DependencyError(
+            ".roblox-harness is registered with %s, not %s"
+            % (registered or "an unknown URL", url)
+        )
+    dirty = git(dependency, "status", "--porcelain").stdout.strip()
+    if dirty:
+        raise DependencyError(".roblox-harness has local changes; preserve or remove them before retry")
+    remote = git(dependency, "remote", "get-url", "origin").stdout.strip()
+    github = bool(github_slug(remote) or github_slug(url))
+    checkout_ref(dependency, ref or "HEAD", github_auth=github)
+    git(root, "add", ".gitmodules", DEPENDENCY_PATH)
+
+
 def install(root, url, ref=""):
     root = project_root(root)
     destination = dependency_root(root)
-    if os.path.lexists(destination):
+    existed = registered_submodule(root)
+    if existed:
+        if not initialized_dependency(root):
+            git(
+                root,
+                "submodule",
+                "update",
+                "--init",
+                "--recursive",
+                "--",
+                DEPENDENCY_PATH,
+                github_auth=bool(github_slug(url)),
+            )
         dependency = require_initialized(root)
     else:
+        if os.path.lexists(destination):
+            raise DependencyError("canonical .roblox-harness path is occupied but is not a registered submodule")
         git(
             root,
             "submodule",
@@ -242,7 +342,9 @@ def install(root, url, ref=""):
     if github_slug(url):
         configure_github_credentials(root)
         configure_github_credentials(dependency)
-    if ref:
+    if existed:
+        sync_existing_dependency(root, dependency, url, ref)
+    elif ref:
         checkout_ref(dependency, ref, github_auth=bool(github_slug(url)))
         git(root, "add", ".gitmodules", DEPENDENCY_PATH)
     return status(root, prefix="dependency-installed")
@@ -250,6 +352,7 @@ def install(root, url, ref=""):
 
 def install_integration(root):
     dependency = require_initialized(root)
+    ensure_dependency_contract(dependency)
     relinker = os.path.join(dependency, "openai", "setup", "permissions_harness.py")
     if not os.path.isfile(relinker):
         raise DependencyError("cloned dependency has no permissions_harness.py relinker")
@@ -260,16 +363,20 @@ def install_integration(root):
         sys.stderr.write(result.stderr)
     if result.returncode != 0:
         raise DependencyError("harness relink failed with exit %d" % result.returncode)
-    required = (
-        os.path.join(dependency, "shared", "CORE.md"),
-        os.path.join(dependency, "shared", "gates", "gatelib.py"),
-        os.path.join(root, ".codex", "hooks.json"),
-        os.path.join(root, ".claude", "settings.json"),
+    required = tuple(
+        os.path.join(dependency, *relative.split("/"))
+        for relative in DEPENDENCY_INTEGRATION_FILES
+    ) + tuple(
+        os.path.join(root, *relative.split("/"))
+        for relative in local_integration_files()
     )
     missing = [path for path in required if not os.path.isfile(path)]
     if missing:
         raise DependencyError("integration output missing: %s" % os.path.relpath(missing[0], root))
-    print("harness-integrated|hooks=installed|gates=.roblox-harness/shared/gates|rules=.roblox-harness/shared/CORE.md")
+    print(
+        "harness-integrated|roblox-writer=installed|agents=installed|hooks=project-local|"
+        "gates=.roblox-harness/shared/gates|rules=.roblox-harness/shared/CORE.md"
+    )
     return 0
 
 
@@ -279,7 +386,8 @@ def setup(root, url=DEFAULT_URL, ref="", assume_yes=False):
         return 1
     if not consent:
         return 0
-    github_auth_support(url)
+    if github_slug(url):
+        github_auth_support(url)
     root = prepare_project(root)
     install(root, url, ref)
     install_integration(root)

@@ -56,6 +56,15 @@ PACKAGES = os.path.join(HARNESS, "packages")
 MUSEUM_SKIP = {".DS_Store", "README.md", ".luaurc", ".gitignore"}
 sys.path.insert(0, os.path.join(HARNESS, "shared", "gates"))
 import gatelib  # noqa: E402
+if (
+    getattr(gatelib, "PROJECT_LOCAL_INSTALL_SCHEMA", 0) < 1
+    or getattr(gatelib, "PROJECT_HARNESS_DIR", "") != ".roblox-harness"
+    or not isinstance(getattr(gatelib, "HANDOFF_RELATIVE", None), str)
+    or not callable(getattr(gatelib, "project_harness_root", None))
+):
+    raise RuntimeError(
+        "project-local .roblox-harness is incompatible; update the dependency and retry setup"
+    )
 sys.path.insert(0, os.path.join(HARNESS, "tools", "create_boilerplate"))
 import create_boilerplate  # noqa: E402
 
@@ -1076,10 +1085,6 @@ def relink(root, host="all"):
         if not installed:
             print(gatelib.permissions_harness_block("profile installation failed: %s" % detail))
             return 2
-    hooks_ok, hooks_detail, hooks_changed = gatelib.install_user_hooks()
-    if not hooks_ok:
-        print("Fix %s → rerun relink." % hooks_detail)
-        return 2
     agents_dir = os.path.join(root, ".claude", "agents")
     skills_dir = os.path.join(root, ".claude", "skills")
     os.makedirs(agents_dir, exist_ok=True)
@@ -1120,7 +1125,6 @@ def relink(root, host="all"):
     codex_discovery = host in ("all", "codex")
     discovery_changed = (
         (codex_discovery and profile_changed)
-        or (codex_discovery and hooks_changed)
         or historical_discovery_changed
         or discovery_before != discovery_after
     )
@@ -1130,16 +1134,16 @@ def relink(root, host="all"):
         print("Fix discovery cache write: %s → rerun relink." % str(error)[:160])
         return 2
     print("relinked|instructions, agents, roblox-writer, settings hook block, codex hooks + agents")
-    status = "permissions-harness|%s|user-hooks=%s" % (
+    status = "permissions-harness|%s|project-hooks=%s" % (
         "installed" if profile_changed else "exact",
-        "installed" if hooks_changed else "exact",
+        "installed" if project_hooks_changed else "exact",
     )
     print(
         discovery_status(
             status,
             discovery_changed,
             profile_changed=codex_discovery and profile_changed,
-            hooks_changed=(codex_discovery and hooks_changed) or project_hooks_changed,
+            hooks_changed=project_hooks_changed,
             host=host,
         )
     )
@@ -1269,20 +1273,12 @@ def main(argv):
         if not ok:
             print(gatelib.permissions_harness_block("profile installation failed: %s" % detail))
             return 2
-        hooks_ok, hooks_detail, hooks_changed = gatelib.install_user_hooks()
-        if not hooks_ok:
-            print("Fix %s → rerun this cmd." % hooks_detail)
-            return 2
-        status = "permissions-harness|%s|hooks=%s" % (
-            "installed" if changed else "exact",
-            "installed" if hooks_changed else "exact",
-        )
+        status = "permissions-harness|%s" % ("installed" if changed else "exact")
         print(
             discovery_status(
                 status,
-                changed or hooks_changed,
+                changed,
                 profile_changed=changed,
-                hooks_changed=hooks_changed,
             )
         )
         return 0

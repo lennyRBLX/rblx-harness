@@ -1806,7 +1806,7 @@ def main(argv=None):
         sys.stderr.write(gatelib.session_block(host, "explicit approved hook adapter is unavailable", cwd) + "\n")
         return 2
     recovery = gatelib.recovery_invocation(tool_name, tool_input, cwd)
-    required_scopes = ("project", "user") if host == "codex" and scope == "project" else None
+    required_scopes = None
     authorized, detail = gatelib.session_authorization_status(
         payload,
         cwd,
@@ -1874,8 +1874,8 @@ def main(argv=None):
                 sys.stderr.write(gatelib.session_block(host, detail, cwd) + "\n")
                 return 2
 
-    # The stable user hook proves only bootstrap authorization. Project hooks
-    # own all source and environment enforcement.
+    # A separately installed user hook never owns project enforcement. The
+    # project-local hook and its SessionStart authorization are sufficient.
     if scope == "user":
         return 0
 

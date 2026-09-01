@@ -13,10 +13,12 @@ not change the harness until the submodule revision changes.
 The harness supplies three skills:
 
 - `roblox-new-game` is a user skill. It interviews the user, installs the
-  harness with consent, and creates a deterministic game tree.
+  harness with consent, and creates a deterministic game tree. Install it only
+  at user scope for Codex or Claude Code.
 - `roblox-writer` is a project skill. It controls Roblox code changes through
   research, type, write, optimization, debug, review, and validation gates.
-  The project relinker installs this skill.
+  The project relinker installs this skill from `.roblox-harness`; do not
+  install it at user scope.
 - `math-tool` is a user skill. It runs bounded symbolic calculations that the
   harness requests.
 
@@ -123,10 +125,19 @@ Use $roblox-new-game to create a new Roblox game.
 The skill completes the interview before it changes the destination. It then
 asks for explicit consent to install the harness. After consent, it creates or
 uses the project Git root, creates the empty `.roblox` marker, adds the
-`.roblox-harness` submodule, and relinks the project integration. The user must
-trust the project, review changed hooks, select the Roblox permission profile,
-and allow the current session to pass `SessionStart` before the skill records
-the interview or emits files.
+`.roblox-harness` submodule, clones it, and relinks the project integration.
+The relinker installs `roblox-writer`, the Codex and Claude agent definitions,
+and the Codex and Claude project hooks locally. Gates and rules execute from
+the revision-pinned dependency. It does not install Roblox harness hooks at
+user scope. The user must trust the project, review changed hooks, select the
+Roblox permission profile, and allow the current session to pass
+`SessionStart` before the skill records the interview or emits files.
+
+Run the approved Codex setup command outside the sandbox. The sandbox can deny
+macOS keyring access and produce a false invalid-token result from `gh`. A
+failed integration can leave `.gitmodules` and `.roblox-harness` staged. After
+the dependency remote is updated, rerun the same setup command; it reuses and
+updates a clean partial submodule before it retries integration.
 
 The scaffold creates one Argon project per place. It also creates the shared
 and place-specific source trees, the confirmed Service and Controller modules,

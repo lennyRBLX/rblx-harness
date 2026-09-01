@@ -13,16 +13,11 @@ sys.path.insert(0, os.path.join(HARNESS, "shared", "gates"))
 import gatelib
 
 
-def install_status(profile_changed, hooks_changed):
-    status = "permissions-harness|%s|hooks=%s" % (
-        "installed" if profile_changed else "exact",
-        "installed" if hooks_changed else "exact",
-    )
+def install_status(profile_changed):
+    status = "permissions-harness|%s" % ("installed" if profile_changed else "exact")
     actions = []
     if profile_changed:
         actions.append("Select Roblox")
-    if hooks_changed:
-        actions.append("review changed hooks and approve them once with /hooks")
     if not actions:
         return status + "|discovery exact; no new task required."
     return status + "|" + "; ".join(actions) + "; retry and continue the current task."
@@ -54,11 +49,7 @@ def main(argv=None):
             if not ok:
                 print(gatelib.permissions_harness_block("profile installation failed: %s" % detail))
                 return 2
-        hooks_ok, hooks_detail, hooks_changed = gatelib.install_user_hooks()
-        if not hooks_ok:
-            print("Fix %s → rerun this cmd." % hooks_detail)
-            return 2
-        print(install_status(changed, hooks_changed))
+        print(install_status(changed))
         return 0
     if argv:
         print("usage: permissions_harness.py [--install|--relink [--host {codex,claude}]]")

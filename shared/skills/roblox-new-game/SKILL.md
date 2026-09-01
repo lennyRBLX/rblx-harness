@@ -11,6 +11,11 @@ decisions.
 Resolve `<SKILL_DIR>` as the real directory that contains this `SKILL.md`.
 Run the bundled scaffolder from `<SKILL_DIR>/scripts/scaffold.py`.
 
+`roblox-new-game` is a user-scope skill. Never copy or link it into the target
+project. The cloned `.roblox-harness` dependency is the only source for the
+project-local `roblox-writer`, agents, hooks, gates, and rules. Project setup
+does not install Roblox harness hooks at user scope.
+
 `answer`, `emit`, and `backfill` require the empty `.roblox` sentinel and the
 schema-3 authorization created by a successful documented host
 `SessionStart`. The standalone
@@ -89,15 +94,29 @@ answers, and do not pipe or synthesize an answer. After an explicit yes, run:
 python3 <SKILL_DIR>/scripts/dependency.py setup --root <dir> --yes
 ```
 
+In Codex, run this approved command outside the sandbox. The sandbox can block
+access to the macOS keyring and make `gh auth status` report a false invalid
+token. If setup reports that GitHub authentication is unavailable inside the
+Codex sandbox, rerun the same approved command outside the sandbox. Do not
+classify that result as invalid user authentication.
+
 The approved setup verifies Git, verifies an authenticated GitHub CLI session,
 and confirms access to `lennyRBLX/rblx-harness`. It initializes the project Git
 repository only when absent, creates the empty `.roblox` marker only when
 absent, adds `https://github.com/lennyRBLX/rblx-harness.git` as the
 `.roblox-harness` submodule, and clones it locally. It then runs the cloned
-harness's canonical relinker. Hooks are installed into the project integration;
-gates remain at `.roblox-harness/shared/gates`; rules remain at
+harness's canonical relinker. `roblox-writer`, both host agent sets, and both
+host hook definitions are installed into the project. Gates remain at
+`.roblox-harness/shared/gates`; rules remain at
 `.roblox-harness/shared/CORE.md`. The GitHub credential helper is configured in
-the project and dependency repositories only, never globally.
+the project and dependency repositories only, never globally. The Codex Roblox
+permission preset is host configuration; it does not install harness hooks at
+user scope.
+
+Setup validates the cloned project-local installation API before it runs the
+relinker. A clean partial `.roblox-harness` install is updated from its
+registered remote on retry. Existing staged `.gitmodules` and
+`.roblox-harness` entries are reused.
 
 When setup reports changed profile or hook discovery, select `Roblox`, review
 the changed hooks, retry host discovery in the current task, and continue after

@@ -155,12 +155,7 @@ def main(argv=None):
         if host == "codex" and not profile_ok and gatelib.permissions_harness_install_accepted(payload.get("prompt")):
             installed, install_detail, _ = gatelib.install_permissions_harness()
             if installed:
-                hooks_installed, hooks_detail, _ = gatelib.install_user_hooks()
-                if hooks_installed:
-                    visible = gatelib.PERMISSIONS_HARNESS_INSTALLED_PROMPT
-                else:
-                    diagnostic = "hook installation failed: %s" % hooks_detail
-                    visible = "Fix %s → rerun the Roblox permission install." % hooks_detail[:200]
+                visible = gatelib.PERMISSIONS_HARNESS_INSTALLED_PROMPT
             else:
                 diagnostic = "profile installation failed: %s" % install_detail
                 visible = "Could not add the 'Roblox' permission mode: %s" % install_detail[:200]
