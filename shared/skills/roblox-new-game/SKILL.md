@@ -26,38 +26,42 @@ only. An approval prompt does not create runtime authorization.
 
 ## Phase 0 — the interview
 
-Accept every explicit answer the user already supplied. Questions may be batched;
-re-ask only missing or contradictory file-shaping fields.
+Accept every explicit answer the user already supplied and ask only for the next
+missing or contradictory item. Follow this order because each recommendation
+depends on the accepted answers before it:
 
-Start by obtaining the gameplay loop unless the user already supplied it: ask
-what players are doing in the current test. Treat that loop as temporary
-proposal context: do not record it in criteria or runtime instructions, and do
-not make it a future-agent constraint.
+1. Obtain the gameplay loop. Help the user shape it when needed: identify the
+   repeatable player actions, their immediate result or reward, and how the
+   cycle continues or restarts. Offer a concise proposed loop and let the user
+   confirm or revise it before continuing. Treat that loop as temporary
+   proposal context: do not record it in criteria or runtime instructions, and
+   do not make it a future-agent constraint.
+2. Ask which places will exist in the game. Recommend a concrete list derived
+   from the gameplay loop, using comma-separated safe names. Every scaffold
+   must retain the multi-place structure, even when the confirmed list contains
+   only one place; never create a single-place-only project layout.
+3. Ask which shared and place-specific Services should exist. Recommend the
+   smallest stable mechanic seams based on the gameplay loop, using
+   `shared: Name; Place: Name`, or propose `none`.
+4. Ask which shared and place-specific Controllers should exist. Recommend the
+   smallest stable client seams based on both the gameplay loop and the
+   accepted Services list, using the same scoped format, or propose `none`.
 
-Before asking any remaining file-shaping question, derive a concrete proposed
-answer from that loop and include it as an example in the question. Give a
-separate loop-derived example for places, Services, and Controllers when
-batching questions. Adapt names and scopes to the supplied loop; do not reuse a
-stock example. The examples are proposals only. Accept a field after the user
-explicitly confirms or replaces its proposal.
-
-Propose the smallest stable mechanic seams as Services and Controllers. Keep
-each accepted answer in the current conversation; do not run
-`scaffold.py answer` yet.
+Adapt every proposal to the supplied loop; do not reuse a stock example. A
+proposal is not an answer: accept a field only after the user explicitly
+confirms or replaces it. Keep each accepted answer in the current conversation;
+do not run `scaffold.py answer` yet.
 
 The blocking set (flag — file effect — question):
 
 1. `places` — creates one place tree and Argon project per name — which
-   places should exist now? Include a loop-derived example using
-   comma-separated safe names.
+   places will exist in the game?
 2. `services` — creates the confirmed keystone service modules — which
-   shared and place-scoped Services should exist? Include a loop-derived
-   example using `shared: Name; Place: Name`, or propose `none`. PlayerData,
-   Payments, Updates, and Effects already ship as prescribed services.
+   shared and place-scoped Services should exist? PlayerData, Payments,
+   Updates, and Effects already ship as prescribed services.
 3. `controllers` — creates the confirmed keystone controller modules — which
-   shared and place-scoped Controllers should exist? Include a separate
-   loop-derived example using the same scoped format, or propose `none`.
-   Effects, Gui, and Updates already ship as prescribed controllers.
+   shared and place-scoped Controllers should exist? Effects, Gui, and Updates
+   already ship as prescribed controllers.
 
 Do not ask for a target or final build stage, roadmap, fixed player count,
 device, replication plan, data shape, GUI ownership, remote surface, camera,
@@ -68,27 +72,28 @@ GUI responsibility is fixed, not interviewed: agents may write GUI code,
 humans create GUI instances, and agents inspect those instances through the
 Studio MCP.
 
-After the gameplay loop, obtain every missing file-shaping answer. Also obtain
-the project name and destination directory if they were not supplied and cannot
-be inferred safely. Do not start installation or integration before the entire
-interview is complete.
+The current working directory is always the project root and destination. The
+project name is always the current directory's base name. Do not interview for
+either value and do not create or select another directory. Do not start
+installation or integration before the entire interview is complete.
 
 ## Phase 1 — harness consent and integration
 
-Create the project directory explicitly after the interview. Run the setup
-tool once without `--yes` and without supplying terminal input:
+Run the setup tool in the current working directory once without `--yes` and
+without supplying terminal input:
 
 ```bash
 python3 <SKILL_DIR>/scripts/dependency.py setup --root <dir>
 ```
 
-The tool returns `CONSENT_REQUIRED` with the exact question beginning
-`Do you want to install rblx-harness?` and makes no change. Ask the user that
-question as the final response, then end the current agent turn immediately.
-Do not call another tool or enter an internal wait state. Resume only after a
-new user message explicitly answers the question. Do not infer consent from the
-new-game request or interview answers, and do not pipe or synthesize an answer.
-After an explicit yes, run:
+The tool returns `CONSENT_REQUIRED` with a friendly explanation of what the
+harness provides and asks the user to answer `Yes or No`; it makes no change.
+Ask that question as the final response, without exposing the status prefix or
+turning it into a command-line prompt, then end the current agent turn
+immediately. Do not call another tool or enter an internal wait state. Resume
+only after a new user message explicitly answers the question. Do not infer
+consent from the new-game request or interview answers, and do not pipe or
+synthesize an answer. After an explicit Yes, run:
 
 ```bash
 python3 <SKILL_DIR>/scripts/dependency.py setup --root <dir> --yes
@@ -134,8 +139,11 @@ python3 <SKILL_DIR>/scripts/scaffold.py answer <flag> "<text>" --root <dir>
 ```
 
 ```bash
-python3 <SKILL_DIR>/scripts/scaffold.py emit --root <dir> --name <ProjectName>
+python3 <SKILL_DIR>/scripts/scaffold.py emit --root <dir> --name <folder-name>
 ```
+
+Derive `<folder-name>` from the base name of the current working directory;
+never ask the user for it.
 
 The scaffolder refuses to emit until the three file-shaping fields are complete
 and names the unanswered items — re-ask exactly those. On success it preserves

@@ -123,8 +123,9 @@ Follow the skill flow:
 6. Select the Roblox permission profile.
 7. Allow `SessionStart`, then start feature work.
 
-The skill records confirmed inputs, creates or uses the Git root, adds the
-empty `.roblox` marker, adds & pins `.roblox-harness`, then relinks the project.
+The skill records confirmed inputs, uses the current folder as the Git root,
+adds the empty `.roblox` marker, adds & pins `.roblox-harness`, then relinks the
+project.
 The relinker installs `roblox-writer`, agent defs, & project hooks for Codex &
 Claude Code. The scaffold creates 1 Argon project per place plus shared &
 place source trees, confirmed Service & Controller modules, project rules,
@@ -136,33 +137,38 @@ Let the relinker reuse & update the partial submodule, then retry integration.
 ## Example `roblox-new-game` interview
 
 ```text
-Agent: What do players do in the test?
+Agent: What actions do players repeat, what result or reward do they get, & how
+does the cycle continue or restart? Share a rough idea & I will help shape it.
 
 User: Exit a lobby, enter a timed ruin, collect relics, return, & bank them.
 
-Agent: Which places? Example: `Lobby, Ruin`.
+Agent: Proposed loop: leave the lobby, enter a timed ruin, collect relics,
+return before time expires, bank the relics, then start another run. Is that
+correct?
+
+User: Yes.
+
+Agent: Which places will exist in the game? Based on that loop, I recommend
+`Lobby, Ruin`. The project keeps a multi-place layout even with one place.
 
 User: `Lobby, Ruin`.
 
-Agent: Which shared & place Services? Example:
-`shared: RelicInventory; Ruin: ExpeditionRound`.
+Agent: Which shared & place Services should exist? Based on the loop, I
+recommend `shared: RelicInventory; Ruin: ExpeditionRound`.
 PlayerData, Payments, Updates, & Effects ship w/ the harness.
 
 User: `shared: RelicInventory; Ruin: ExpeditionRound`.
 
-Agent: Which shared & place Controllers? Example:
-`shared: RelicHud; Ruin: RelicInteraction`.
+Agent: Which shared & place Controllers should exist? Based on the loop & the
+confirmed Services, I recommend `shared: RelicHud; Ruin: RelicInteraction`.
 Effects, Gui, & Updates ship w/ the harness.
 
 User: `shared: RelicHud; Ruin: RelicInteraction`.
 
-Agent: Project name & path?
-
-User: `RelicRun` at `/path/to/RelicRun`.
-
-Agent: Install `rblx-harness` from
-https://github.com/lennyRBLX/rblx-harness.git in `/path/to/RelicRun`, init Git,
-& install hooks, gates, & rules? [y/N]
+Agent: rblx-harness provides the project structure, hooks, gates, & rules
+needed for this setup. Would you like me to install it from
+https://github.com/lennyRBLX/rblx-harness.git in `/path/to/RelicRun`? Please
+answer Yes or No.
 
 User: Yes.
 

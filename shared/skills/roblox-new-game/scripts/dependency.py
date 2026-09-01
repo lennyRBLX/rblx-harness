@@ -129,8 +129,9 @@ def setup_consent(root, url, assume_yes=False):
     if assume_yes:
         return True
     question = (
-        "Do you want to install rblx-harness? This will install it from %s into %s, "
-        "initialize Git when needed, and install its hooks, gates, and rules. [y/N]"
+        "rblx-harness provides the project structure, hooks, gates, and rules "
+        "needed for this setup. Would you like me to install it from %s in %s? "
+        "Please answer Yes or No."
         % (url, os.path.realpath(root))
     )
     if not sys.stdin.isatty():

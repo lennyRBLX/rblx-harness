@@ -6188,16 +6188,23 @@ def _(tmp):
     skill = open(os.path.join(HARNESS, "shared", "skills", "roblox-new-game", "SKILL.md"), encoding="utf-8").read()
     skill_words = " ".join(skill.split())
     assert tuple(scaffold_tool.BLOCKING_SET) == ("places", "services", "controllers")
-    assert "Questions may be batched" in skill and "Ask **one question at a time**" not in skill
-    assert "Start by obtaining the gameplay loop" in skill_words
-    assert "derive a concrete proposed answer from that loop" in skill_words
-    assert "separate loop-derived example for places, Services, and Controllers" in skill_words
+    assert "Follow this order" in skill
+    assert "Obtain the gameplay loop" in skill_words
+    assert "Help the user shape it when needed" in skill_words
+    assert skill.index("Obtain the gameplay loop") < skill.index("Ask which places will exist")
+    assert skill.index("Ask which places will exist") < skill.index("Ask which shared and place-specific Services")
+    assert skill.index("Ask which shared and place-specific Services") < skill.index("Ask which shared and place-specific Controllers")
+    assert "multi-place structure" in skill and "only one place" in skill
+    assert "based on both the gameplay loop and the accepted Services list" in skill_words
+    assert "current working directory is always the project root and destination" in skill_words
+    assert "project name is always the current directory's base name" in skill_words
+    assert "Do not interview for either value" in skill_words
     assert "GUI responsibility is fixed, not interviewed" in skill
     assert "temporary proposal context" in skill_words and "--milestone" not in skill
     assert skill.index("## Phase 0 — the interview") < skill.index("## Phase 1 — harness consent")
     assert skill.index("## Phase 1 — harness consent") < skill.index("## Phase 2 — record and scaffold")
     assert skill.index("## Phase 2 — record and scaffold") < skill.index("## Phase 3 — authorize project hooks")
-    assert skill.index("Start by obtaining the gameplay loop") < skill.index("Do you want to install rblx-harness?")
+    assert skill.index("Obtain the gameplay loop") < skill.index("answer `Yes or No`")
     assert "do not run `scaffold.py answer` yet" in skill_words
     assert "do not require current-task authorization" in skill_words
     assert "After `emit` reports `EMITTED`" in skill
@@ -6752,7 +6759,9 @@ def _(tmp):
     os.makedirs(project)
     consent = run([PY, DEPENDENCY, "setup", "--root", project], env=environment)
     assert consent.returncode == 1
-    assert "CONSENT_REQUIRED|Do you want to install rblx-harness?" in consent.stdout
+    assert "CONSENT_REQUIRED|rblx-harness provides the project structure" in consent.stdout
+    assert "Please answer Yes or No." in consent.stdout
+    assert "[y/N]" not in consent.stdout
     assert os.listdir(project) == []
 
     write(fake_bin, "gh", "#!/bin/sh\necho 'token is invalid' >&2\nexit 1\n")
