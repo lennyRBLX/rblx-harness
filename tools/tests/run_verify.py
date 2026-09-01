@@ -34,6 +34,7 @@ GATES = os.path.join(HARNESS, "shared", "gates")
 LUTE = os.path.join(TOOLS, "bin", "lute")
 PY = sys.executable
 SCAFFOLD = os.path.join(HARNESS, "shared", "skills", "roblox-new-game", "scripts", "scaffold.py")
+DEPENDENCY = os.path.join(HARNESS, "project.py")
 PERMISSIONS_SETUP = os.path.join(HARNESS, "openai", "setup", "permissions_harness.py")
 HOOKS_SETUP = os.path.join(HARNESS, "openai", "setup", "hooks_harness.py")
 MATH_SCRIPTS = os.path.join(HARNESS, "shared", "skills", "math-tool", "scripts")
@@ -126,10 +127,11 @@ extends = ":workspace"
 [permissions.Roblox.filesystem]
 "~/.cache/harness" = "write"
 "~/.cache/harness/creator-docs/.git" = "%s"
-%s = "write"
 
 [permissions.Roblox.filesystem.":workspace_roots"]
 ".git" = "write"
+".roblox-harness/tools/bin" = "write"
+"tools/bin" = "write"
 
 [permissions.Roblox.network]
 enabled = true
@@ -142,7 +144,7 @@ enabled = true
 "release-assets.githubusercontent.com" = "allow"
 "localhost" = "allow"
 "127.0.0.1" = "allow"
-''' % (creator_git, json.dumps(gatelib.TOOLCHAIN_WRITE_ROOT))
+''' % creator_git
     if root is not None:
         text += '\n[projects.%s]\ntrust_level = "trusted"\n' % json.dumps(os.path.realpath(root))
     return text
@@ -154,18 +156,18 @@ def codex_hook_fixture(root):
     return write(root, ".codex/hooks.json", rendered)
 
 
-def ensure_sibling_harness(root):
-    candidate = os.path.join(os.path.dirname(os.path.realpath(root)), "harness")
+def ensure_project_harness(root):
+    candidate = os.path.join(os.path.realpath(root), gatelib.PROJECT_HARNESS_DIR)
     if os.path.realpath(candidate) == os.path.realpath(HARNESS):
         return candidate
     if os.path.lexists(candidate):
-        raise AssertionError("test sibling harness path is occupied: " + candidate)
+        raise AssertionError("test project harness path is occupied: " + candidate)
     os.symlink(HARNESS, candidate, target_is_directory=True)
     return candidate
 
 
 def verified_environment(root, session_id="verify-session"):
-    ensure_sibling_harness(root)
+    ensure_project_harness(root)
     base = os.path.dirname(os.path.realpath(root))
     home = os.path.join(base, "test-home")
     codex = os.path.join(home, ".codex")
@@ -217,7 +219,7 @@ def verified_environment(root, session_id="verify-session"):
 
 
 def verified_claude_environment(root, session_id="verify-session"):
-    ensure_sibling_harness(root)
+    ensure_project_harness(root)
     base = os.path.dirname(os.path.realpath(root))
     home = os.path.join(base, "test-home-claude")
     cache = os.path.join(home, ".cache", "harness")
@@ -459,7 +461,7 @@ enabled = false
     assert open(config_path, encoding="utf-8").read() == installed
     batch = open(os.path.join(HARNESS, "setup_windows.bat"), encoding="utf-8").read()
     assert "permissions_harness.py\" --install" in batch
-    assert 'if exist "%%~fD\\.roblox"' in batch and "/XF .roblox" in batch
+    assert 'if not exist "%PROJECT%\\.roblox"' in batch
 
 
 @case("PERMISSIONS_HARNESS installer: changed profile preserves authorization for same-task revalidation")
@@ -842,7 +844,7 @@ def _(tmp):
 def _(tmp):
     root = os.path.join(tmp, "arena")
     os.makedirs(root)
-    ensure_sibling_harness(root)
+    ensure_project_harness(root)
     write(root, ".roblox", "")
     write(root, ".claude/settings.json", '{"unrelated":"preserved"}\n')
     write(
@@ -883,7 +885,7 @@ def _(tmp):
                         assert python_executable in handler["commandWindows"]
                     else:
                         assert handler["command"] == python_executable
-                        assert "${CLAUDE_PROJECT_DIR}/../harness/" in text
+                        assert "${CLAUDE_PROJECT_DIR}/.roblox-harness/" in text
     valid, detail, _ = gatelib.hook_definition_status(root, "project")
     assert valid, detail
     config, _, error = gatelib._load_codex_config(os.path.join(root, ".codex", "config.toml"))
@@ -894,9 +896,9 @@ def _(tmp):
     assert config["mcp_servers"]["Roblox_Studio"]["command"] == python_executable
     assert config["mcp_servers"]["Roblox_Studio"]["args"] == [
         "-B",
-        "../harness/tools/studio_mcp_launcher.py",
+        ".roblox-harness/tools/studio_mcp_launcher.py",
     ]
-    assert config["mcp_servers"]["Roblox_Studio"]["cwd"] == ".."
+    assert config["mcp_servers"]["Roblox_Studio"]["cwd"] == "."
     assert config["mcp_servers"]["Roblox_Studio"]["tools"] == {
         "execute_luau": {"approval_mode": "approve"},
     }
@@ -948,28 +950,25 @@ def _(tmp):
     assert not hasattr(setup_windows_codex, "configure_trust_and_hooks")
     batch = open(os.path.join(HARNESS, "setup_windows.bat"), encoding="utf-8").read()
     assert 'openai\\setup\\windows.py" --harness' in batch
-    assert 'set "CODEX_PROJECT_ARGS="' in batch
-    assert 'if exist "%SCRIPT_ROOT%shared\\CORE.md"' in batch
-    assert 'harness\\claude\\agents\\%~2.md' in batch
-    assert 'harness\\openai\\agents\\%~2.toml' in batch
+    assert 'set "HARNESS=%~dp0"' in batch
+    assert 'if not exist "%HARNESS%shared\\CORE.md"' in batch
+    assert '%HARNESS%claude\\agents\\%%A.md' in batch
+    assert '%HARNESS%openai\\agents\\%%A.toml' in batch
     assert 'for %%A in (reviewer debugger optimizer researcher maintainer)' in batch
-    assert batch.index('openai\\setup\\windows.py" --harness') < batch.index('call :fix_codex_agent')
-    assert 'harness\\shared\\skills\\roblox-writer' in batch
-    assert 'harness\\shared\\skills\\roblox-new-game' in batch
-    writer_metadata = '%TARGET%\\%%P\\.agents\\skills\\roblox-writer\\agents\\openai.yaml'
+    assert batch.index('openai\\setup\\windows.py" --harness') < batch.index('for %%A in (reviewer')
+    assert '%HARNESS%shared\\skills\\roblox-writer' in batch
+    assert '%HARNESS%shared\\skills\\roblox-new-game' in batch
+    writer_metadata = '%PROJECT%\\.agents\\skills\\roblox-writer\\agents\\openai.yaml'
     user_metadata = '%USERPROFILE%\\.agents\\skills\\roblox-new-game\\agents\\openai.yaml'
-    assert batch.count(writer_metadata) >= 3, "writer metadata must be compared before it is copied"
-    assert batch.count(user_metadata) >= 3, "user skill metadata must be compared before it is copied"
-    assert batch.index(writer_metadata) < batch.index('call :fix_skill "%%P"')
-    assert batch.index(user_metadata) < batch.index("call :fix_user_skill")
-    assert '%TARGET%\\%%P\\.claude\\skills\\roblox-writer\\SKILL.md' in batch
+    assert writer_metadata in batch
+    assert user_metadata in batch
+    assert '%PROJECT%\\.claude\\skills\\roblox-writer' in batch
     assert "refresh-instructions --root" in batch
     assert "materialize-default --root" in batch
-    assert "--toolchain-only" in batch and "tools\\bin\\luau-lsp.exe" in batch
+    assert "--toolchain-only" in batch
     assert "mklink" not in batch and "get_toolchain.sh" not in batch
     assert "harness\\gates\\" not in batch
-    assert "open /hooks" in batch
-    assert "retry host discovery and continue this task" in batch
+    assert ".roblox-harness submodule" in batch
 
 
 @case("vendor adapters: explicit host routing, Claude fork, and context-only SubagentStart")
@@ -1233,7 +1232,6 @@ def _(tmp):
     assert set(config["permissions"]["Roblox"]["filesystem"]) == {
         "~/.cache/harness",
         "~/.cache/harness/creator-docs/.git",
-        gatelib.TOOLCHAIN_WRITE_ROOT,
         ":workspace_roots",
     }
 
@@ -1347,7 +1345,7 @@ def _(tmp):
     good_environment["CODEX_THREAD_ID"] = "verify-session"
     good_cache = os.path.join(good_environment["HOME"], ".cache", "harness")
     result = run(
-        [PY, SCAFFOLD, "answer", "rig", "R15", "--root", good_root],
+        [PY, SCAFFOLD, "answer", "places", "Main", "--root", good_root],
         env=good_environment,
     )
     assert result.returncode == 0 and os.path.isfile(os.path.join(good_root, ".criteria.json"))
@@ -1358,7 +1356,7 @@ def _(tmp):
     bad_codex = os.path.join(bad_home, ".codex")
     os.makedirs(bad_codex, exist_ok=True)
     result = run(
-        [PY, SCAFFOLD, "answer", "rig", "R15", "--root", root],
+        [PY, SCAFFOLD, "answer", "places", "Main", "--root", root],
         env=dict(os.environ, HOME=bad_home, CODEX_HOME=bad_codex, PYTHONDONTWRITEBYTECODE="1"),
     )
     assert result.returncode == 2 and ".roblox sentinel absent" in result.stdout
@@ -5013,11 +5011,11 @@ def _(tmp):
     r = gate("compact_gate.py", payload)
     expected = "session: sess-7\ntried: void\nwhere: void\nopen: void\n"
     assert r.returncode == 0 and r.stdout == expected
-    assert open(os.path.join(root, "handoff.md"), encoding="utf-8").read() == expected
+    assert open(os.path.join(root, "shared", "handoff.md"), encoding="utf-8").read() == expected
 
     write(
         root,
-        "handoff.md",
+        "shared/handoff.md",
         "session: OTHER\ntried: failed type lookup\nwhere: shared/Foo.luau unfinished\nopen: choose retry\nextra: drop\n",
     )
     r = gate("compact_gate.py", payload)
@@ -5025,12 +5023,12 @@ def _(tmp):
 
     write(
         root,
-        "handoff.md",
+        "shared/handoff.md",
         "session: sess-7\ntried: failed type lookup\nwhere: shared/Foo.luau unfinished\nopen: choose retry\nextra: drop\n",
     )
     r = gate("compact_gate.py", payload)
     assert r.returncode == 0 and r.stdout == expected
-    assert open(os.path.join(root, "handoff.md"), encoding="utf-8").read() == expected
+    assert open(os.path.join(root, "shared", "handoff.md"), encoding="utf-8").read() == expected
 
     unauthenticated = run(
         [PY, os.path.join(GATES, "compact_gate.py")],
@@ -5059,14 +5057,14 @@ def _(tmp):
         "where: %s unfinished while the checkout handler is pending\n"
         "open: human must choose whether to retry type lookup\n"
     ) % (changed_path, changed_path)
-    write(root, "handoff.md", manual)
+    write(root, "shared/handoff.md", manual)
     r = gate("compact_gate.py", payload)
     assert r.returncode == 0 and r.stdout == manual, r.stdout + r.stderr
-    assert open(os.path.join(root, "handoff.md"), encoding="utf-8").read() == manual
+    assert open(os.path.join(root, "shared", "handoff.md"), encoding="utf-8").read() == manual
 
     write(
         root,
-        "handoff.md",
+        "shared/handoff.md",
         "session: sess-7\ntried: shared/Other.luau failed\nwhere: %s complete\nopen: agents=researcher\n"
         % changed_path,
     )
@@ -5075,7 +5073,7 @@ def _(tmp):
 
     write(
         root,
-        "handoff.md",
+        "shared/handoff.md",
         (
             "session: sess-7\n"
             "tried: %s failed; agents=researcher\n"
@@ -5092,15 +5090,15 @@ def _(tmp):
         "where: %s unfinished/review=clean\n"
         "open: human must decide (changed=1) [turn=abc]\n"
     ) % (changed_path, changed_path)
-    write(root, "handoff.md", punctuation_state)
+    write(root, "shared/handoff.md", punctuation_state)
     punctuation_claims = gate("compact_gate.py", payload)
     assert punctuation_claims.returncode == 0 and punctuation_claims.stdout == expected
 
     missing_identity = gate("compact_gate.py", {"cwd": root, "session_id": "", "trigger": "auto"})
     assert missing_identity.returncode == 2 and "GATE7" in missing_identity.stderr
 
-    os.remove(os.path.join(root, "handoff.md"))
-    os.mkdir(os.path.join(root, "handoff.md"))
+    os.remove(os.path.join(root, "shared", "handoff.md"))
+    os.mkdir(os.path.join(root, "shared", "handoff.md"))
     unwritable = gate("compact_gate.py", payload)
     assert unwritable.returncode == 2 and "handoff cannot be written" in unwritable.stderr
 
@@ -5954,7 +5952,7 @@ def _(tmp):
     malformed_environment = verified_environment(malformed)
     malformed_environment["CODEX_THREAD_ID"] = "verify-session"
     invalid_marker = run(
-        [PY, SCAFFOLD, "answer", "rig", "R15", "--root", malformed],
+        [PY, SCAFFOLD, "answer", "places", "Main", "--root", malformed],
         env=malformed_environment,
     )
     assert invalid_marker.returncode == 2 and ".roblox sentinel invalid" in invalid_marker.stdout
@@ -5972,7 +5970,7 @@ def _(tmp):
     assert "|exact;" in second.stdout and metadata_manifest(root) == after
 
     unauthorized = run(
-        [PY, SCAFFOLD, "answer", "rig", "R15", "--root", root],
+        [PY, SCAFFOLD, "answer", "places", "Main", "--root", root],
         env=dict(os.environ, CODEX_THREAD_ID="not-authorized", PYTHONDONTWRITEBYTECODE="1"),
     )
     assert unauthorized.returncode == 2 and "Start a new Codex task" in unauthorized.stdout
@@ -5980,16 +5978,19 @@ def _(tmp):
 
     environment = verified_environment(root)
     environment["CODEX_THREAD_ID"] = "verify-session"
-    authorized = run([PY, SCAFFOLD, "answer", "rig", "R15", "--root", root], env=environment)
+    authorized = run(
+        [PY, SCAFFOLD, "answer", "places", "Main", "--root", root],
+        env=environment,
+    )
     assert authorized.returncode == 0 and os.path.isfile(os.path.join(root, ".criteria.json"))
 
 
-@case("scaffold: copied user skill resolves the sibling harness and exact bootstrap stays in-session")
+@case("scaffold: copied user skill resolves the project harness and exact bootstrap stays in-session")
 def _(tmp):
     workspace = os.path.join(tmp, "workspace")
     root = os.path.join(workspace, "game")
     os.makedirs(root)
-    ensure_sibling_harness(root)
+    ensure_project_harness(root)
     installed = os.path.join(tmp, "user", ".agents", "skills", "roblox-new-game")
     shutil.copytree(os.path.join(HARNESS, "shared", "skills", "roblox-new-game"), installed)
     copied_scaffold = os.path.join(installed, "scripts", "scaffold.py")
@@ -6005,27 +6006,17 @@ def _(tmp):
 def _(tmp):
     root = os.path.join(tmp, "many-places")
     os.makedirs(root)
-    ensure_sibling_harness(root)
+    ensure_project_harness(root)
     write(root, ".roblox", "")
     places = ("Zeta", "Alpha", "Bravo", "Charlie", "Delta", "Echo", "Foxtrot")
-    place_map_answer = "; ".join(
-        "%s: services Rounds, controllers Camera, carry PlayerData" % place for place in places
-    )
+    places_answer = ", ".join(places)
     criteria = {
-        "core_loop": "dodge blocks, survive rounds, earn coins",
-        "services": "Rounds, Coins, Matches",
-        "device": "low-end Android on 1 Mbps cellular",
-        "replication": "shared rounds use Folders and ValueObjects; per-player coins use Exclusive; events use remotes; generated world: none; hand-built map",
-        "data_shape": "persist Coins:number because rewards carry between sessions; Development Coins=100",
-        "gui_ownership": "Sam owns all GUI",
-        "security": "Buy remote; client may trigger Buy; authority: server validates ownership and price",
-        "place_map": place_map_answer,
-        "camera": "; ".join("%s=3rd" % place for place in places),
-        "rig": "R15",
-        "streaming": "on",
+        "places": places_answer,
+        "services": "shared: Movement, Shooting; Zeta: Objective",
+        "controllers": "shared: Movement, Shooting; Zeta: ObjectiveHud",
     }
     write(root, ".criteria.json", json.dumps(criteria, indent=1) + "\n")
-    assert scaffold_tool.extract_places(place_map_answer) == list(places)
+    assert scaffold_tool.place_names(places_answer) == list(places)
 
     original_preflight = scaffold_tool.permission_preflight
     original_relink = scaffold_tool.relink
@@ -6098,13 +6089,13 @@ def _(tmp):
     environment["CODEX_THREAD_ID"] = "verify-session"
     sc = [PY, SCAFFOLD]
     r = run(sc + ["emit", "--root", root, "--name", "X"], env=environment)
-    assert r.returncode == 2 and r.stdout.count("missing|") == 11
-    run(sc + ["answer", "core_loop", "dodge blocks, survive rounds, earn coins", "--root", root], env=environment)
+    assert r.returncode == 2 and r.stdout.count("missing|") == 3
+    run(sc + ["answer", "places", "Main", "--root", root], env=environment)
     r = run(sc + ["emit", "--root", root, "--name", "X"], env=environment)
-    assert r.returncode == 2 and r.stdout.count("missing|") == 10, "re-asks exactly the missing items"
+    assert r.returncode == 2 and r.stdout.count("missing|") == 2, "re-asks exactly the missing items"
 
 
-@case("scaffold: validates semantic design blockers and keeps service suffixes advisory")
+@case("scaffold: validates file-shaping decisions and keeps component suffixes advisory")
 def _(tmp):
     root = os.path.join(tmp, "semantic")
     os.makedirs(root)
@@ -6113,48 +6104,21 @@ def _(tmp):
     environment["CODEX_THREAD_ID"] = "verify-session"
     sc = [PY, SCAFFOLD]
 
+    accepted_places = run(sc + ["answer", "places", "Main, Lobby", "--root", root], env=environment)
+    assert accepted_places.returncode == 0
+
     refused = (
-        ("core_loop", "Explore and have fun"),
-        ("services", "Rounds, Loot"),
-        ("services", "!!!, @@@, ###"),
-        ("device", "TBD"),
-        ("device", "low-end Android"),
-        ("replication", "rounds use folders"),
-        ("data_shape", "Coins number"),
-        ("gui_ownership", "agent decides later"),
-        ("security", "Buy remote"),
-        ("place_map", "TBD"),
-        ("place_map", "Main only"),
-        (
-            "place_map",
-            "Main: services Rounds, controllers Camera, carry none; "
-            "Main: services Loot, controllers Input, carry none",
-        ),
-        (
-            "place_map",
-            "Main: services Rounds, controllers Camera, carry none; "
-            "main: services Loot, controllers Input, carry none",
-        ),
-        (
-            "place_map",
-            "Main: services Rounds, controllers Camera, carry none, "
-            "main: services Loot, controllers Input, carry none",
-        ),
-        (
-            "place_map",
-            "Main: services Rounds, controllers Camera, carry none. "
-            "main: services Loot, controllers Input, carry none",
-        ),
-        (
-            "place_map",
-            "Main: services Rounds, controllers Camera, carry none / "
-            "main: services Loot, controllers Input, carry none",
-        ),
-        ("camera", "TBD"),
-        ("camera", "Main=cinematic someday"),
-        ("camera", "Main=1st, Main=3rd"),
-        ("camera", "Main=1st, main=3rd"),
-        ("streaming", "off: no"),
+        ("places", "TBD"),
+        ("places", "Main, main"),
+        ("places", "Main Place"),
+        ("services", "Movement, Shooting"),
+        ("services", "shared: PlayerData"),
+        ("services", "Unknown: Movement"),
+        ("services", "shared: Bad-Name"),
+        ("services", "shared: Movement; shared: Shooting"),
+        ("services", "shared: Movement, movement"),
+        ("controllers", "shared: Gui"),
+        ("animation_converter", "off"),
     )
     for flag, text in refused:
         result = run(sc + ["answer", flag, text, "--root", root], env=environment)
@@ -6176,14 +6140,27 @@ def _(tmp):
     assert status.returncode == 1 and status.stdout.count("|invalid|") == len(scaffold_tool.BLOCKING_SET)
 
     result = run(
-        sc + ["answer", "services", "RoundsService, LootService, ShopService", "--root", root],
+        sc + ["answer", "services", "shared: RoundsService, Loot", "--root", root],
         env=environment,
     )
     assert result.returncode == 0 and "ADVISORY|services|WRIT10" in result.stdout
-    assert json.load(open(os.path.join(root, ".criteria.json")))["services"].startswith("RoundsService")
+    assert json.load(open(os.path.join(root, ".criteria.json")))["services"].startswith("shared:")
 
     skill = open(os.path.join(HARNESS, "shared", "skills", "roblox-new-game", "SKILL.md"), encoding="utf-8").read()
+    skill_words = " ".join(skill.split())
+    assert tuple(scaffold_tool.BLOCKING_SET) == ("places", "services", "controllers")
     assert "Questions may be batched" in skill and "Ask **one question at a time**" not in skill
+    assert "Start by obtaining the gameplay loop" in skill_words
+    assert "derive a concrete proposed answer from that loop" in skill_words
+    assert "separate loop-derived example for places, Services, and Controllers" in skill_words
+    assert "GUI responsibility is fixed, not interviewed" in skill
+    assert "temporary proposal context" in skill_words and "--milestone" not in skill
+    assert skill.index("## Phase 0 — the interview") < skill.index("## Phase 1 — harness consent")
+    assert skill.index("Start by obtaining the gameplay loop") < skill.index("Do you want to install rblx-harness?")
+    assert "do not run `scaffold.py answer` yet" in skill_words
+
+    milestone = run(sc + ["emit", "--root", root, "--name", "X", "--milestone"], env=environment)
+    assert milestone.returncode == 2 and "no build-stage mode" in milestone.stdout
 
 
 @case("scaffold: emits both runtime instruction files with the same two blocks")
@@ -6195,17 +6172,9 @@ def _(tmp):
     environment["CODEX_THREAD_ID"] = "verify-session"
     sc = [PY, SCAFFOLD]
     answers = {
-        "core_loop": "dodge blocks, survive, earn coins",
-        "services": "Rounds, Coins, Matches",
-        "device": "low-end Android on 1 Mbps cellular",
-        "replication": "shared rounds use Folders + ValueObjects; per-player coins use Exclusive; events use remotes; generated world: none; hand-built map",
-        "data_shape": "persist Coins:number because rewards carry between sessions; Development Coins=100",
-        "gui_ownership": "Sam owns all GUI",
-        "security": "Buy remote; client may trigger Buy; authority: server validates ownership and price",
-        "place_map": "Main: services Rounds and Coins, controllers Matches, carry PlayerData",
-        "camera": "Main=3rd",
-        "rig": "R15",
-        "streaming": "on",
+        "places": "Main",
+        "services": "shared: Movement, Shooting; Main: Objective",
+        "controllers": "shared: Movement, Shooting; Main: ObjectiveHud",
     }
     for flag, text in answers.items():
         accepted = run(sc + ["answer", flag, text, "--root", root], env=environment)
@@ -6218,9 +6187,12 @@ def _(tmp):
     agents = open(os.path.join(root, "AGENTS.md")).read()
     for text in (claude, agents):
         assert "## summary" in text and "## places" in text and "Main|0" in text
-        assert "../harness/" in text and HARNESS not in text
+        assert "Keystone services:" in text and "dodge blocks" not in text
+        assert ".roblox-harness/" in text and HARNESS not in text
     assert "CORE.md" in claude and "CORE.md" in agents
     assert "trust" in agents, "the trust bootstrap is the one fact with no native pathway"
+    ignored = open(os.path.join(root, ".gitignore"), encoding="utf-8").read().splitlines()
+    assert "shared/handoff.md" in ignored and "handoff.md" not in ignored
     project = json.load(open(os.path.join(root, "Main.project.json")))
     assert project["tree"]["ServerStorage"]["Plugins"] == {"$path": "plugins"}
     # every dissolved CODEX.md section on its native pathway
@@ -6233,6 +6205,12 @@ def _(tmp):
     # the entries are named children — a service is never a script
     assert os.path.exists(os.path.join(root, "shared/src/ServerScriptService/Server.server.luau"))
     assert os.path.exists(os.path.join(root, "shared/src/StarterPlayer/StarterPlayerScripts/Client.client.luau"))
+    assert os.path.exists(os.path.join(root, "shared/src/ServerScriptService/Services/Movement.luau"))
+    assert os.path.exists(os.path.join(root, "shared/src/ServerScriptService/Services/Shooting.luau"))
+    assert os.path.exists(os.path.join(root, "places/Main/src/ServerScriptService/Services/Objective.luau"))
+    assert os.path.exists(os.path.join(root, "shared/src/StarterPlayer/StarterPlayerScripts/Controllers/Movement.luau"))
+    assert os.path.exists(os.path.join(root, "places/Main/src/StarterPlayer/StarterPlayerScripts/Controllers/ObjectiveHud.luau"))
+    assert not os.path.exists(os.path.join(root, "shared/src/ServerStorage/AnimationConverter.luau"))
     stray = glob.glob(os.path.join(root, "shared", "src", "**", "init*.lua*"), recursive=True)
     assert [p for p in stray if gatelib.service_init_container(os.path.relpath(p, root))] == [], stray
 
@@ -6475,7 +6453,7 @@ def _(tmp):
     codex = os.path.join(home, ".codex")
     os.makedirs(root)
     os.makedirs(codex)
-    ensure_sibling_harness(root)
+    ensure_project_harness(root)
     write(root, ".roblox", "")
     write(root, ".gitignore", "keep-me\nshared/src/ServerStorage/GitHistory/\n")
     legacy = write(
@@ -6519,7 +6497,7 @@ def _(tmp):
     settings_text = open(os.path.join(root, ".claude", "settings.json")).read()
     assert HARNESS not in hooks_text + settings_text
     assert "git rev-parse --show-toplevel" in hooks_text
-    assert "${CLAUDE_PROJECT_DIR}/../harness/" in settings_text
+    assert "${CLAUDE_PROJECT_DIR}/.roblox-harness/" in settings_text
 
 
 @case("scaffold: relink refreshes both instruction files and preserves project fields")
@@ -6556,13 +6534,13 @@ def _(tmp):
     assert before == metadata_manifest(git_dir)
 
 
-@case("portable paths: sibling layout, spaces, and subdirectory hook resolution")
+@case("portable paths: project-local dependency, spaces, and subdirectory hook resolution")
 def _(tmp):
     orphan = os.path.join(tmp, "orphan")
     os.makedirs(orphan)
     write(orphan, ".roblox", "")
     refused = run([PY, SCAFFOLD, "relink", "--root", orphan])
-    assert refused.returncode == 2 and "sibling harness absent" in refused.stdout
+    assert refused.returncode == 2 and "project harness absent" in refused.stdout
 
     root = os.path.join(tmp, "space parent", "arena project")
     os.makedirs(root)
@@ -6577,7 +6555,7 @@ def _(tmp):
         [
             "/bin/sh",
             "-c",
-            'test -f "$(git rev-parse --show-toplevel)/../harness/openai/hooks/adapter.py"',
+            'test -f "$(git rev-parse --show-toplevel)/.roblox-harness/openai/hooks/adapter.py"',
         ],
         cwd=nested,
     )
@@ -6585,7 +6563,151 @@ def _(tmp):
     settings = json.load(open(os.path.join(root, ".claude", "settings.json"), encoding="utf-8"))
     handler = settings["hooks"]["PreToolUse"][0]["hooks"][0]
     assert handler["command"] == "python3"
-    assert handler["args"][1] == "${CLAUDE_PROJECT_DIR}/../harness/claude/hooks/adapter.py"
+    assert handler["args"][1] == "${CLAUDE_PROJECT_DIR}/.roblox-harness/claude/hooks/adapter.py"
+
+
+@case("project dependency: submodule install pins, updates, and refuses dirty checkout")
+def _(tmp):
+    skill = open(
+        os.path.join(HARNESS, "shared", "skills", "roblox-new-game", "SKILL.md"),
+        encoding="utf-8",
+    ).read()
+    assert "dependency.py setup --root <dir>" in skill
+    assert "CONSENT_REQUIRED" in skill and "dependency.py setup --root <dir> --yes" in skill
+
+    source = os.path.join(tmp, "harness-source")
+    os.makedirs(source)
+    run(["git", "init", "-q"], cwd=source)
+    run(["git", "config", "user.email", "t@t"], cwd=source)
+    run(["git", "config", "user.name", "Test"], cwd=source)
+    write(source, "shared/CORE.md", "rules-v1\n")
+    write(source, "shared/gates/gatelib.py", "# gate fixture\n")
+    write(source, "openai/hooks/adapter.py", "# adapter fixture\n")
+    run(["git", "add", "."], cwd=source)
+    run(["git", "commit", "-q", "-m", "v1"], cwd=source)
+    run(["git", "branch", "-M", "main"], cwd=source)
+    remote = os.path.join(tmp, "harness.git")
+    run(["git", "clone", "-q", "--bare", source, remote])
+    run(["git", "symbolic-ref", "HEAD", "refs/heads/main"], cwd=remote)
+
+    project = os.path.join(tmp, "game")
+    os.makedirs(project)
+    write(project, ".roblox", "")
+    run(["git", "init", "-q"], cwd=project)
+    run(["git", "config", "user.email", "t@t"], cwd=project)
+    run(["git", "config", "user.name", "Test"], cwd=project)
+    run(["git", "add", ".roblox"], cwd=project)
+    run(["git", "commit", "-q", "-m", "marker"], cwd=project)
+    environment = dict(os.environ, GIT_ALLOW_PROTOCOL="file", PYTHONDONTWRITEBYTECODE="1")
+    installed = run([PY, DEPENDENCY, "install", "--root", project, "--url", remote], env=environment)
+    assert installed.returncode == 0 and "dependency-installed|path=.roblox-harness" in installed.stdout
+    modules = open(os.path.join(project, ".gitmodules"), encoding="utf-8").read()
+    assert "path = .roblox-harness" in modules and remote in modules
+    stage = run(["git", "ls-files", "--stage", ".roblox-harness"], cwd=project)
+    assert stage.stdout.startswith("160000 "), stage.stdout
+    first = run(["git", "-C", os.path.join(project, ".roblox-harness"), "rev-parse", "HEAD"]).stdout.strip()
+
+    write(source, "shared/CORE.md", "rules-v2\n")
+    run(["git", "add", "."], cwd=source)
+    run(["git", "commit", "-q", "-m", "v2"], cwd=source)
+    run(["git", "push", "-q", remote, "main"], cwd=source)
+    updated = run([PY, DEPENDENCY, "update", "--root", project], env=environment)
+    assert updated.returncode == 0 and "dependency-updated|" in updated.stdout, updated.stderr
+    second = run(["git", "-C", os.path.join(project, ".roblox-harness"), "rev-parse", "HEAD"]).stdout.strip()
+    assert first != second
+    assert run(["git", "diff", "--cached", "--quiet", "--", ".roblox-harness"], cwd=project).returncode == 1
+
+    write(os.path.join(project, ".roblox-harness"), "local.tmp", "dirty\n")
+    refused = run([PY, DEPENDENCY, "update", "--root", project], env=environment)
+    assert refused.returncode == 2 and "has local changes" in refused.stderr
+
+
+@case("project dependency setup: consent, GitHub auth, clone, and integration are one bounded flow")
+def _(tmp):
+    source = os.path.join(tmp, "harness-source")
+    os.makedirs(source)
+    run(["git", "init", "-q"], cwd=source)
+    run(["git", "config", "user.email", "t@t"], cwd=source)
+    run(["git", "config", "user.name", "Test"], cwd=source)
+    write(source, "shared/CORE.md", "project rules\n")
+    write(source, "shared/gates/gatelib.py", "# project gates\n")
+    write(source, "openai/hooks/adapter.py", "# hook adapter\n")
+    write(
+        source,
+        "openai/setup/permissions_harness.py",
+        (
+            "import os\n"
+            "root = os.getcwd()\n"
+            "os.makedirs(os.path.join(root, '.codex'), exist_ok=True)\n"
+            "os.makedirs(os.path.join(root, '.claude'), exist_ok=True)\n"
+            "open(os.path.join(root, '.codex', 'hooks.json'), 'w').write('{}\\n')\n"
+            "open(os.path.join(root, '.claude', 'settings.json'), 'w').write('{}\\n')\n"
+            "print('relinked|fixture hooks')\n"
+        ),
+    )
+    run(["git", "add", "."], cwd=source)
+    run(["git", "commit", "-q", "-m", "fixture"], cwd=source)
+    run(["git", "branch", "-M", "main"], cwd=source)
+    remote = os.path.join(tmp, "harness.git")
+    run(["git", "clone", "-q", "--bare", source, remote])
+    run(["git", "symbolic-ref", "HEAD", "refs/heads/main"], cwd=remote)
+
+    fake_bin = os.path.join(tmp, "bin")
+    os.makedirs(fake_bin)
+    gh = write(
+        fake_bin,
+        "gh",
+        "#!/bin/sh\nif [ \"$1\" = auth ] || [ \"$1\" = repo ]; then exit 0; fi\nexit 2\n",
+    )
+    os.chmod(gh, 0o755)
+    fake_home = os.path.join(tmp, "home")
+    os.makedirs(fake_home)
+    environment = dict(
+        os.environ,
+        HOME=fake_home,
+        PATH=fake_bin + os.pathsep + os.environ.get("PATH", ""),
+        GIT_ALLOW_PROTOCOL="file:https",
+        PYTHONDONTWRITEBYTECODE="1",
+    )
+    default_url = "https://github.com/lennyRBLX/rblx-harness.git"
+    rewrite = "url.file://%s.insteadOf" % remote
+    configured = run(["git", "config", "--global", rewrite, default_url], env=environment)
+    assert configured.returncode == 0
+
+    project = os.path.join(tmp, "new-game")
+    os.makedirs(project)
+    consent = run([PY, DEPENDENCY, "setup", "--root", project], env=environment)
+    assert consent.returncode == 1
+    assert "CONSENT_REQUIRED|Do you want to install rblx-harness?" in consent.stdout
+    assert os.listdir(project) == []
+
+    write(fake_bin, "gh", "#!/bin/sh\nexit 1\n")
+    os.chmod(gh, 0o755)
+    unauthenticated = run([PY, DEPENDENCY, "setup", "--root", project, "--yes"], env=environment)
+    assert unauthenticated.returncode == 2 and "not authenticated" in unauthenticated.stderr.casefold()
+    assert os.listdir(project) == []
+    write(
+        fake_bin,
+        "gh",
+        "#!/bin/sh\nif [ \"$1\" = auth ] || [ \"$1\" = repo ]; then exit 0; fi\nexit 2\n",
+    )
+    os.chmod(gh, 0o755)
+
+    installed = run([PY, DEPENDENCY, "setup", "--root", project, "--yes"], env=environment)
+    assert installed.returncode == 0, installed.stdout + installed.stderr
+    assert "github-auth|ready|repository=lennyRBLX/rblx-harness" in installed.stdout
+    assert "project-preflight|git=initialized|marker=created" in installed.stdout
+    assert "harness-integrated|hooks=installed" in installed.stdout
+    assert "dependency-setup|complete|path=.roblox-harness" in installed.stdout
+    assert os.path.isfile(os.path.join(project, ".roblox"))
+    assert os.path.isfile(os.path.join(project, ".codex", "hooks.json"))
+    assert os.path.isfile(os.path.join(project, ".claude", "settings.json"))
+    assert os.path.isfile(os.path.join(project, ".roblox-harness", "shared", "CORE.md"))
+    assert os.path.isfile(os.path.join(project, ".roblox-harness", "shared", "gates", "gatelib.py"))
+    modules = open(os.path.join(project, ".gitmodules"), encoding="utf-8").read()
+    assert default_url in modules and "path = .roblox-harness" in modules
+    stage = run(["git", "ls-files", "--stage", ".roblox-harness"], cwd=project)
+    assert stage.stdout.startswith("160000 "), stage.stdout
 
 
 @case("agent defs: every emitted record shape round-trips record_check clean")
@@ -7237,8 +7359,8 @@ def _(tmp):
     os.makedirs(orphan)
     write(orphan, ".roblox", "")
     run(["git", "init", "-q"], cwd=orphan)
-    sibling = run([PY, PROJECT_GATE, "check", "--project-root", orphan])
-    assert sibling.returncode == 2 and "sibling harness absent" in sibling.stdout
+    dependency = run([PY, PROJECT_GATE, "check", "--project-root", orphan])
+    assert dependency.returncode == 2 and "project harness absent" in dependency.stdout
 
 
 @case("project_gate: conditional skips do not count as failures")
@@ -7747,7 +7869,7 @@ def _(tmp):
 def _(tmp):
     project = os.path.join(tmp, "arena fixture")
     os.makedirs(project)
-    ensure_sibling_harness(project)
+    ensure_project_harness(project)
     write(project, ".roblox", "")
     home = os.path.join(tmp, "home")
     os.makedirs(os.path.join(home, ".codex"), exist_ok=True)
@@ -7913,7 +8035,7 @@ def _(tmp):
     windows = open(os.path.join(HARNESS, "setup_windows.bat"), encoding="utf-8").read()
     assert "%USERPROFILE%\\.agents\\skills\\math-tool\\SKILL.md" in windows
     assert "%USERPROFILE%\\.claude\\skills\\math-tool\\SKILL.md" in windows
-    assert "harness\\openai\\setup\\math_tool.py\" --install" in windows
+    assert "%HARNESS%openai\\setup\\math_tool.py\" --install" in windows
     command = math_tool_setup.command_line(
         [r"C:\Program Files\Python\python.exe", "-B", r"C:\Users\Test User\.agents\skills\math-tool\scripts\math_gate.py", "--host", "codex", "--event", "SessionStart"],
         windows=True,

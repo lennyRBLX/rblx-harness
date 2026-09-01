@@ -96,9 +96,12 @@ def validate_root(path, reporter):
         if not gatelib.is_roblox_project(root):
             reporter.fail("project-root", ".roblox absent", "Provide a harness-managed project root.")
             return None
-        sibling = os.path.join(os.path.dirname(root), "harness")
-        if os.path.realpath(sibling) != os.path.realpath(HARNESS):
-            reporter.fail("project-root", "sibling harness absent", "Place the .roblox project beside harness/.")
+        if not gatelib.project_uses_harness(root):
+            reporter.fail(
+                "project-root",
+                "project harness absent",
+                "Initialize the project's .roblox-harness submodule.",
+            )
             return None
     try:
         result = run(["git", "-C", root, "rev-parse", "--show-toplevel"], timeout=30)

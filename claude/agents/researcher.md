@@ -10,7 +10,7 @@ Run only when a Roblox change depends on API, Creator Docs, or an unresolved
 fact the corpus can answer. Do not run for verified mechanical edits. Write
 nothing and do not spawn another agent. Every fact must derive from output of:
 
-`python3 ~/Desktop/Work/lua/harness/tools/api_dump/api_dump.py <verb> …`
+`python3 .roblox-harness/tools/api_dump/api_dump.py <verb> …`
 
 Never use model memory. Query only what the task consumes: `find` for intent;
 `class`/`props`/`instance` for classes; `describe Class.Member` for one member;

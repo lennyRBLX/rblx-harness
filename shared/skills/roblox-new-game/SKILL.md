@@ -1,26 +1,15 @@
 ---
 name: roblox-new-game
-description: Conducts the blocking design interview and deterministically scaffolds a harness-managed Roblox game with Claude Code and Codex integration. Use when starting a Roblox project or re-interviewing an existing game for a milestone; do not use for routine feature changes.
+description: Conducts a gameplay-loop-first file-shaping interview, then obtains consent to install the GitHub-hosted rblx-harness dependency, installs its project integration, and deterministically scaffolds a Roblox game. Use when starting a Roblox project; do not use for routine feature changes.
 ---
 
-# roblox-new-game — interview, scaffold, consume
+# roblox-new-game — interview and scaffold
 
-A game that cannot state its core loop does not get a codebase [R DES3].
-Bootstrap plus three phases; never skip to the scaffold, never invent answers.
+Three ordered phases; never skip to the scaffold or invent file-shaping
+decisions.
 
 Resolve `<SKILL_DIR>` as the real directory that contains this `SKILL.md`.
 Run the bundled scaffolder from `<SKILL_DIR>/scripts/scaffold.py`.
-
-Install or repair the exact user Codex permission profile with:
-
-```bash
-python3 <SKILL_DIR>/scripts/scaffold.py install-profile
-```
-
-The installer preserves unrelated Codex settings. When it changes the active
-profile or discovered hooks, select `Roblox`, review the changed hooks, and
-retry host discovery in the current task. Record changed hooks for integration
-maintenance. Exact bytes need no retry.
 
 `answer`, `emit`, and `backfill` require the empty `.roblox` sentinel and the
 schema-3 authorization created by a successful documented host
@@ -29,88 +18,117 @@ schema-3 authorization created by a successful documented host
 `BLOCKED|PERMISSIONS_HARNESS`, do not write interview state, project files,
 generated cache, Studio, or patches. The human must trust the project, review
 and approve the hooks, then install and select Roblox. Retry `SessionStart` in
-the current task; an approval prompt does not satisfy this prerequisite.
+the current task; an approval prompt does not satisfy this prerequisite. The
+conversational interview is permitted before authorization; recording its
+answers is not.
 
-## Phase 0 — marker and authorization bootstrap
+## Phase 0 — the interview
 
-Create the project directory explicitly, then run:
+Accept every explicit answer the user already supplied. Questions may be batched;
+re-ask only missing or contradictory file-shaping fields.
+
+Start by obtaining the gameplay loop unless the user already supplied it: ask
+what players are doing in the current test. Treat that loop as temporary
+proposal context: do not record it in criteria or runtime instructions, and do
+not make it a future-agent constraint.
+
+Before asking any remaining file-shaping question, derive a concrete proposed
+answer from that loop and include it as an example in the question. Give a
+separate loop-derived example for places, Services, and Controllers when
+batching questions. Adapt names and scopes to the supplied loop; do not reuse a
+stock example. The examples are proposals only. Accept a field after the user
+explicitly confirms or replaces its proposal.
+
+Propose the smallest stable mechanic seams as Services and Controllers. Keep
+each accepted answer in the current conversation; do not run
+`scaffold.py answer` yet.
+
+The blocking set (flag — file effect — question):
+
+1. `places` — creates one place tree and Argon project per name — which
+   places should exist now? Include a loop-derived example using
+   comma-separated safe names.
+2. `services` — creates the confirmed keystone service modules — which
+   shared and place-scoped Services should exist? Include a loop-derived
+   example using `shared: Name; Place: Name`, or propose `none`. PlayerData,
+   Payments, Updates, and Effects already ship as prescribed services.
+3. `controllers` — creates the confirmed keystone controller modules — which
+   shared and place-scoped Controllers should exist? Include a separate
+   loop-derived example using the same scoped format, or propose `none`.
+   Effects, Gui, and Updates already ship as prescribed controllers.
+
+Do not ask for a target or final build stage, roadmap, fixed player count,
+device, replication plan, data shape, GUI ownership, remote surface, camera,
+rig or animation-conversion choice, or streaming choice during this scaffold.
+Those decisions belong to the feature work that consumes them.
+
+GUI responsibility is fixed, not interviewed: agents may write GUI code,
+humans create GUI instances, and agents inspect those instances through the
+Studio MCP.
+
+After the gameplay loop, obtain every missing file-shaping answer. Also obtain
+the project name and destination directory if they were not supplied and cannot
+be inferred safely. Do not start installation or integration before the entire
+interview is complete.
+
+## Phase 1 — harness consent and integration
+
+Create the project directory explicitly after the interview. Run the setup
+tool once without `--yes` and without supplying terminal input:
 
 ```bash
-python3 <SKILL_DIR>/scripts/scaffold.py bootstrap --root <dir>
-python3 <SKILL_DIR>/scripts/scaffold.py relink --root <dir>
+python3 <SKILL_DIR>/scripts/dependency.py setup --root <dir>
 ```
 
-`bootstrap` is the marker-only exception: it creates exactly one empty
-root-level `.roblox` regular file and refuses to create the root or overwrite
-any other sentinel shape. It writes no interview state, source, integration,
-or authorization. `relink` is the deterministic integration exception. It
-installs or repairs the static profile and generated hook integration, but it
-never writes runtime authorization. Select `Roblox`, review changed hooks,
-retry host discovery, and continue after current-task authorization succeeds.
-No interview or scaffold write is permitted before authorization.
+The tool returns `CONSENT_REQUIRED` with the exact question beginning
+`Do you want to install rblx-harness?` and makes no change. Ask the user that
+question and stop. Do not infer consent from the new-game request or interview
+answers, and do not pipe or synthesize an answer. After an explicit yes, run:
 
-## Phase 1 — the interview
+```bash
+python3 <SKILL_DIR>/scripts/dependency.py setup --root <dir> --yes
+```
 
-Accept every solid answer the user already supplied. Questions may be batched;
-re-ask only fields that are missing or contradictory. An answer that does not
-state verb-object-reward (question 1) is rejected at the question. Record each
-accepted field separately, including fields supplied together:
+The approved setup verifies Git, verifies an authenticated GitHub CLI session,
+and confirms access to `lennyRBLX/rblx-harness`. It initializes the project Git
+repository only when absent, creates the empty `.roblox` marker only when
+absent, adds `https://github.com/lennyRBLX/rblx-harness.git` as the
+`.roblox-harness` submodule, and clones it locally. It then runs the cloned
+harness's canonical relinker. Hooks are installed into the project integration;
+gates remain at `.roblox-harness/shared/gates`; rules remain at
+`.roblox-harness/shared/CORE.md`. The GitHub credential helper is configured in
+the project and dependency repositories only, never globally.
+
+When setup reports changed profile or hook discovery, select `Roblox`, review
+the changed hooks, retry host discovery in the current task, and continue after
+current-task authorization succeeds. Exact bytes need no retry. Setup never
+creates runtime authorization. No interview-state or scaffold write is
+permitted before authorization.
+
+## Phase 2 — record and scaffold
+
+After current-task authorization succeeds, record every accepted file-shaping
+answer separately, including fields supplied together. Do not repeat the
+interview:
 
 ```bash
 python3 <SKILL_DIR>/scripts/scaffold.py answer <flag> "<text>" --root <dir>
 ```
 
-The blocking set (flag — question):
-
-1. `core_loop` — the scoped core loop, one testable verb-object-reward
-   statement. "Explore and have fun" is refusal-grade.
-2. `services` — the 3–5 seed services the loop needs. Prefer bare feature
-   nouns such as `Runs` and `Loot`; a `Service` or `Controller` suffix is a
-   WRIT10 naming advisory, not a refusal. PlayerData, Payments, and Updates
-   ship as prescribed templates regardless.
-3. `device` — target device & bandwidth: the weakest device served, the
-   project's prime lens.
-4. `replication` — replication picks per state class: Folders + ValueObjects
-   (shared) · Exclusive (per-player) · remotes (events). State explicitly
-   whether generated or streamed world geometry exists. If it does, settle
-   server authority and the seed/chunk/layer replication model; otherwise say
-   that the shipped world is static or hand-built.
-5. `data_shape` — the persistent template's top-level shape, the Development
-   fixture's filled values, and why each state is persistent or intentionally
-   session-only. Use an explicit `reason:` or `because` clause. An empty
-   persistent shape is still an explicit decision, for example
-   `no persistent data because rounds reset; Development={}`.
-6. `gui_ownership` — which humans own which GUI. Agents never hand-write GUI.
-7. `security` — which remotes exist, what the client may trigger, and which
-   side owns final validation and authority. Prefer bare-intent remote names;
-   `Request<X>` is a WRIT11 naming advisory, not a refusal. Keep one remote per
-   action family.
-8. `place_map` — each place the game ships, its services and controllers,
-   what carries over. Use one `Place: services ..., controllers ..., carry
-   ...` clause per place; separate places with a newline or semicolon. Staging
-   is free.
-9. `camera` — camera perspective per place (e.g. `Lobby=3rd,Game=1st`).
-   Client-controller logic, never a CameraMode pin.
-10. `rig` — R6, R15, or R15-R6. R15-R6 vendors the AnimationConverter and
-    records the animation-import gate.
-11. `streaming` — `on`, or `off: <explicit reasoning>`. The opt-out is
-    harshly gated: challenge any mismatch with question 3 until the
-    reasoning survives.
-
-## Phase 2 — the scaffold
-
 ```bash
 python3 <SKILL_DIR>/scripts/scaffold.py emit --root <dir> --name <ProjectName>
 ```
 
-The scaffolder refuses to emit until the criteria file is complete and names
-the unanswered items — re-ask exactly those. On success it preserves the
-pre-authorized empty root-level `.roblox` managed-project sentinel and emits
-the tree,
+The scaffolder refuses to emit until the three file-shaping fields are complete
+and names the unanswered items — re-ask exactly those. On success it preserves
+the pre-authorized empty root-level `.roblox` managed-project sentinel and
+emits the tree,
 both runtime instruction files — CLAUDE.md (Claude Code: import + two
 blocks) and AGENTS.md (Codex/ChatGPT: reads CORE.md + CODEX.md, same two
-blocks) — one Argon project per place, the gitignores, the `.claude/` links
-and settings, the museum links, and the prescribed service templates.
+blocks) — one Argon project per place, confirmed keystone module files, the
+gitignores, the `.claude/` links and settings, the museum links, and the
+prescribed service templates. The runtime summary records only the confirmed
+keystone architecture, never the temporary gameplay loop.
 
 The two entries are named children — `ServerScriptService/Server.server.luau`
 and `StarterPlayerScripts/Client.client.luau` — never `init.server.luau` or
@@ -135,27 +153,27 @@ exists. Argon emits a duplicate rather than merging a declared child into a
 project-file nesting. A child that more than one place wants is not a place
 child: it belongs in `<game>/shared/` like anything else shared.
 
-## Phase 3 — consume
-
 The criteria file is deleted when the scaffold lands. Nothing reads it
-afterward; the durable output is CLAUDE.md's summary line. Growth is a
-re-interview, not a stored plan:
-
-```bash
-python3 <SKILL_DIR>/scripts/scaffold.py emit --root <dir> --name <ProjectName> --milestone
-```
-
-re-runs the blocking set against what the game now is and rewrites the
-summary. A 1.0 → 2.0 step runs it; so does a playtest that kills a mechanic.
+afterward. Playtests, temporary Free-for-All slices, mechanics such as Double
+Jump, mode changes, and changes to player count are ordinary feature work.
+They may add, retain, or remove Services and Controllers without a stage,
+milestone, final-build path, or new-game re-interview.
 
 ## Repairs
 
 From the project root, run:
 
 ```bash
-python3 ../harness/openai/setup/permissions_harness.py --relink
+python3 .roblox-harness/openai/setup/permissions_harness.py --relink
 ```
 
 re-creates `.claude/agents/`, `.claude/skills/`, the settings hook block, and
-the Codex integration from harness/'s canonical form. It never writes project
-Git metadata.
+the Codex integration from `.roblox-harness`'s canonical form. It never writes
+project Git metadata.
+
+After cloning an existing project, initialize the dependency before relinking:
+
+```bash
+python3 <SKILL_DIR>/scripts/dependency.py init --root <dir>
+python3 .roblox-harness/openai/setup/permissions_harness.py --relink
+```

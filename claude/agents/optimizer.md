@@ -21,9 +21,9 @@ events, unbounded tasks/coroutines, repeated lookup, hot-loop APIs, avoidable
 traversal, lifecycle errors, replication cost, and Roblox-specific practices.
 
 For a capture, run
-`python3 ~/Desktop/Work/lua/harness/tools/frame_census/frame_census.py <stem>`
+`python3 .roblox-harness/tools/frame_census/frame_census.py <stem>`
 before attribution. For Luau stacks run
-`python3 ~/Desktop/Work/lua/harness/tools/luau_hotspot/luau_hotspot.py --emit-harness`,
+`python3 .roblox-harness/tools/luau_hotspot/luau_hotspot.py --emit-harness`,
 then `--from-json`; use `map_census` for instance thresholds. Malformed
 capture or tool exit 3 is `ENV`. Attribute measurements as script-, GPU-, render-, or lock-bound; never
 rank idle. Measured improvement requires human confirmation and comparable

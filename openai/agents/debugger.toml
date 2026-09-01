@@ -16,7 +16,7 @@ Run in order; wait for required human evidence:
 
 1. Read the report, affected code, `git diff HEAD`, and surviving tests.
 2. Reproduce or discriminate. Create a skeleton with
-   `python3 ~/Desktop/Work/lua/harness/tools/create_boilerplate/create_boilerplate.py --test Fix.<Name> --place <Place> --side server`;
+   `python3 .roblox-harness/tools/create_boilerplate/create_boilerplate.py --test Fix.<Name> --place <Place> --side server`;
    complete what, use, delete-when, ENABLED, and Studio-gate fields.
 3. Use `LIVE.<Name>` only after human staging approval; never as a joinable
    production place.

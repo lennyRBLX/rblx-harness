@@ -122,12 +122,12 @@ def _powershell_quote(value):
     return "'" + str(value).replace("'", "''") + "'"
 
 
-def _codex_windows_command(command, python_executable, harness_is_project_sibling=True):
+def _codex_windows_command(command, python_executable, project_local_harness=True):
     match = re.search(r"(--host codex --event [A-Za-z]+(?: --hook-scope project)?)$", command)
     if not match:
         raise RuntimeError("canonical Codex hook command is unsupported: %s" % command)
-    root = "(Split-Path -Parent $root)" if harness_is_project_sibling else "$root"
-    script = "harness\\openai\\hooks\\adapter.py" if harness_is_project_sibling else "shared\\gates\\harness_gate.py"
+    root = "$root"
+    script = ".roblox-harness\\openai\\hooks\\adapter.py" if project_local_harness else "shared\\gates\\harness_gate.py"
     return (
         "powershell.exe -NoProfile -Command \"$root = git rev-parse --show-toplevel; "
         "& %s -B (Join-Path %s '%s') %s\""
@@ -135,7 +135,7 @@ def _codex_windows_command(command, python_executable, harness_is_project_siblin
     )
 
 
-def _render_hook_document(path, host, python_executable, harness_is_project_sibling=True):
+def _render_hook_document(path, host, python_executable, project_local_harness=True):
     document = _load_json(path)
     hooks = document.get("hooks")
     if not isinstance(hooks, dict):
@@ -148,7 +148,7 @@ def _render_hook_document(path, host, python_executable, harness_is_project_sibl
                 if isinstance(handler, dict) and handler.get("type") == "command":
                     if host == "codex":
                         handler["commandWindows"] = _codex_windows_command(
-                            str(handler.get("command", "")), python_executable, harness_is_project_sibling
+                            str(handler.get("command", "")), python_executable, project_local_harness
                         )
                     else:
                         args = handler.get("args")
@@ -171,9 +171,9 @@ def render_windows_project(source_harness, runtime_harness, project, python_exec
     if not ntpath.isabs(python_executable):
         python_executable = os.path.abspath(python_executable)
 
-    sibling = os.path.join(os.path.dirname(project), "harness")
-    if os.path.realpath(sibling) != os.path.realpath(source_harness):
-        raise RuntimeError("%s must be beside harness" % project)
+    local_harness = os.path.join(project, gatelib.PROJECT_HARNESS_DIR)
+    if os.path.realpath(local_harness) != os.path.realpath(source_harness):
+        raise RuntimeError("%s must use this .roblox-harness checkout" % project)
 
     codex_hooks = _render_hook_document(
         os.path.join(source_harness, "openai", "hooks", "project.json"),
@@ -223,8 +223,8 @@ def render_windows_project(source_harness, runtime_harness, project, python_exec
         % (
             _toml_string(python_executable),
             _toml_string("-B"),
-            _toml_string("../harness/tools/studio_mcp_launcher.py"),
-            _toml_string(".."),
+            _toml_string(".roblox-harness/tools/studio_mcp_launcher.py"),
+            _toml_string("."),
         )
     )
     config_path = os.path.join(codex_dir, "config.toml")
@@ -249,7 +249,7 @@ def render_windows_harness(source_harness, python_executable=None):
         codex_path,
         "codex",
         python_executable,
-        harness_is_project_sibling=False,
+        project_local_harness=False,
     )
     codex_changed = _atomic_text(codex_path, json.dumps(codex_hooks, indent=1, ensure_ascii=False) + "\n")
     claude_path = os.path.join(source_harness, ".claude", "settings.json")
@@ -258,7 +258,7 @@ def render_windows_harness(source_harness, python_executable=None):
         claude_path,
         "claude",
         python_executable,
-        harness_is_project_sibling=False,
+        project_local_harness=False,
     )
     claude_hooks_changed = existing_claude.get("hooks") != claude_hooks.get("hooks")
     claude_changed = _atomic_text(claude_path, json.dumps(claude_hooks, indent=1, ensure_ascii=False) + "\n")
@@ -313,7 +313,10 @@ def main(argv=None):
     profile_ok, detail = gatelib.permissions_harness()
     if not profile_ok:
         raise RuntimeError("Roblox permission profile is not exact: %s" % detail)
-    hooks_changed, discovery_changed = render_windows_harness(source_harness)
+    hooks_changed = False
+    discovery_changed = False
+    if not projects:
+        hooks_changed, discovery_changed = render_windows_harness(source_harness)
     for project in projects:
         if not gatelib.is_roblox_project(project):
             raise RuntimeError("%s has no root .roblox sentinel" % project)

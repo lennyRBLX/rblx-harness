@@ -66,7 +66,7 @@ def same_turn_evidence(cwd, session_id, handoff_path):
         changed = {
             path.replace(os.sep, "/")
             for path in gatelib.changed_paths_since_turn(cwd, turn)
-            if path.replace(os.sep, "/") != "handoff.md"
+            if path.replace(os.sep, "/") != gatelib.HANDOFF_RELATIVE
         }
     except OSError:
         changed = set()
@@ -112,8 +112,9 @@ def normalize_handoff(path, session_id, cwd=None):
     if facts.get("session") != current_session:
         facts = {}
     facts["session"] = current_session
-    derived = derived_handoff(cwd or os.path.dirname(path), session_id)
-    evidence = same_turn_evidence(cwd or os.path.dirname(path), session_id, path)
+    project_root = cwd or os.path.dirname(os.path.dirname(os.path.abspath(path)))
+    derived = derived_handoff(project_root, session_id)
+    evidence = same_turn_evidence(project_root, session_id, path)
     for field in HANDOFF_FIELDS[1:]:
         existing = facts.get(field, "void")
         if not valid_handoff_fact(field, existing, evidence):
@@ -146,7 +147,7 @@ def main(argv=None):
             "0|0|GATE7|session identity absent|start a new session before compacting\n"
         )
         return 2
-    handoff = os.path.join(cwd, "handoff.md")
+    handoff = os.path.join(cwd, gatelib.HANDOFF_RELATIVE)
     try:
         content = normalize_handoff(handoff, session_id, cwd)
     except (OSError, UnicodeError) as error:

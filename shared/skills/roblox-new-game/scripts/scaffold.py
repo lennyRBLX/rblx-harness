@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""roblox-new-game scaffolder — refuses to emit until the criteria file is
-complete, and names the unanswered items so the skill re-asks exactly those.
-The criteria file is consumed when the scaffold lands.
+"""roblox-new-game scaffolder — refuses to emit until the file-shaping
+criteria are complete, and names the unanswered items so the skill re-asks
+exactly those. The criteria file is consumed when the scaffold lands.
 
   scaffold.py answer <flag> <text> --root DIR     record an accepted answer
   scaffold.py status --root DIR                   answered / missing
   scaffold.py bootstrap --root DIR                create only the empty .roblox
                                                   managed-project sentinel
-  scaffold.py emit --root DIR --name NAME [--milestone]
+  scaffold.py emit --root DIR --name NAME
   scaffold.py relink --root DIR                   instructions + links + settings
   scaffold.py refresh-instructions --root DIR     refresh CLAUDE.md + AGENTS.md
   scaffold.py install-profile                     user Codex profile bootstrap
@@ -35,10 +35,10 @@ def resolve_harness(skill_dir, argv=None, cwd=None):
     except (ValueError, IndexError):
         project_root = ""
     if project_root:
-        candidates.append(os.path.join(os.path.dirname(project_root), "harness"))
+        candidates.append(os.path.join(project_root, ".roblox-harness"))
     current = cwd
     while True:
-        candidates.extend((current, os.path.join(current, "harness")))
+        candidates.extend((current, os.path.join(current, ".roblox-harness")))
         parent = os.path.dirname(current)
         if parent == current:
             break
@@ -47,7 +47,7 @@ def resolve_harness(skill_dir, argv=None, cwd=None):
         root = os.path.realpath(candidate)
         if os.path.isfile(os.path.join(root, "shared", "gates", "gatelib.py")):
             return root
-    raise RuntimeError("sibling harness checkout could not be resolved")
+    raise RuntimeError("project-local .roblox-harness checkout could not be resolved")
 
 
 SKILL_DIR = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
@@ -56,11 +56,13 @@ PACKAGES = os.path.join(HARNESS, "packages")
 MUSEUM_SKIP = {".DS_Store", "README.md", ".luaurc", ".gitignore"}
 sys.path.insert(0, os.path.join(HARNESS, "shared", "gates"))
 import gatelib  # noqa: E402
+sys.path.insert(0, os.path.join(HARNESS, "tools", "create_boilerplate"))
+import create_boilerplate  # noqa: E402
 
 # museum canon that lives OUTSIDE the two fully-linked roots. Everything else
 # under Services/ and Controllers/ is a project-owned byte-copy, but these are
 # prescribed whole — the project supplies the handlers, never the driver — so
-# they link back to harness/ per file and a fix lands in every project at once.
+# they link back to the project's .roblox-harness checkout per file.
 # The root itself stays project code: no nocheck .luaurc, and the generated
 # .gitignore names only the linked file.
 MUSEUM_ITEMS = ("ServerScriptService/Services/Effects.luau",)
@@ -73,58 +75,14 @@ MUSEUM_ITEMS = ("ServerScriptService/Services/Effects.luau",)
 PLACE_CHILD_ROOTS = ("Effects", "Gui", "Updates")
 
 BLOCKING_SET = {
-    "core_loop": "1. scoped core loop (one testable verb-object-reward statement)",
-    "services": "2. seed service list (3-5 feature names)",
-    "device": "3. target device & bandwidth (the prime lens)",
-    "replication": "4. replication picks per state class + generated-world decision",
-    "data_shape": "5. data shape + Development fixture + persistence reasoning",
-    "gui_ownership": "6. GUI ownership split",
-    "security": "7. security surface (remotes + client triggers + server authority)",
-    "place_map": "8. place map (each place, what carries over)",
-    "camera": "9. camera perspective per place",
-    "rig": "10. avatar rig - R6, R15, or R15-R6",
-    "streaming": "11. streaming - 'on', or 'off: <explicit reasoning>'",
+    "places": "1. initial place names",
+    "services": "2. scoped keystone service modules",
+    "controllers": "3. scoped keystone controller modules",
 }
 
-CORE_SUBJECTS = {"a", "the", "player", "players", "user", "users", "you"}
-CORE_VAGUE_VERBS = {"be", "do", "enjoy", "have", "make", "play"}
-CORE_CONNECTORS = {
-    "a",
-    "an",
-    "and",
-    "as",
-    "at",
-    "by",
-    "for",
-    "from",
-    "in",
-    "into",
-    "of",
-    "on",
-    "or",
-    "the",
-    "then",
-    "through",
-    "to",
-    "with",
-}
-REWARD_VERBS = {"collect", "earn", "gain", "get", "obtain", "receive", "score", "unlock", "win"}
-REWARD_NOUNS = {
-    "coin",
-    "coins",
-    "currency",
-    "gear",
-    "gold",
-    "loot",
-    "point",
-    "points",
-    "progress",
-    "rank",
-    "reward",
-    "rewards",
-    "trophy",
-    "trophies",
-    "xp",
+PRESCRIBED_COMPONENTS = {
+    "services": {"effects", "payments", "playerdata", "updates"},
+    "controllers": {"effects", "gui", "updates"},
 }
 PLACEHOLDER_PATTERNS = (
     r"\btbd\b",
@@ -147,27 +105,7 @@ PLACEHOLDER_PATTERNS = (
     r"\b(?:sample|example|test) answer\b",
     r"\bn/?a\b",
 )
-DEVICE_RE = re.compile(
-    r"\b(?:android|ios|iphone|ipad|mobile|phone|tablet|pc|desktop|windows|mac|console|xbox|playstation|low[- ]end|high[- ]end)\b",
-    re.IGNORECASE,
-)
-BANDWIDTH_RE = re.compile(
-    r"(?:\b\d+(?:\.\d+)?\s*(?:k|m|g)(?:bit/s|bps)\b|\b(?:2g|3g|4g|5g|lte|dial[- ]up)\b|"
-    r"\b(?:slow|limited|low[- ]bandwidth|high[- ]latency)\s+(?:wifi|wi-fi|network|connection|cellular|bandwidth)\b)",
-    re.IGNORECASE,
-)
-CAMERA_PERSPECTIVE_RE = re.compile(
-    r"\b(?:1st|first[- ]person|3rd|third[- ]person|fixed|top[- ]down|isometric|side[- ]view|over[- ]the[- ]shoulder|orbit)\b",
-    re.IGNORECASE,
-)
-PLACE_RESERVED_NAMES = {
-    "carry",
-    "carryover",
-    "controllers",
-    "development",
-    "playerdata",
-    "services",
-}
+COMPONENT_RE = re.compile(r"^[A-Za-z][A-Za-z0-9]*$")
 
 
 def permission_preflight(root):
@@ -219,13 +157,13 @@ GITIGNORE = """.claude/agents/
 .claude/settings.local.json
 .codex/agents/
 .agents/skills/
-handoff.md
+%s
 gates/
 .DS_Store
 tests/**
 !tests/**/
 !tests/**/.gitkeep
-"""
+""" % gatelib.HANDOFF_RELATIVE
 
 SERVER_ENTRY = """local ServerScriptService = game:GetService("ServerScriptService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -373,229 +311,78 @@ def load_criteria(root):
         return {}
 
 
-def words(text):
-    return [word.casefold() for word in re.findall(r"[A-Za-z][A-Za-z'-]*", text)]
-
-
 def placeholder_decision(text):
     low = " ".join(text.casefold().split())
     return not low or any(re.search(pattern, low) for pattern in PLACEHOLDER_PATTERNS)
 
 
-def substantive_reason(text):
-    return not placeholder_decision(text) and len(words(text)) >= 4
+def place_names(text):
+    return [name.strip() for name in re.split(r"[,;\n]+", text) if name.strip()]
 
 
-def camera_mappings(text):
-    return [
-        (match.group(1), match.group(2).strip())
-        for match in re.finditer(r"\b([A-Za-z][A-Za-z0-9]*)\s*=\s*([^,;\n]+)", text)
-    ]
-
-
-def place_clauses(text):
-    """Return ``Place: details`` clauses without treating detail nouns as places."""
-    matches = [
-        match
-        for match in re.finditer(r"(?:^|[;\n])\s*([A-Za-z][A-Za-z0-9]*)\s*:", text)
-        if match.group(1).casefold() not in PLACE_RESERVED_NAMES
-    ]
-    clauses = []
-    for index, match in enumerate(matches):
-        end = matches[index + 1].start() if index + 1 < len(matches) else len(text)
-        clauses.append((match.group(1), text[match.end() : end].strip(" ;\n")))
-    return clauses
-
-
-def core_loop_error(text):
-    tokens = words(text)
-    if len(tokens) < 3:
-        return "state one concrete verb-object-reward loop"
-    index = 0
-    while index < len(tokens) and tokens[index] in CORE_SUBJECTS:
-        index += 1
-    if index < len(tokens) and tokens[index] == "to":
-        index += 1
-    if index >= len(tokens) or tokens[index] in CORE_VAGUE_VERBS:
-        return "state a concrete action verb, its object, and the earned reward"
-
-    reward_indexes = [i for i in range(index, len(tokens)) if tokens[i] in REWARD_VERBS]
-    reward_index = reward_indexes[0] if reward_indexes else None
-    action_end = reward_index if reward_index is not None and reward_index > index else len(tokens)
-    action_objects = [token for token in tokens[index + 1 : action_end] if token not in CORE_CONNECTORS]
-    if reward_index == index:
-        action_objects = [token for token in tokens[index + 1 :] if token not in CORE_CONNECTORS]
-    if not action_objects:
-        return "state what the player acts on, not only an activity"
-
-    if reward_index is not None:
-        reward_objects = [token for token in tokens[reward_index + 1 :] if token not in CORE_CONNECTORS]
-        if reward_objects:
-            return ""
-    if any(token in REWARD_NOUNS for token in tokens[index + 1 :]):
-        return ""
-    return "state the concrete reward the loop earns or unlocks"
-
-
-def service_names(text):
-    if re.search(r"[,;\n]", text):
-        return [name.strip() for name in re.split(r"[,;\n]+", text) if name.strip()]
-    return [name for name in text.split() if name]
+def scoped_components(text):
+    """Parse ``shared: A, B; Place: C`` into ordered scope/name pairs."""
+    if text.strip().casefold() == "none":
+        return [], []
+    parsed = []
+    errors = []
+    for clause in (item.strip() for item in re.split(r"[;\n]+", text) if item.strip()):
+        if ":" not in clause:
+            errors.append("use '<scope>: Name, Name' clauses, or 'none'")
+            continue
+        scope, raw_names = (part.strip() for part in clause.split(":", 1))
+        names = [name.strip() for name in raw_names.split(",") if name.strip()]
+        if not COMPONENT_RE.fullmatch(scope):
+            errors.append("%s: scope must be one safe place name or shared" % (scope or "<empty>"))
+        if not names:
+            errors.append("%s: name at least one module" % (scope or "<empty>"))
+        for name in names:
+            if not COMPONENT_RE.fullmatch(name):
+                errors.append("%s: module names use letters and digits and begin with a letter" % name)
+        parsed.append((scope, names))
+    scopes = [scope.casefold() for scope, _ in parsed]
+    duplicates = sorted({scope for scope in scopes if scopes.count(scope) > 1})
+    if duplicates:
+        errors.append("name each scope once: %s" % ", ".join(duplicates))
+    return parsed, errors
 
 
 def validation_result(flag, text):
     """Return hard semantic errors and naming advisories for one answer."""
     errors = []
     warnings = []
-    low = " ".join(text.casefold().split())
 
     if placeholder_decision(text):
         return ["replace filler or placeholder text with an explicit project decision"], warnings
 
-    if flag == "core_loop":
-        error = core_loop_error(text)
-        if error:
-            errors.append(error + "; example: dodge hazards, survive rounds, earn coins")
-    elif flag == "services":
-        names = service_names(text)
-        if not 3 <= len(names) <= 5:
-            errors.append("name 3-5 seed services")
-        if len({name.casefold() for name in names}) != len(names):
-            errors.append("seed service names must be distinct")
+    if flag == "places":
+        names = place_names(text)
+        if not names:
+            errors.append("name at least one initial place")
         for name in names:
-            if not re.fullmatch(r"[A-Za-z][A-Za-z0-9]*(?:[ _-][A-Za-z0-9]+)*", name):
-                errors.append("%s: use a concrete feature name made from words" % name)
-                continue
-            if re.search(r"(?:Service|Controller)$", name, re.IGNORECASE):
-                bare = re.sub(r"(?:Service|Controller)$", "", name, flags=re.IGNORECASE) or "feature"
-                warnings.append("WRIT10|%s|prefer the bare feature noun %s" % (name, bare))
-    elif flag == "device":
-        if not DEVICE_RE.search(text):
-            errors.append("name the weakest target device or platform")
-        if not BANDWIDTH_RE.search(text):
-            errors.append("state a concrete or bounded target bandwidth, such as 3G or 1 Mbps")
-    elif flag == "replication":
-        shared = ("shared" in low or "global" in low) and "folder" in low and (
-            "valueobject" in low or "value object" in low
-        )
-        per_player = ("per-player" in low or "per player" in low) and "exclusive" in low
-        events = ("event" in low or "action" in low) and "remote" in low
-        if not shared or not per_player or not events:
-            errors.append("map shared state to Folders + ValueObjects, per-player state to Exclusive, and events to remotes")
-
-        no_generated_world = bool(
-            re.search(r"\bno (?:generated|procedural|streamed)\b", low)
-            or re.search(r"\b(?:generated|procedural|streamed)(?: world| geometry)?\s*[:=]\s*(?:none|no|off)\b", low)
-            or "hand-built" in low
-            or "hand built" in low
-            or "static world" in low
-        )
-        generated_world = any(term in low for term in ("generated world", "procedural world", "streamed geometry"))
-        if not no_generated_world and not generated_world:
-            errors.append("state the generated-world decision: static/hand-built, or the generated/streamed model")
-        elif generated_world and not no_generated_world:
-            if "server" not in low and "authority" not in low:
-                errors.append("state authority for generated or streamed world geometry")
-            if not any(term in low for term in ("chunk", "geometry", "layer", "model", "seed", "tile")):
-                errors.append("state the seed/chunk/layer model for generated or streamed world geometry")
-    elif flag == "data_shape":
-        persistence = any(
-            term in low
-            for term in ("persist", "save", "session-only", "session only", "ephemeral", "no data")
-        )
-        reason = "because" in low or bool(re.search(r"\breason\s*:", low))
-        fixture = bool(re.search(r"\b(?:development|dev(?:elopment)? fixture|fixture)\b", low))
-        filled_fixture = fixture and bool(re.search(r"(?:=|\{|\[)", text))
-        if not persistence:
-            errors.append("state which data persists or is session-only")
-        if not reason:
-            errors.append("give explicit persistence reasoning with 'because' or 'reason:'")
-        if not filled_fixture:
-            errors.append("include a filled Development fixture")
-    elif flag == "security":
-        remote_decision = "remote" in low
-        client_decision = "client" in low and any(
-            term in low for term in ("can ", "may ", "send", "trigger", "request", "none")
-        )
-        authority = bool(
-            re.search(r"\bauthority\s*:\s*server\b", low)
-            or re.search(r"\bserver[- ]authoritative\b", low)
-            or re.search(r"\bserver\b.{0,32}\b(?:authorizes|decides|owns|validates)\b", low)
-        )
-        if not remote_decision:
-            errors.append("name the remotes, or explicitly state that there are no client remotes")
-        if not client_decision:
-            errors.append("state what the client may trigger")
-        if not authority:
-            errors.append("state server validation authority explicitly")
-        for request_name in re.findall(r"\bRequest[A-Z][A-Za-z0-9]*\b", text):
-            warnings.append("WRIT11|%s|prefer a bare-intent remote name" % request_name)
-    elif flag == "gui_ownership":
-        no_gui = bool(re.search(r"\bno (?:shipped )?gui\b", low))
-        if no_gui:
-            reason_parts = re.split(r"\bbecause\b", text, maxsplit=1, flags=re.IGNORECASE)
-            reason = reason_parts[1] if len(reason_parts) == 2 else ""
-            if not substantive_reason(reason):
-                errors.append("give explicit reasoning when no GUI ships")
-        elif re.search(r"\b(?:agent|assistant|automation|ai|codex|claude)\b", low):
-            errors.append("assign GUI ownership to a human, not an agent")
-        elif not (
-            re.search(r"\b(?:owner|owns|owned by|human|designer|developer|team)\b", low)
-            or re.fullmatch(r"[A-Z][A-Za-z'-]+(?:\s+[A-Z][A-Za-z'-]+)*", text)
-            or re.search(r"\b[A-Z][A-Za-z'-]+\s*:", text)
-        ):
-            errors.append("name which human owns each GUI surface")
-    elif flag == "place_map":
-        clauses = place_clauses(text)
-        if not clauses:
-            errors.append("replace the placeholder with at least one 'Place: ...' decision")
-        malformed_headers = []
-        for match in re.finditer(r"\b([A-Za-z][A-Za-z0-9]*)\s*:", text):
-            name = match.group(1)
-            if name.casefold() in PLACE_RESERVED_NAMES:
-                continue
-            prefix = text[: match.start(1)]
-            if re.search(r"(?:^|[;\n])\s*$", prefix):
-                continue
-            malformed_headers.append(name.casefold())
-        if malformed_headers:
-            errors.append(
-                "separate place clauses with a semicolon or newline: %s"
-                % ", ".join(sorted(set(malformed_headers)))
-            )
-        clause_names = [place.casefold() for place, _ in clauses]
-        duplicates = sorted(
-            {place for place in clause_names if clause_names.count(place) > 1}
-        )
+            if not COMPONENT_RE.fullmatch(name):
+                errors.append("%s: place names use letters and digits and begin with a letter" % name)
+            elif name.casefold() in ("none", "shared"):
+                errors.append("%s: reserved place name" % name)
+        folded = [name.casefold() for name in names]
+        duplicates = sorted({name for name in folded if folded.count(name) > 1})
         if duplicates:
             errors.append("name each place once: %s" % ", ".join(duplicates))
-        for place, detail in clauses:
-            detail_low = detail.casefold()
-            if not re.search(r"\bservices?\b", detail_low):
-                errors.append("%s: name its services" % place)
-            if not re.search(r"\bcontrollers?\b", detail_low):
-                errors.append("%s: name its controllers" % place)
-            if not re.search(r"\b(?:carry|carries|carryover|persist|reset|teleport|none)\b", detail_low):
-                errors.append("%s: state what carries over or explicitly say none" % place)
-    elif flag == "camera":
-        mappings = camera_mappings(text)
-        if not mappings:
-            errors.append("map every place to a concrete camera perspective, for example Main=3rd")
-        mapping_names = [place.casefold() for place, _ in mappings]
-        duplicates = sorted(
-            {place for place in mapping_names if mapping_names.count(place) > 1}
-        )
-        if duplicates:
-            errors.append("map each place once: %s" % ", ".join(duplicates))
-        for place, perspective in mappings:
-            if not CAMERA_PERSPECTIVE_RE.search(perspective):
-                errors.append("%s: use a concrete camera perspective" % place)
-    elif flag == "streaming":
-        reason = text.partition(":")[2].strip() if low.startswith("off:") else ""
-        if low != "on" and not substantive_reason(reason):
-            errors.append("use 'on' or 'off: <substantive explicit reasoning>'")
-    elif flag == "rig" and text not in ("R6", "R15", "R15-R6"):
-        errors.append("use R6, R15, or R15-R6")
+    elif flag in ("services", "controllers"):
+        clauses, syntax_errors = scoped_components(text)
+        errors.extend(syntax_errors)
+        for scope, names in clauses:
+            for name in names:
+                if scope.casefold() == "shared" and name.casefold() in PRESCRIBED_COMPONENTS[flag]:
+                    errors.append("%s: already ships as a prescribed %s" % (name, flag[:-1]))
+                suffix = re.search(r"(?:Service|Controller)$", name, re.IGNORECASE)
+                if suffix:
+                    bare = name[: -len(suffix.group(0))] or "feature"
+                    warnings.append("WRIT10|%s|prefer the bare feature noun %s" % (name, bare))
+            folded = [name.casefold() for name in names]
+            duplicates = sorted({name for name in folded if folded.count(name) > 1})
+            if duplicates:
+                errors.append("%s: name each module once: %s" % (scope, ", ".join(duplicates)))
     return errors, warnings
 
 
@@ -610,15 +397,15 @@ def criteria_validation(criteria):
         if errors:
             invalid[flag] = errors
         warnings.extend((flag, warning) for warning in answer_warnings)
-    places = set(extract_places(criteria.get("place_map", "")))
-    camera_places = {place for place, _ in camera_mappings(criteria.get("camera", ""))}
-    if places and camera_places:
-        missing = sorted(places - camera_places)
-        extra = sorted(camera_places - places)
-        if missing:
-            invalid.setdefault("camera", []).append("camera decision missing for %s" % ", ".join(missing))
-        if extra:
-            invalid.setdefault("camera", []).append("camera decision names unknown place %s" % ", ".join(extra))
+    places = {name.casefold(): name for name in place_names(criteria.get("places", ""))}
+    if places:
+        for flag in ("services", "controllers"):
+            clauses, _ = scoped_components(criteria.get(flag, ""))
+            unknown = sorted(
+                {scope for scope, _ in clauses if scope.casefold() != "shared" and scope.casefold() not in places}
+            )
+            if unknown:
+                invalid.setdefault(flag, []).append("unknown place scope: %s" % ", ".join(unknown))
     return invalid, warnings
 
 
@@ -637,10 +424,16 @@ def cmd_answer(root, flag, text):
         for error in errors:
             print("REFUSED|%s|%s" % (flag, error))
         return 2
-    for warning in warnings:
-        print("ADVISORY|%s|%s" % (flag, warning))
     criteria = load_criteria(root)
     criteria[flag] = text
+    combined_invalid, _ = criteria_validation(criteria)
+    if flag in combined_invalid:
+        for error in combined_invalid[flag]:
+            if error not in errors:
+                print("REFUSED|%s|%s" % (flag, error))
+        return 2
+    for warning in warnings:
+        print("ADVISORY|%s|%s" % (flag, warning))
     os.makedirs(root, exist_ok=True)
     with open(criteria_path(root), "w", encoding="utf-8") as f:
         json.dump(criteria, f, indent=1)
@@ -667,18 +460,31 @@ def cmd_status(root):
     return 0 if not missing and not invalid else 1
 
 
-def extract_places(text):
-    """Return names from validated ``Place: details`` clauses, deduplicated."""
-    names = []
-    for name, _ in place_clauses(text):
-        if name not in names:
-            names.append(name)
-    return names
-
-
 def parse_places(criteria):
-    """Place names from the validated place_map answer."""
-    return extract_places(criteria.get("place_map", ""))
+    """Initial place names from the validated places answer."""
+    return place_names(criteria.get("places", ""))
+
+
+def architecture_summary(criteria):
+    services = " ".join(criteria["services"].split())
+    controllers = " ".join(criteria["controllers"].split())
+    return "Keystone services: %s. Keystone controllers: %s." % (services, controllers)
+
+
+def emit_keystones(root, criteria, places):
+    """Create the confirmed module files through the canonical emitter."""
+    place_lookup = {place.casefold(): place for place in places}
+    for flag, kind in (("services", "service"), ("controllers", "controller")):
+        clauses, _ = scoped_components(criteria[flag])
+        for scope, names in clauses:
+            place = None if scope.casefold() == "shared" else place_lookup[scope.casefold()]
+            for name in names:
+                argv = [kind, name, "--root", root]
+                if place:
+                    argv.extend(("--place", place))
+                if create_boilerplate.main(argv) != 0:
+                    return False
+    return True
 
 
 def place_project(project_name, place):
@@ -732,8 +538,8 @@ def place_project(project_name, place):
 
 def emit_museum_links(shared, copy=False):
     """Per-file, never per-directory — Argon follows file symlinks and drops
-    directory symlinks. Relative, never absolute — sibling repos under one
-    parent. Directory packages are recreated as real dirs with every file
+    directory symlinks. Relative, never absolute. Directory packages are
+    recreated as real dirs with every file
     linked. The generated .gitignore inside each root names exactly the
     museum files, so no symlink is ever committed and Windows has nothing to
     materialize."""
@@ -766,7 +572,7 @@ def emit_museum_links(shared, copy=False):
         with open(os.path.join(dst_root, ".luaurc"), "w", encoding="utf-8") as f:
             f.write('{\n\t"languageMode": "nocheck"\n}\n')
         with open(os.path.join(dst_root, ".gitignore"), "w", encoding="utf-8") as f:
-            f.write("# museum files - delivered by symlink from harness/, never committed\n")
+            f.write("# museum files - delivered by symlink from .roblox-harness/, never committed\n")
             for name in sorted(emitted[rel_root]):
                 f.write(name + "\n")
     return emitted
@@ -797,7 +603,7 @@ def emit_museum_items(shared, copy=False):
         ignores.setdefault(dst_dir, []).append(fn)
     for dst_dir, names in ignores.items():
         with open(os.path.join(dst_dir, ".gitignore"), "w", encoding="utf-8") as f:
-            f.write("# museum files - delivered by symlink from harness/, never committed\n")
+            f.write("# museum files - delivered by symlink from .roblox-harness/, never committed\n")
             for name in sorted(names):
                 f.write(name + "\n")
     return ignores
@@ -829,15 +635,15 @@ def emit_prescribed(shared):
                     shutil.copyfile(os.path.join(dirpath, fn), dst)
 
 
-def sibling_harness(root):
-    candidate = os.path.join(os.path.dirname(os.path.realpath(root)), "harness")
-    return candidate if os.path.realpath(candidate) == os.path.realpath(HARNESS) else ""
+def project_harness(root):
+    candidate = gatelib.project_harness_root(root)
+    return candidate if candidate and os.path.realpath(candidate) == os.path.realpath(HARNESS) else ""
 
 
-def require_sibling_harness(root):
-    if sibling_harness(root):
+def require_project_harness(root):
+    if project_harness(root):
         return True
-    print("REFUSED|sibling harness absent|place the .roblox project beside harness/")
+    print("REFUSED|project harness absent|initialize the .roblox-harness submodule")
     return False
 
 
@@ -1249,13 +1055,13 @@ def remove_legacy_git_history(root):
 def relink(root, host="all"):
     """Re-creates, never re-scaffolds: the link set and the settings block are
     gitignored and owned by this scaffolder, so rebuilding them from
-    harness/'s canonical form is deterministic. This is the bootstrap path:
+    .roblox-harness's canonical form is deterministic. This is the bootstrap path:
     it can install static configuration and hooks, but it never creates live
     session authorization."""
     if not gatelib.is_roblox_project(root):
         print("REFUSED|.roblox sentinel absent|this project is not harness-managed")
         return 2
-    if not require_sibling_harness(root):
+    if not require_project_harness(root):
         return 2
     discovery_before = discovery_snapshot(root, host)
     hooks_before = hook_discovery_snapshot(root, host)
@@ -1340,10 +1146,10 @@ def relink(root, host="all"):
     return 0
 
 
-def cmd_emit(root, name, milestone=False):
+def cmd_emit(root, name):
     if not permission_preflight(root):
         return 2
-    if not require_sibling_harness(root):
+    if not require_project_harness(root):
         return 2
     criteria = load_criteria(root)
     missing = [
@@ -1366,24 +1172,8 @@ def cmd_emit(root, name, milestone=False):
     for flag, warning in warnings:
         print("ADVISORY|%s|%s" % (flag, warning))
 
-    summary = criteria["core_loop"].strip().replace("\n", " ")
+    summary = architecture_summary(criteria)
     places = parse_places(criteria)
-
-    claude_md = os.path.join(root, "CLAUDE.md")
-    agents_md = os.path.join(root, "AGENTS.md")
-    if milestone:
-        # growth is a re-interview, not a stored plan: rewrite the summary,
-        # touch nothing else — in both runtime instruction files
-        for md in (claude_md, agents_md):
-            if os.path.exists(md):
-                with open(md, encoding="utf-8") as f:
-                    text = f.read()
-                text = re.sub(r"(## summary\s*\n\n).*?(\n\n## )", r"\g<1>%s\g<2>" % summary, text, flags=re.DOTALL)
-                with open(md, "w", encoding="utf-8") as f:
-                    f.write(text)
-        os.remove(criteria_path(root))
-        print("milestone|summary rewritten")
-        return 0
 
     shared = os.path.join(root, "shared")
     for rel in (
@@ -1440,10 +1230,8 @@ def cmd_emit(root, name, milestone=False):
     emit_museum_links(shared, copy=materialize)
     emit_museum_items(shared, copy=materialize)
     emit_prescribed(shared)
-    if criteria.get("rig") == "R15-R6":
-        conv_src = os.path.join(PACKAGES, "ServerStorage", "AnimationConverter.luau")
-        if os.path.exists(conv_src):
-            shutil.copyfile(conv_src, os.path.join(root, "shared", "src", "ServerStorage", "AnimationConverter.luau"))
+    if not emit_keystones(root, criteria, places):
+        return 2
     if relink(root) != 0:
         return 2
 
@@ -1465,7 +1253,10 @@ def main(argv):
         if argv[i] in ("--root", "--name", "--shared", "--host") and i + 1 < len(argv):
             kwargs[argv[i][2:]] = argv[i + 1]
             i += 2
-        elif argv[i] in ("--milestone", "--copy"):
+        elif argv[i] == "--milestone":
+            print("REFUSED|--milestone|new-game has no build-stage mode")
+            return 2
+        elif argv[i] == "--copy":
             kwargs[argv[i][2:]] = True
             i += 1
         else:
@@ -1510,21 +1301,21 @@ def main(argv):
         if not gatelib.is_roblox_project(root):
             print("REFUSED|.roblox sentinel absent|this project is not harness-managed")
             return 2
-        if not require_sibling_harness(root):
+        if not require_project_harness(root):
             return 2
         return refresh_instruction_files(root)
     if cmd == "materialize-default":
         if not gatelib.is_roblox_project(root):
             print("REFUSED|.roblox sentinel absent|this project is not harness-managed")
             return 2
-        if not require_sibling_harness(root):
+        if not require_project_harness(root):
             return 2
         return materialize_default_project(root)
     if cmd == "emit":
         if not kwargs.get("name"):
             print("REFUSED|--name required")
             return 2
-        return cmd_emit(root, kwargs["name"], milestone=bool(kwargs.get("milestone")))
+        return cmd_emit(root, kwargs["name"])
     if cmd == "relink":
         host = kwargs.get("host", "all")
         if host not in ("all", "codex", "claude"):

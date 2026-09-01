@@ -556,8 +556,8 @@ def main(argv=None, payload_override=None, validation_run=False):
     # Settled-tree ownership sweep. It covers files created by shell commands
     # and scaffolders that did not pass a native edit payload through PreTool.
     for relative in sorted(ownership_changed_paths):
-        if relative.replace(os.sep, "/") == "handoff.md":
-            continue  # PreCompact owns and validates this generated root file.
+        if relative.replace(os.sep, "/") == gatelib.HANDOFF_RELATIVE:
+            continue  # PreCompact owns and validates this generated shared file.
         path = os.path.join(cwd, relative)
         for _, line, col, rule, subject, remedy in write_gate.check_gate2(path, cwd):
             findings.append("%d|%d|%s|%s|%s" % (line, col, rule, subject, remedy))

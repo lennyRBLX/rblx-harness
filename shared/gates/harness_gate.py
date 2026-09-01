@@ -371,10 +371,8 @@ def main(argv=None):
             if project != os.path.realpath(HARNESS) and not gatelib.is_roblox_project(project):
                 sys.stderr.write("project-gate: project-root must contain .roblox\n")
                 return 2
-            if project != os.path.realpath(HARNESS) and os.path.realpath(
-                os.path.join(os.path.dirname(project), "harness")
-            ) != os.path.realpath(HARNESS):
-                sys.stderr.write("project-gate: project-root must be beside harness\n")
+            if project != os.path.realpath(HARNESS) and not gatelib.project_uses_harness(project):
+                sys.stderr.write("project-gate: project-root must use this .roblox-harness checkout\n")
                 return 2
             state["project"] = project
         state["turn_baseline"] = gatelib.workspace_digest(HARNESS)

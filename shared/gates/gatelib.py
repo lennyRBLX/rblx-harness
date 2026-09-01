@@ -62,8 +62,10 @@ RECOVERY_KINDS = {
 }
 
 PERMISSIONS_HARNESS_PROFILE = "Roblox"
-RELATIVE_HARNESS = "../harness"
-RELATIVE_PERMISSIONS_SETUP = "../harness/openai/setup/permissions_harness.py"
+PROJECT_HARNESS_DIR = ".roblox-harness"
+RELATIVE_HARNESS = PROJECT_HARNESS_DIR
+HANDOFF_RELATIVE = "shared/handoff.md"
+RELATIVE_PERMISSIONS_SETUP = PROJECT_HARNESS_DIR + "/openai/setup/permissions_harness.py"
 PERMISSIONS_HARNESS_INSTALL_PROMPT = (
     "Install + select the Roblox permission mode; retry the current task: "
     "python3 %s --install"
@@ -75,7 +77,6 @@ PERMISSIONS_HARNESS_INSTALLED_PROMPT = (
     "Roblox permission mode installed. Select it; retry the current task."
 )
 PERMISSIONS_HARNESS_STARTUP_MARKER = "ROBLOX_HARNESS_STARTUP_BLOCKED"
-TOOLCHAIN_WRITE_ROOT = os.path.join(HARNESS, "tools", "bin")
 REQUIRED_CODEX_AGENTS = ("debugger", "maintainer", "optimizer", "researcher", "reviewer")
 PERMISSIONS_HARNESS_CONFIG = '''default_permissions = "Roblox"
 
@@ -85,10 +86,11 @@ extends = ":workspace"
 [permissions.Roblox.filesystem]
 "~/.cache/harness" = "write"
 "~/.cache/harness/creator-docs/.git" = "write"
-%s = "write"
 
 [permissions.Roblox.filesystem.":workspace_roots"]
 ".git" = "write"
+".roblox-harness/tools/bin" = "write"
+"tools/bin" = "write"
 
 [permissions.Roblox.network]
 enabled = true
@@ -100,7 +102,7 @@ enabled = true
 "objects.githubusercontent.com" = "allow"
 "release-assets.githubusercontent.com" = "allow"
 "localhost" = "allow"
-"127.0.0.1" = "allow"''' % json.dumps(TOOLCHAIN_WRITE_ROOT)
+"127.0.0.1" = "allow"'''
 
 PERMISSIONS_HARNESS_REMEDIATION = (
     "Install + select the Roblox permission mode; retry the current task: "
@@ -112,8 +114,11 @@ REQUIRED_ROBLOX_PROFILE = {
     "filesystem": {
         "~/.cache/harness": "write",
         "~/.cache/harness/creator-docs/.git": "write",
-        TOOLCHAIN_WRITE_ROOT: "write",
-        ":workspace_roots": {".git": "write"},
+        ":workspace_roots": {
+            ".git": "write",
+            ".roblox-harness/tools/bin": "write",
+            "tools/bin": "write",
+        },
     },
     "network": {
         "enabled": True,
@@ -2600,9 +2605,31 @@ def git_mutate(cwd, *args, timeout=90):
 
 
 def is_harness(cwd):
-    """harness/ is exempt from GATE6 — it has no remote, and a repository
-    without one cannot be behind anything."""
+    """Return whether cwd is the checkout that supplied the running gates."""
     return os.path.realpath(cwd) == os.path.realpath(HARNESS)
+
+
+def project_harness_root(cwd):
+    """Return a managed project's local harness checkout, if it is complete."""
+    if not isinstance(cwd, str) or not cwd:
+        return ""
+    candidate = os.path.join(os.path.realpath(cwd), PROJECT_HARNESS_DIR)
+    required = (
+        os.path.join(candidate, "shared", "CORE.md"),
+        os.path.join(candidate, "shared", "gates", "gatelib.py"),
+        os.path.join(candidate, "openai", "hooks", "adapter.py"),
+    )
+    if not all(os.path.isfile(path) for path in required) or not os.path.exists(os.path.join(candidate, ".git")):
+        return ""
+    repository_rc, _, _ = git(candidate, "rev-parse", "--show-toplevel")
+    remote_rc, _, _ = git(candidate, "remote", "get-url", "origin")
+    return candidate if repository_rc == 0 and remote_rc == 0 else ""
+
+
+def project_uses_harness(cwd, harness=HARNESS):
+    """Return whether cwd is bound to the checkout supplying these gates."""
+    candidate = project_harness_root(cwd)
+    return bool(candidate) and os.path.realpath(candidate) == os.path.realpath(harness)
 
 
 def is_roblox_project(cwd):

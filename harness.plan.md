@@ -42,9 +42,10 @@ cached input in logical tokens and separately in cached-input tokens.
 
 - `shared/CORE.md` rules `BC2`, `BC6`, `TYPE7`, `TYPE8`, `TYPE9`, `WRIT33`, and
   `DATA37` retain their meaning.
-- `roblox-new-game` keeps the blocking interview, authorization prerequisite,
-  deterministic scaffold, `.roblox` sentinel, source-of-truth rule, and repair
-  boundary.
+- `roblox-new-game` keeps a gameplay-loop-first blocking interview, explicit
+  post-interview harness-install consent, Git and GitHub-auth preflight, the
+  pinned `.roblox-harness` submodule, authorization prerequisite, deterministic
+  scaffold, `.roblox` sentinel, source-of-truth rule, and repair boundary.
 - `roblox-writer` keeps conditional evidence roles, type/data gates, native
   file edits, exact recovery commands, dependency joins, settled review-target
   hashing, one malformed-return repair, and typed incomplete states.
@@ -75,7 +76,7 @@ not an end-to-end TPA measurement.
 | `shared/skills/roblox-writer/SKILL.md` | 1,512 | 1,762 | +250 (+16.5%) |
 | `shared/skills/roblox-new-game/SKILL.md` | 1,564 | 1,885 | +321 (+20.5%) |
 | `openai/AGENTS.template.md` | 175 | 181 | +6 (+3.4%) |
-| `handoff.md` | 305 | 17 | -288 (-94.4%) |
+| `shared/handoff.md` | 305 | 17 | -288 (-94.4%) |
 | five `openai/agents/*.toml` files | 2,745 | 2,594 | -151 (-5.5%) |
 | five `claude/agents/*.md` files | 2,843 | 2,689 | -154 (-5.4%) |
 
@@ -153,7 +154,7 @@ rollback: Restore the previous prose; no state or schema migration is required.
 ### P3 - Compress always-shared context and handoff instructions
 
 ```yaml
-location: shared/CORE.md; openai/AGENTS.template.md; handoff.md
+location: shared/CORE.md; openai/AGENTS.template.md; shared/handoff.md
 problem: Model-visible global and compaction text contains explanatory wording that does not add an invariant.
 change: Use direct rules and a fixed three-section handoff contract while retaining every rule id, startup check, human gate, and disk-reference requirement.
 token_effect: Measure each complete file before/after with o200k_base; all three must decrease.
@@ -219,7 +220,7 @@ rollback: Restore retained baseline frontmatter.
 | Output normalization | `token_shrink.normalize_schema`, `token_shrink.shrink_return` | Safe schema repair and measured prose contraction |
 | Write leases | `write_gate.handle_agent_dispatch`, `source_writer_conflict` | Role caps, depth one, debugger path ownership, reviewer settlement |
 | Completion | `finalize.main`, `done_gate.main`, `gatelib.stop_cache_*`, review receipts | Pre-final settled machine floor and fast Stop receipt verification |
-| Context transfer | `handoff.md`, `compact_gate.main` | Session-bound compaction context |
+| Context transfer | `shared/handoff.md`, `compact_gate.main` | Session-bound compaction context |
 | Recovery | `gatelib.recovery_prompt_context`, `gatelib.recovery_invocation` | Exact bounded repair surface |
 | Route eval | `tools/tests/agent_route_corpus.json`, `agent_route_eval.py` | Fixed Claude baseline/candidate acceptance and usage |
 | Validation | `tools/tests/run_verify.py`, `tools/project_gate/project_gate.py` | Fixtures and repository gate |
@@ -237,8 +238,8 @@ rollback: Restore retained baseline frontmatter.
 - Agent: researcher keeps short decision-complete evidence; debugger follows
   test deletion notes and its source lease; optimizer binds scope/paths/evidence;
   reviewer issues one settled-digest receipt; maintainer runs one exact repair.
-- Load `roblox-new-game` only for project creation, adoption, relink, backfill,
-  or milestone interviews.
+- Load `roblox-new-game` only for project creation, adoption, relink, or
+  backfill.
 - Load `roblox-writer` only for managed-project Roblox code changes.
 - Agent dispatches pass the bounded goal, refs, required paths, unresolved
   questions, target digest, and compact evidence. Accepted fingerprints are
@@ -402,7 +403,7 @@ improvement.
 
 ## 16. Completion checklist
 
-- [x] Compress `CORE.md`, `AGENTS.template.md`, and `handoff.md`.
+- [x] Compress `CORE.md`, `AGENTS.template.md`, and `shared/handoff.md`.
 - [x] Compress both runtime definitions for all five agents.
 - [x] Preserve identical agent bodies across runtimes.
 - [x] Add byte, line, field, and role-record bounds to `parse_return`.
@@ -467,7 +468,7 @@ not run.
 | Project `PreToolUse` | Authorize all tools; fetch origin; check environment; parse and scan writes; format full writes. | Remain hard for source mutations, exact maintenance commands, and Studio `execute_luau`. Read-only tools receive authorization validation only. Run the remote check once at the first mutation, not before every tool. |
 | `SubagentStart` | Add context, claim dispatch identity, lease paths, and reserve reviewer state. | Keep one debugger/optimizer/maintainer/reviewer; permit multiple researchers and independent leases; bind reviewer to one settled digest. |
 | `SubagentStop` | Validate fixed verdict/record schemas and create mailbox or review receipts. | Normalize safe schema syntax; remain hard for reviewer identity, verdict, live rule IDs, target digest, and size bounds. Mark valid fingerprints accepted; allow one matching repair; then return typed non-reviewer `ENV`. |
-| `PreCompact` | Require a session-bound `handoff.md`. | Auto-fix. Write/update the bounded handoff from session and turn state. Deny only when session identity is absent or the handoff cannot be written. |
+| `PreCompact` | Require a session-bound `shared/handoff.md`. | Auto-fix. Write/update the bounded handoff from session and turn state. Deny only when session identity is absent or the handoff cannot be written. |
 | `Stop` | Deliver mailbox returns; run type, style, replication, LSP, review, boot, structure, and performance checks. | Remain hard once per changed settled input for Luau correctness and review receipt. Cache success by turn/target/checker/auth digest; invalidate on input change. Auto-format; optional analyzers remain advisory. |
 
 Claude uses the same project-hook dispositions. Its `fork` SessionStart source
@@ -554,7 +555,7 @@ expensive full scan twice for one unchanged result.
 | Hard missing-handoff veto | Replace with automatic handoff generation. |
 | Default live-project verification | Remove the two live `arena` cases from `tools/tests/run_verify.py` default execution. Keep them in an explicit live-integration suite. |
 | Skip-equals-failure | A skipped conditional check is not a project-gate failure. A required check that cannot run is a named failure, not `SKIP`. |
-| Unrequested live project gate | Do not validate a sibling game from a harness Stop unless `project-root:` selected it. |
+| Unrequested live project gate | Do not validate a managed game from a harness Stop unless `project-root:` selected it. |
 | Completion noise | Remove the commit prompt from the Stop hook. Commit, push, and release remain user decisions. |
 
 ## 21. Workflow blockers
@@ -584,8 +585,8 @@ The harness must not auto-approve these conditions:
   project/place decision; approve GUI ownership or other product decisions.
 - Resolve or abort an existing merge/rebase; choose a different branch;
   configure a missing remote or upstream.
-- Supply missing design facts, core-loop intent, security authority, or a
-  ruling that cannot be derived from repository state.
+- Supply missing file-shaping or product decisions that cannot be derived from
+  repository state.
 
 Require a new task only when authorization identity names another host,
 session/task, or project. Retry host discovery after developer repair and
@@ -598,16 +599,21 @@ ambiguous place decision still waits for the developer.
 
 Keep the following scaffold blockers:
 
+- Initial place names, scoped keystone Services, and scoped keystone
+  Controllers.
+- Explicit harness-install consent after the interview, an owned Git root,
+  authenticated GitHub access to `lennyRBLX/rblx-harness`, and successful
+  project-local relink.
 - Valid managed-session authorization, project trust, approved hooks, and the
-  `.roblox` sentinel.
-- A testable verb-object-reward core loop (`DES3`).
-- Explicit service, device, replication, persistent-data, GUI-owner, security,
-  place, camera, rig, and streaming decisions before final scaffold emission.
+  `.roblox` sentinel before interview answers are written.
 - Deterministic output, source-of-truth layout, service-entry naming, and
   generated integration ownership.
 
-Soften the interview presentation: questions may be batched when the user
-already supplied several answers. Re-ask only missing or contradictory fields.
-Do not enforce “one question at a time” as a hard gate. Keep explicit reasoning
-for streaming opt-out, generated-world replication, persistent data, and
-security authority.
+Questions may be batched when the user already supplied several answers.
+Re-ask only missing or contradictory fields. Gameplay-loop context may guide
+keystone proposals but is not recorded or treated as a future constraint.
+Every file-shaping question includes a concrete example derived from that
+gameplay loop. The gameplay loop is asked first; installation consent is asked
+only after every interview answer is complete.
+Routine features and playtests do not require a stage, milestone, final-build
+path, or new-game re-interview.

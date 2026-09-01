@@ -258,7 +258,7 @@ def museum_names(directory):
 def check_gate2(path, cwd):
     root = os.path.realpath(cwd)
     if os.path.islink(path):
-        return [(path, 0, 0, "GATE2", "symlinked file", "museum edits happen in harness/, never through a link")]
+        return [(path, 0, 0, "GATE2", "symlinked file", "museum edits happen in .roblox-harness/, never through a link")]
     rel = os.path.relpath(os.path.realpath(path), root).replace(os.sep, "/")
     if rel.startswith(".."):
         return [(path, 0, 0, "GATE2", "outside the project", "writes go in shared/src/, places/<Place>/src/, plugins/ or tests/<Place>/")]
@@ -267,7 +267,7 @@ def check_gate2(path, cwd):
     probe = os.path.dirname(os.path.abspath(path))
     while len(probe) > len(root) and probe.startswith(root):
         if os.path.islink(probe):
-            return [(path, 0, 0, "GATE2", "under a symlinked directory", "museum edits happen in harness/")]
+            return [(path, 0, 0, "GATE2", "under a symlinked directory", "museum edits happen in .roblox-harness/")]
         probe = os.path.dirname(probe)
     ok = (
         rel.startswith("shared/src/")
@@ -291,7 +291,7 @@ def check_gate2(path, cwd):
         ]
     base = os.path.basename(path)
     if base in museum_names(os.path.dirname(path)):
-        return [(path, 0, 0, "GATE2", base + " is a museum file", "museum edits happen in harness/")]
+        return [(path, 0, 0, "GATE2", base + " is a museum file", "museum edits happen in .roblox-harness/")]
     return []
 
 
@@ -2043,9 +2043,9 @@ def main(argv=None):
         return 0  # non-luau writes are not this gate's subject
     rel_check = os.path.relpath(os.path.realpath(path), os.path.realpath(cwd)).replace(os.sep, "/")
     if rel_check.startswith(".."):
-        # outside the project tree entirely — harness/'s own files when a
-        # doctrine session runs, scratch dirs; GATE2 governs project writes
-        if gatelib.is_harness(cwd) or "/harness/" in os.path.abspath(path).replace(os.sep, "/"):
+        # Outside the project tree entirely. A harness-checkout task owns its
+        # own source; managed projects do not own external paths.
+        if gatelib.is_harness(cwd):
             return 0
 
     if tool_name == "Write":

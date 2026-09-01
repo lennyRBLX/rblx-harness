@@ -6,7 +6,7 @@
 				"hooks": [
 					{
 						"type": "command",
-						"command": "PYTHONDONTWRITEBYTECODE=1 python3 \"$(git rev-parse --show-toplevel)/../harness/openai/hooks/adapter.py\" --host codex --event PreToolUse --hook-scope project",
+						"command": "PYTHONDONTWRITEBYTECODE=1 python3 \"$(git rev-parse --show-toplevel)/.roblox-harness/openai/hooks/adapter.py\" --host codex --event PreToolUse --hook-scope project",
 						"timeout": 4800
 					}
 				]
@@ -17,7 +17,7 @@
 				"hooks": [
 					{
 						"type": "command",
-						"command": "PYTHONDONTWRITEBYTECODE=1 python3 \"$(git rev-parse --show-toplevel)/../harness/openai/hooks/adapter.py\" --host codex --event Stop --hook-scope project",
+						"command": "PYTHONDONTWRITEBYTECODE=1 python3 \"$(git rev-parse --show-toplevel)/.roblox-harness/openai/hooks/adapter.py\" --host codex --event Stop --hook-scope project",
 						"timeout": 60
 					}
 				]
@@ -29,7 +29,7 @@
 				"hooks": [
 					{
 						"type": "command",
-						"command": "PYTHONDONTWRITEBYTECODE=1 python3 \"$(git rev-parse --show-toplevel)/../harness/openai/hooks/adapter.py\" --host codex --event SessionStart --hook-scope project",
+						"command": "PYTHONDONTWRITEBYTECODE=1 python3 \"$(git rev-parse --show-toplevel)/.roblox-harness/openai/hooks/adapter.py\" --host codex --event SessionStart --hook-scope project",
 						"timeout": 1200,
 						"additionalContextLimit": 2500
 					}
@@ -42,7 +42,7 @@
 				"hooks": [
 					{
 						"type": "command",
-						"command": "PYTHONDONTWRITEBYTECODE=1 python3 \"$(git rev-parse --show-toplevel)/../harness/openai/hooks/adapter.py\" --host codex --event PreCompact --hook-scope project",
+						"command": "PYTHONDONTWRITEBYTECODE=1 python3 \"$(git rev-parse --show-toplevel)/.roblox-harness/openai/hooks/adapter.py\" --host codex --event PreCompact --hook-scope project",
 						"timeout": 60
 					}
 				]
@@ -53,7 +53,7 @@
 				"hooks": [
 					{
 						"type": "command",
-						"command": "PYTHONDONTWRITEBYTECODE=1 python3 \"$(git rev-parse --show-toplevel)/../harness/openai/hooks/adapter.py\" --host codex --event SubagentStart --hook-scope project",
+						"command": "PYTHONDONTWRITEBYTECODE=1 python3 \"$(git rev-parse --show-toplevel)/.roblox-harness/openai/hooks/adapter.py\" --host codex --event SubagentStart --hook-scope project",
 						"timeout": 30
 					}
 				]
@@ -64,7 +64,7 @@
 				"hooks": [
 					{
 						"type": "command",
-						"command": "PYTHONDONTWRITEBYTECODE=1 python3 \"$(git rev-parse --show-toplevel)/../harness/openai/hooks/adapter.py\" --host codex --event SubagentStop --hook-scope project",
+						"command": "PYTHONDONTWRITEBYTECODE=1 python3 \"$(git rev-parse --show-toplevel)/.roblox-harness/openai/hooks/adapter.py\" --host codex --event SubagentStop --hook-scope project",
 						"timeout": 60
 					}
 				]
@@ -75,7 +75,7 @@
 				"hooks": [
 					{
 						"type": "command",
-						"command": "PYTHONDONTWRITEBYTECODE=1 python3 \"$(git rev-parse --show-toplevel)/../harness/openai/hooks/adapter.py\" --host codex --event UserPromptSubmit --hook-scope project",
+						"command": "PYTHONDONTWRITEBYTECODE=1 python3 \"$(git rev-parse --show-toplevel)/.roblox-harness/openai/hooks/adapter.py\" --host codex --event UserPromptSubmit --hook-scope project",
 						"timeout": 30
 					}
 				]
