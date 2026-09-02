@@ -184,6 +184,8 @@ def _():
     parsed = tomllib.loads(merged)
     require(parsed["custom"]["value"] == 7, merged)
     require(parsed["features"]["multi_agent"] is True, merged)
+    repeated = gatelib.merge_project_codex_config(merged, canonical)
+    require(repeated == merged, "Codex config merge is not byte-stable")
 
 
 @case("new-game approval installs the fixed GitHub submodule into an unborn repository")

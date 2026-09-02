@@ -229,10 +229,11 @@ def merge_project_codex_config(existing, canonical):
         for name, lines in canonical_sections
     }
     assignments = {
-        name: [
-            line for line in (lines[1:] if name else lines)
+        name: {
+            _toml_assignment_key(line): line
+            for line in (lines[1:] if name else lines)
             if _toml_assignment_key(line) in keys
-        ]
+        }
         for (name, lines), keys in zip(canonical_sections, managed.values())
     }
     output = []
@@ -244,10 +245,22 @@ def merge_project_codex_config(existing, canonical):
         seen.add(name)
         header = lines[:1] if name else []
         body = lines[1:] if name else lines
-        retained = [line for line in body if _toml_assignment_key(line) not in managed[name]]
+        retained = []
+        replaced = set()
+        for line in body:
+            key = _toml_assignment_key(line)
+            if key not in managed[name]:
+                retained.append(line)
+            elif key not in replaced:
+                retained.append(assignments[name][key])
+                replaced.add(key)
+        missing = [line for key, line in assignments[name].items() if key not in replaced]
+        insertion = len(retained)
+        while insertion and not retained[insertion - 1].strip():
+            insertion -= 1
+        retained[insertion:insertion] = missing
         output.extend(header)
         output.extend(retained)
-        output.extend(assignments[name])
     for name, lines in canonical_sections:
         if name in seen:
             continue
