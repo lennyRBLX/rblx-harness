@@ -73,9 +73,10 @@ project's `.agents/skills/` directory.
 
 The scaffolder preserves an existing Git repository. Existing detected Service
 and Controller bytes replace generated boilerplate at their confirmed
-destination. It creates and stages `.gitmodules` and the `rblx-harness`
-gitlink. Clone generated projects with `--recurse-submodules`, or initialize a
-normal clone with `git submodule update --init --recursive`.
+destination. Confirmed project information is stored in `info.json`. It creates
+and stages `.gitmodules` and the `rblx-harness` gitlink. Clone generated
+projects with `--recurse-submodules`, or initialize a normal clone with
+`git submodule update --init --recursive`.
 
 `setup_project.py` replaces the former Windows batch setup. It creates relative
 file symlinks for accepted harness Packages, Services, and Controllers on

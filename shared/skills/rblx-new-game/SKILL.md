@@ -95,6 +95,9 @@ Then run:
 python3 <SKILL_DIR>/scripts/scaffold.py emit --root <project-root>
 ```
 
+When harness use is accepted, store the confirmed project information in the
+project-root `info.json`. Do not create `.rblx-harness.json`.
+
 The emitter creates one Argon project per place, shared and place-specific
 source trees, confirmed boilerplate, AGENTS.md, a minimal README.md, Codex
 agents, three project workflow skills, and only the three lean hook events. The
