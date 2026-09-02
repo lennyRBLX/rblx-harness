@@ -290,7 +290,20 @@ def _():
         require(report["places"] == ["Match"], report)
         require(any(item["name"] == "Combat" and item["scope"] == "shared" for item in report["services"]), report)
         require(any(item["name"] == "Movement" and item["scope"] == "Match" for item in report["controllers"]), report)
+        require("PlayerData" in report["harness_assets"]["services"], report)
+        require("Gui" in report["harness_assets"]["controllers"], report)
         require(not os.path.exists(os.path.join(root, ".rblx-new-game.json")), "inspection wrote state")
+
+
+@case("scaffold requires bare service and controller names")
+def _():
+    with tempfile.TemporaryDirectory() as root:
+        places = run([PY, SCAFFOLD, "answer", "places", "Lobby", "--root", root])
+        require(places.returncode == 0, places.stdout + places.stderr)
+        service = run([PY, SCAFFOLD, "answer", "services", "shared: InventoryService", "--root", root])
+        require(service.returncode == 2 and "use Inventory instead of InventoryService" in service.stderr, service.stdout + service.stderr)
+        controller = run([PY, SCAFFOLD, "answer", "controllers", "shared: CameraController", "--root", root])
+        require(controller.returncode == 2 and "use Camera instead of CameraController" in controller.stderr, controller.stdout + controller.stderr)
 
 
 def answer_all(root, assets="Accept all"):

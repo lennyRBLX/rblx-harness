@@ -37,6 +37,10 @@ LOCAL_IGNORE_ENTRIES = (
     ".DS_Store",
 )
 ASSET_ORDER = ("packages", "services", "controllers", "plugins")
+HARNESS_COMPONENT_PATHS = {
+    "services": ("packages", "ServerScriptService", "Services"),
+    "controllers": ("packages", "StarterPlayer", "StarterPlayerScripts", "Controllers"),
+}
 
 SERVICE_FRAME = """local m = {}
 
@@ -145,6 +149,26 @@ def clean_module_name(filename):
     return os.path.splitext(name)[0]
 
 
+def harness_component_names(category):
+    directory = os.path.join(LOCAL_HARNESS, *HARNESS_COMPONENT_PATHS[category])
+    try:
+        entries = os.listdir(directory)
+    except OSError:
+        return []
+    names = set()
+    for entry in entries:
+        path = os.path.join(directory, entry)
+        if os.path.isdir(path):
+            name = entry
+        elif entry.endswith(SOURCE_SUFFIXES):
+            name = clean_module_name(entry)
+        else:
+            continue
+        if COMPONENT.fullmatch(name):
+            names.add(name)
+    return sorted(names, key=str.casefold)
+
+
 def scope_for(parts):
     folded = [part.casefold() for part in parts]
     if "places" in folded:
@@ -239,6 +263,10 @@ def inspect_project(root):
         "places": sorted(places, key=str.casefold),
         "services": services,
         "controllers": controllers,
+        "harness_assets": {
+            category: harness_component_names(category)
+            for category in ("services", "controllers")
+        },
     }
 
 
@@ -275,6 +303,12 @@ def scoped_components(text, places=None):
         for name in names:
             if not COMPONENT.fullmatch(name):
                 raise ValueError("invalid module name: %s" % name)
+            suffix = re.search(r"(?:Service|Controller)$", name, re.IGNORECASE)
+            if suffix:
+                bare = name[: -len(suffix.group(0))]
+                if bare:
+                    raise ValueError("module names must omit Service and Controller suffixes: use %s instead of %s" % (bare, name))
+                raise ValueError("module names must omit Service and Controller suffixes: %s" % name)
             key = (scope.casefold(), name.casefold())
             if key in seen:
                 raise ValueError("module is repeated: %s:%s" % (scope, name))

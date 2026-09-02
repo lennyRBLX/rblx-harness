@@ -18,7 +18,11 @@ Use each opening exactly. Add only the proposal described after it.
 
    `Which Services and Controllers should be shared, and which should be specific to one place?`
 
-   Add two scoped proposals. List inspected modules before new proposals:
+   Add two scoped proposals. List inspected modules before new proposals.
+   Exclude names under `harness_assets` in the inspection report because the
+   matching harness asset selection adds them automatically, including
+   `PlayerData` and `Gui`. Give every new module a bare PascalCase feature name
+   without a `Service` or `Controller` suffix:
    `Proposed Services: <scoped list>. Proposed Controllers: <scoped list>. Keep these or revise them.`
 
 4. Harness assets:

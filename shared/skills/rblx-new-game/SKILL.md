@@ -34,8 +34,13 @@ Use this order:
 2. Places. Always retain a multi-place layout, including when there is one
    place. Propose places from the gameplay loop and inspection.
 3. Services and Controllers. Propose every detected module first, preserving
-   its inferred scope, then add modules justified by the gameplay loop. If none
-   exist, the user must name the shared and place-specific modules to create.
+   its inferred scope, then add modules justified by the gameplay loop. Do not
+   propose names listed under `harness_assets` in the inspection report; the
+   matching harness asset selection adds those modules automatically. This
+   includes `PlayerData` and `Gui`. Name every new module with a bare PascalCase
+   feature noun: use `Inventory`, never `InventoryService`, and use `Camera`,
+   never `CameraController`. If none exist, the user must name the shared and
+   place-specific modules to create.
 4. Harness assets. Ask independently for packages, services, controllers, and
    plugin support. `all` accepts all four. An existing `plugins/` directory
    keeps plugin support without another decision.
@@ -55,8 +60,9 @@ python3 <SKILL_DIR>/scripts/scaffold.py answer harness "<yes-or-no>" --root <pro
 ```
 
 Use `shared: Name, Name; Place: Name` for Services and Controllers. Use `none`
-when the confirmed set is empty. Use safe names that begin with a letter and
-contain only letters or digits.
+when the confirmed set is empty. Use safe bare feature names that begin with a
+letter, contain only letters or digits, and do not end in `Service` or
+`Controller`.
 
 Packages, harness Services, and harness Controllers require harness use. If the
 user selects those assets and declines the harness, ask them to revise one of
