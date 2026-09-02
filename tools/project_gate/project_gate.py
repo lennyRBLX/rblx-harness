@@ -85,8 +85,9 @@ def validate(root):
                 errors.append("place path is absent: %s" % relative)
     if not os.path.isfile(os.path.join(root, "default.project.json")):
         errors.append("default.project.json is absent")
-    if not os.path.isfile(os.path.join(root, "AGENTS.md")):
-        errors.append("template output is absent: AGENTS.md")
+    for name in ("AGENTS.md", "README.md"):
+        if not os.path.isfile(os.path.join(root, name)):
+            errors.append("template output is absent: %s" % name)
     if not os.path.isfile(gatelib.SHARED_HANDOFF):
         errors.append("shared compaction handoff is absent: rblx-harness/shared/HANDOFF.md")
     if os.path.exists(os.path.join(root, ".claude")) or os.path.exists(os.path.join(root, "CLAUDE.md")):

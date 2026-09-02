@@ -96,8 +96,10 @@ python3 <SKILL_DIR>/scripts/scaffold.py emit --root <project-root>
 ```
 
 The emitter creates one Argon project per place, shared and place-specific
-source trees, confirmed boilerplate, AGENTS.md, Codex agents, three project
-workflow skills, and only the three lean hook events. It calls the
+source trees, confirmed boilerplate, AGENTS.md, a minimal README.md, Codex
+agents, three project workflow skills, and only the three lean hook events. The
+README contains the confirmed gameplay loop and required post-clone setup
+commands. Preserve an existing README. The emitter calls the
 cross-platform Python setup script to symlink accepted harness packages,
 Services, and Controllers on macOS, Linux, and Windows. `rblx-new-game` remains
 a bootstrap skill and is not installed into the generated project's

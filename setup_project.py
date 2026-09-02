@@ -287,6 +287,15 @@ def render_templates(project, manifest):
         .replace("{{ASSETS}}", ", ".join(assets) if assets else "none")
     )
     write_text(os.path.join(project, "AGENTS.md"), rendered)
+    readme_path = os.path.join(project, "README.md")
+    if not os.path.exists(readme_path):
+        with open(os.path.join(HARNESS, "templates", "README.md"), encoding="utf-8") as handle:
+            readme = handle.read()
+        project_name = os.path.basename(project.rstrip(os.sep)) or "Roblox Project"
+        write_text(
+            readme_path,
+            readme.replace("{{PROJECT}}", project_name).replace("{{GAMEPLAY}}", gameplay),
+        )
 
 
 def install(project, manifest):

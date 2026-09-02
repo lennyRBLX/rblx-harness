@@ -12,8 +12,8 @@ optimization, and multi-place project scaffolding.
 - Rules: `shared/CORE.md`.
 - Codex support: reproducible project agent definitions, project skills, and
   three lean hook events.
-- Templates: shared Packages, project `AGENTS.md`, and one shared
-  `shared/HANDOFF.md`.
+- Templates: shared Packages, short project `README.md`, project `AGENTS.md`,
+  and one shared `shared/HANDOFF.md`.
 - Token compression: bounded agent records and `token_shrink.py`.
 - Plugin support: an optional project `plugins/` directory.
 

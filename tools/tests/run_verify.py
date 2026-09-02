@@ -158,6 +158,7 @@ def _():
     require(not os.path.exists(os.path.join(ROOT, "setup_windows.bat")), "Windows batch remains")
     require(os.path.isfile(os.path.join(ROOT, "setup_project.py")), "Python setup is absent")
     require(os.path.isfile(os.path.join(ROOT, "shared", "HANDOFF.md")), "shared handoff is absent")
+    require(os.path.isfile(os.path.join(ROOT, "templates", "README.md")), "project README template is absent")
     require(not os.path.exists(os.path.join(ROOT, "templates", "HANDOFF.md")), "project handoff template remains")
     tracked_local = run(["git", "ls-files", "--", ".agents", ".codex", ".serena", ".roblox"])
     require(tracked_local.returncode == 0 and not tracked_local.stdout.strip(), tracked_local.stdout)
@@ -349,6 +350,12 @@ def _():
         require(not os.path.exists(os.path.join(root, ".claude")), "Claude support emitted")
         require(not os.path.exists(os.path.join(root, "CLAUDE.md")), "CLAUDE.md emitted")
         require(not os.path.exists(os.path.join(root, "HANDOFF.md")), "project handoff was emitted")
+        readme_path = os.path.join(root, "README.md")
+        readme = open(readme_path, encoding="utf-8").read()
+        require("Players win matches for loot boxes" in readme, readme)
+        require("git submodule update --init --recursive" in readme, readme)
+        require("python3 rblx-harness/setup_project.py --project . --from-state" in readme, readme)
+        require(len(readme.splitlines()) <= 10, "generated README is not minimal")
         require(sorted(os.path.splitext(name)[0] for name in os.listdir(os.path.join(root, ".codex", "agents"))) == ["debugger", "optimizer", "researcher", "reviewer"], "agent set")
         for skill in ("rblx-writer", "rblx-debug", "rblx-optimize"):
             require(os.path.islink(os.path.join(root, ".agents", "skills", skill)), "%s is not linked" % skill)
@@ -370,6 +377,8 @@ def _():
         validated = run([PY, PROJECT_GATE, "--project-root", root])
         require(validated.returncode == 0, validated.stdout + validated.stderr)
 
+        custom_readme = "# Existing documentation\n"
+        write(readme_path, custom_readme)
         shutil.rmtree(os.path.join(root, ".agents"))
         shutil.rmtree(os.path.join(root, ".codex"))
         os.unlink(os.path.join(root, ".roblox"))
@@ -383,6 +392,7 @@ def _():
         require(os.path.isfile(os.path.join(root, ".roblox")), "setup did not recreate .roblox")
         require(os.path.isfile(os.path.join(root, ".codex", "hooks.json")), "setup did not recreate .codex")
         require(not os.path.lexists(os.path.join(root, ".agents", "skills", "rblx-new-game")), "setup retained rblx-new-game")
+        require(open(readme_path, encoding="utf-8").read() == custom_readme, "setup replaced an existing README")
         os.makedirs(os.path.join(root, ".serena"))
         write(os.path.join(root, ".serena", "project.yml"), "project_name: game\n")
         require_ignored_local_state(root)
@@ -423,6 +433,7 @@ def _():
         require(os.path.isdir(os.path.join(root, "plugins")), "plugins folder was not migrated")
         require(not os.path.lexists(os.path.join(root, "plugin")), "legacy plugin folder remains")
         require(not os.path.exists(os.path.join(root, "HANDOFF.md")), "project handoff was emitted")
+        require(not os.path.exists(os.path.join(root, "README.md")), "README was emitted without harness use")
         require(not os.path.exists(os.path.join(root, SUBMODULE_NAME)), "harness was installed")
 
 
