@@ -23,7 +23,7 @@ LOCAL_STATE = {
 
 
 def load_manifest(root, errors):
-    path = os.path.join(root, "info.json")
+    path = os.path.join(root, "manifest.json")
     try:
         value = json.load(open(path, encoding="utf-8"))
     except (OSError, ValueError) as error:
