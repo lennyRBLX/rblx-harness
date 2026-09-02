@@ -19,6 +19,18 @@ optimization, and multi-place project scaffolding.
 
 Claude support is not included.
 
+## Set up a harness checkout
+
+After cloning `rblx-harness` itself, rebuild its ignored Codex support and
+repository skill links with:
+
+```bash
+python3 setup_project.py --harness
+```
+
+This installs all four harness skills for harness development. It does not
+create `.roblox` or `.serena/`.
+
 ## Permissions
 
 The Roblox permission profile remains available, but it is optional. Full

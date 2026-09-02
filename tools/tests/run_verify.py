@@ -47,6 +47,7 @@ def write(path, text):
 def harness_fixture(directory):
     source = os.path.join(directory, "harness-origin")
     selected = (
+        ".gitignore",
         "setup_project.py",
         "openai",
         "packages",
@@ -176,6 +177,23 @@ def _():
     contract = json.load(open(os.path.join(ROOT, "openai", "hooks", "contract.json"), encoding="utf-8"))
     require(contract["session_authorization"] is False, contract)
     require(contract["restart_required"] is False, contract)
+
+
+@case("harness setup rebuilds ignored Codex support and all source skills")
+def _():
+    with tempfile.TemporaryDirectory() as directory:
+        root = harness_fixture(directory)
+        result = run([PY, os.path.join(root, "setup_project.py"), "--harness"], cwd=root)
+        require(result.returncode == 0, result.stdout + result.stderr)
+        hooks = open(os.path.join(root, ".codex", "hooks.json"), encoding="utf-8").read()
+        require("/rblx-harness/openai/" not in hooks, hooks)
+        require("/openai/hooks/adapter.py" in hooks, hooks)
+        for skill in ("rblx-debug", "rblx-new-game", "rblx-optimize", "rblx-writer"):
+            require(os.path.islink(os.path.join(root, ".agents", "skills", skill)), skill)
+        require(not os.path.exists(os.path.join(root, ".roblox")), "harness setup created .roblox")
+        require(not os.path.exists(os.path.join(root, ".serena")), "harness setup created .serena")
+        status = run(["git", "status", "--porcelain"], cwd=root)
+        require(status.returncode == 0 and not status.stdout.strip(), status.stdout + status.stderr)
 
 
 @case("Roblox permission profile is optional and does not become the default")

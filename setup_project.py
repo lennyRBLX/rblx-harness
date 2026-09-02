@@ -11,6 +11,7 @@ import sys
 HARNESS = os.path.dirname(os.path.abspath(__file__))
 AGENTS = ("researcher", "optimizer", "reviewer", "debugger")
 PROJECT_SKILLS = ("rblx-writer", "rblx-debug", "rblx-optimize")
+HARNESS_SKILLS = PROJECT_SKILLS + ("rblx-new-game",)
 MANIFEST = ".rblx-harness.json"
 IGNORE_BEGIN = "# BEGIN rblx-harness links"
 IGNORE_END = "# END rblx-harness links"
@@ -190,7 +191,31 @@ def link_tree(source_root, destination_root, replace_regular=False):
     return results
 
 
-def copy_codex_support(project):
+def harness_hook_text():
+    document = read_json(os.path.join(HARNESS, "openai", "hooks", "project.json"))
+    hooks = document.get("hooks")
+    if not isinstance(hooks, dict):
+        fail("project hook source is malformed")
+    for entries in hooks.values():
+        if not isinstance(entries, list):
+            continue
+        for entry in entries:
+            for handler in entry.get("hooks", []) if isinstance(entry, dict) else []:
+                if not isinstance(handler, dict):
+                    continue
+                command = handler.get("command")
+                if isinstance(command, str):
+                    handler["command"] = command.replace("/rblx-harness/openai/", "/openai/")
+                command_windows = handler.get("commandWindows")
+                if isinstance(command_windows, str):
+                    handler["commandWindows"] = command_windows.replace(
+                        "rblx-harness\\openai\\",
+                        "openai\\",
+                    )
+    return json.dumps(document, indent=2) + "\n"
+
+
+def copy_codex_support(project, harness_checkout=False):
     codex = os.path.join(project, ".codex")
     agents = os.path.join(codex, "agents")
     os.makedirs(agents, exist_ok=True)
@@ -202,10 +227,11 @@ def copy_codex_support(project):
             os.path.join(HARNESS, "openai", "agents", name + ".toml"),
             os.path.join(agents, name + ".toml"),
         )
-    shutil.copy2(
-        os.path.join(HARNESS, "openai", "hooks", "project.json"),
-        os.path.join(codex, "hooks.json"),
-    )
+    hooks_path = os.path.join(codex, "hooks.json")
+    if harness_checkout:
+        write_text(hooks_path, harness_hook_text())
+    else:
+        shutil.copy2(os.path.join(HARNESS, "openai", "hooks", "project.json"), hooks_path)
     sys.path.insert(0, os.path.join(HARNESS, "shared", "gates"))
     import gatelib
 
@@ -221,14 +247,25 @@ def copy_codex_support(project):
 
     skills_root = os.path.join(project, ".agents", "skills")
     os.makedirs(skills_root, exist_ok=True)
-    remove_path(os.path.join(skills_root, "rblx-new-game"))
-    for name in PROJECT_SKILLS:
+    if not harness_checkout:
+        remove_path(os.path.join(skills_root, "rblx-new-game"))
+    skill_names = HARNESS_SKILLS if harness_checkout else PROJECT_SKILLS
+    skill_source = os.path.join(HARNESS, "shared", "skills")
+    for name in skill_names:
         relative_link(
-            os.path.join(project, "rblx-harness", "shared", "skills", name),
+            os.path.join(skill_source, name),
             os.path.join(skills_root, name),
             directory=True,
             replace_regular=True,
         )
+
+
+def install_harness_support():
+    copy_codex_support(HARNESS, harness_checkout=True)
+    print("setup-harness|READY|agents=%s|skills=%s" % (
+        ",".join(AGENTS),
+        ",".join(HARNESS_SKILLS),
+    ))
 
 
 def render_templates(project, manifest):
@@ -328,10 +365,17 @@ def install(project, manifest):
 
 def main(argv=None):
     parser = argparse.ArgumentParser()
-    parser.add_argument("--project", required=True)
+    target = parser.add_mutually_exclusive_group(required=True)
+    target.add_argument("--project")
+    target.add_argument("--harness", action="store_true")
     parser.add_argument("--manifest")
     parser.add_argument("--from-state", action="store_true")
     args = parser.parse_args(argv)
+    if args.harness:
+        if args.manifest or args.from_state:
+            fail("--harness cannot be combined with project manifest options")
+        install_harness_support()
+        return 0
     project = os.path.realpath(args.project)
     manifest_path = args.manifest or os.path.join(project, MANIFEST)
     if not args.from_state and not args.manifest:
