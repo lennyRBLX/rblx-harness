@@ -1,7 +1,0 @@
-{
-  "host": "claude",
-  "project_path": ".claude/settings.json",
-  "session_start_sources": ["startup", "resume", "clear", "compact", "fork"],
-  "blocking_events": ["PreToolUse", "Stop", "PreCompact", "SubagentStop", "UserPromptSubmit"],
-  "subagent_start_blocking": false
-}

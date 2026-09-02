@@ -13,6 +13,10 @@ import sys
 
 
 PROSE_FIELDS = {
+    "fact": (2,),
+    "issue": (2, 3),
+    "finding": (3, 4),
+    "debug": (2, 3),
     "class": (3,),
     "api": (5,),
     "enum": (3,),
@@ -61,7 +65,9 @@ LUAU_PROTECTED = (
     re.compile(r"\b[A-Za-z_]\w*\s*\([^()\n]*\)"),
     re.compile(r"\b[A-Za-z_]\w*\s*:\s*[A-Z][A-Za-z0-9_.?]*(?:\s*[|&]\s*[A-Z][A-Za-z0-9_.?]*)*"),
 )
-RECORD_TOKEN = re.compile(r"^(?:class|api|enum|doc|house|sample|miss|fix|diag|opt|clear|wait|ENV|rule|repair|-?\d+)$")
+RECORD_TOKEN = re.compile(
+    r"^(?:fact|issue|finding|debug|class|api|enum|doc|house|sample|miss|fix|diag|opt|clear|wait|ENV|rule|-?\d+)$"
+)
 SOURCE_SUFFIXES = (".lua", ".luau")
 
 
@@ -133,7 +139,7 @@ def validate_output_path(path):
 
 def shrink_return(agent, text, spoken=False):
     """Normalize allowlisted fields in an already validated agent return."""
-    if agent == "reviewer" or not isinstance(text, str):
+    if not isinstance(text, str):
         return text
     lines = text.split("\n")
     for line_index, line in enumerate(lines[1:], start=1):
@@ -163,7 +169,7 @@ def normalize_schema(text):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Shorten a validated agent return")
-    parser.add_argument("--agent", required=True, choices=("debugger", "optimizer", "researcher", "maintainer", "reviewer"))
+    parser.add_argument("--agent", required=True, choices=("debugger", "optimizer", "researcher", "reviewer"))
     parser.add_argument("--spoken", action="store_true")
     parser.add_argument("--output")
     args = parser.parse_args(argv)

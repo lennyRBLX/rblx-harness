@@ -1,4 +1,0 @@
-interface:
-  display_name: "Roblox New Game"
-  short_description: "Interview and scaffold a harness Roblox game"
-  default_prompt: "Use $roblox-new-game to interview me and scaffold a new harness-managed Roblox game."

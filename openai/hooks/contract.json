@@ -1,8 +1,8 @@
 {
   "host": "codex",
   "project_path": ".codex/hooks.json",
-  "session_start_sources": ["startup", "resume", "clear", "compact"],
-  "blocking_events": ["PreToolUse", "Stop", "PreCompact", "SubagentStop", "UserPromptSubmit"],
-  "subagent_start_blocking": false,
-  "hook_trust": "human-/hooks-review"
+  "events": ["PreToolUse", "SubagentStart", "SubagentStop"],
+  "purpose": ["agent boundaries", "tool usage", "rule adherence"],
+  "session_authorization": false,
+  "restart_required": false
 }

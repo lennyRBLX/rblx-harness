@@ -1,3 +1,4 @@
+# BEGIN rblx-harness managed Codex config
 service_tier = "fast"
 
 [features]
@@ -9,14 +10,4 @@ enabled = true
 
 [shell_environment_policy]
 inherit = "core"
-
-[shell_environment_policy.set]
-CLAUDE_CODE_DISABLE_AUTO_MEMORY = "1"
-
-[mcp_servers.Roblox_Studio]
-command = "/Applications/RobloxStudio.app/Contents/MacOS/StudioMCP"
-startup_timeout_sec = 20
-tool_timeout_sec = 120
-
-[mcp_servers.Roblox_Studio.tools.execute_luau]
-approval_mode = "approve"
+# END rblx-harness managed Codex config

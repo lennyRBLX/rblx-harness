@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""place_map — reconciles places/ against the Studio universe and writes the
-CLAUDE.md places block. Run by session-gate, never by an agent.
+"""place_map — reconcile places/ against the Studio universe and update the
+AGENTS.md places block.
 
 The map is also the wrong-place verification: GetGamePlacesAsync returns the
 universe of the place the proxy is attached to, so a proxy answering for a
@@ -42,12 +42,12 @@ return "<<PLACES " .. #out .. "\\n" .. table.concat(out, "\\n") .. "\\nPLACES>>"
 """
 
 
-def read_places_block(claude_md):
+def read_places_block(agents_md):
     """Name -> PlaceId from the ## places block."""
     mapping = {}
-    if not os.path.exists(claude_md):
+    if not os.path.exists(agents_md):
         return mapping
-    with open(claude_md, encoding="utf-8") as f:
+    with open(agents_md, encoding="utf-8") as f:
         text = f.read()
     m = re.search(r"^## places\s*\n(.*?)(?=^## |\Z)", text, re.MULTILINE | re.DOTALL)
     if not m:
@@ -59,11 +59,11 @@ def read_places_block(claude_md):
     return mapping
 
 
-def write_places_block(claude_md, mapping):
+def write_places_block(agents_md, mapping):
     lines = "\n".join("%s|%d" % (name, pid) for name, pid in sorted(mapping.items()))
     block = "## places\n\n%s\n" % lines
-    if os.path.exists(claude_md):
-        with open(claude_md, encoding="utf-8") as f:
+    if os.path.exists(agents_md):
+        with open(agents_md, encoding="utf-8") as f:
             text = f.read()
         if re.search(r"^## places\s*\n", text, re.MULTILINE):
             text = re.sub(r"^## places\s*\n.*?(?=^## |\Z)", block, text, flags=re.MULTILINE | re.DOTALL)
@@ -71,7 +71,7 @@ def write_places_block(claude_md, mapping):
             text = text.rstrip("\n") + "\n\n" + block
     else:
         text = block
-    with open(claude_md, "w", encoding="utf-8") as f:
+    with open(agents_md, "w", encoding="utf-8") as f:
         f.write(text)
 
 
@@ -162,8 +162,8 @@ def main(argv):
     children = sorted(
         d for d in (os.listdir(places_dir) if os.path.isdir(places_dir) else []) if os.path.isdir(os.path.join(places_dir, d))
     )
-    claude_md = os.path.join(root, "CLAUDE.md")
-    mapping = read_places_block(claude_md)
+    agents_md = os.path.join(root, "AGENTS.md")
+    mapping = read_places_block(agents_md)
     wanted_place_ids = positive_place_ids(mapping)
 
     with StudioRPC(mcp_cmd) as rpc:
@@ -179,12 +179,7 @@ def main(argv):
         for p in problems:
             print(p)
         return 3
-    # both runtime instruction files carry the block; a missing AGENTS.md is
-    # a Claude-only project and is not an error
-    write_places_block(claude_md, new_mapping)
-    agents_md = os.path.join(root, "AGENTS.md")
-    if os.path.exists(agents_md):
-        write_places_block(agents_md, new_mapping)
+    write_places_block(agents_md, new_mapping)
     for name, pid in sorted(new_mapping.items()):
         print("place|%s|%d" % (name, pid))
     return 0

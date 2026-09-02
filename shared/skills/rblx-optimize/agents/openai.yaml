@@ -1,0 +1,4 @@
+interface:
+  display_name: "Roblox Optimize"
+  short_description: "Optimize Roblox code from MicroProfiler evidence"
+  default_prompt: "Use $rblx-optimize to analyze this MicroProfiler dump and optimize the project."

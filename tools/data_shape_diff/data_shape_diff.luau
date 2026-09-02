@@ -1,19 +1,17 @@
--- data_shape_diff — one verdict, ALLOW or BLOCK. Schema changes are evidence
--- for the required human ruling; only configured hard boundaries block. The
--- baseline is the current file, not git.
+-- data_shape_diff — one verdict, ALLOW or BLOCK. Schema changes are reported
+-- directly; only configured hard boundaries block. The baseline is the
+-- current file, not git.
 --
 --   lute run data_shape_diff.luau <baseline-default> <proposed-default>
 --       [--migrations <dir>]
 --
---   retype              ALLOW + note for human ruling         [R DATA34]
+--   retype              ALLOW + compatibility note
 --   add                 ALLOW — backfilled from the template
---   drop                ALLOW + migration/ruling note         [R DATA34]
+--   drop                ALLOW + migration note
 --   non-literal default BLOCK at serialization boundary       [R GATE1]
 --   per-place fork      BLOCK                                 [R DATA5]
 --   value change        ALLOW
 --
--- The writer workflow obtains the human ruling before this tool. DATA34 is
--- evidence for that ruling, not an unconditional machine veto.
 -- The generated export type block is not diffed — it is derived from the
 -- shape being compared. Fails closed.
 local fs = require("@std/fs")
@@ -52,7 +50,7 @@ end
 
 local function diffShapes(base, proposed, path, drops)
 	if base.kind ~= proposed.kind then
-		note(path .. " retyped " .. base.kind .. " -> " .. proposed.kind .. " - human schema ruling required [DATA34]")
+		note(path .. " retyped " .. base.kind .. " -> " .. proposed.kind .. " - check stored-value compatibility")
 		return
 	end
 	if base.kind ~= "table" then
@@ -205,7 +203,7 @@ else
 		if migrationWritesKey(migrationsDir, keyName) then
 			table.insert(reasons, dropped .. " dropped with Pre-fix migration - stored value survives")
 		else
-			note(dropped .. " dropped with no Pre-fix migration writing the paired new key - human schema ruling required [DATA34]")
+			note(dropped .. " dropped with no Pre-fix migration writing the paired new key")
 		end
 	end
 end

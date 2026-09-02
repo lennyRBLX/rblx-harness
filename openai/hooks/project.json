@@ -1,85 +1,41 @@
 {
-	"hooks": {
-		"PreToolUse": [
-			{
-				"matcher": ".*",
-				"hooks": [
-					{
-						"type": "command",
-						"command": "PYTHONDONTWRITEBYTECODE=1 python3 \"$(git rev-parse --show-toplevel)/.roblox-harness/openai/hooks/adapter.py\" --host codex --event PreToolUse --hook-scope project",
-						"timeout": 4800
-					}
-				]
-			}
-		],
-		"Stop": [
-			{
-				"hooks": [
-					{
-						"type": "command",
-						"command": "PYTHONDONTWRITEBYTECODE=1 python3 \"$(git rev-parse --show-toplevel)/.roblox-harness/openai/hooks/adapter.py\" --host codex --event Stop --hook-scope project",
-						"timeout": 60
-					}
-				]
-			}
-		],
-		"SessionStart": [
-			{
-				"matcher": "^(startup|resume|clear|compact)$",
-				"hooks": [
-					{
-						"type": "command",
-						"command": "PYTHONDONTWRITEBYTECODE=1 python3 \"$(git rev-parse --show-toplevel)/.roblox-harness/openai/hooks/adapter.py\" --host codex --event SessionStart --hook-scope project",
-						"timeout": 1200,
-						"additionalContextLimit": 2500
-					}
-				]
-			}
-		],
-		"PreCompact": [
-			{
-				"matcher": "manual|auto",
-				"hooks": [
-					{
-						"type": "command",
-						"command": "PYTHONDONTWRITEBYTECODE=1 python3 \"$(git rev-parse --show-toplevel)/.roblox-harness/openai/hooks/adapter.py\" --host codex --event PreCompact --hook-scope project",
-						"timeout": 60
-					}
-				]
-			}
-		],
-		"SubagentStart": [
-			{
-				"hooks": [
-					{
-						"type": "command",
-						"command": "PYTHONDONTWRITEBYTECODE=1 python3 \"$(git rev-parse --show-toplevel)/.roblox-harness/openai/hooks/adapter.py\" --host codex --event SubagentStart --hook-scope project",
-						"timeout": 30
-					}
-				]
-			}
-		],
-		"SubagentStop": [
-			{
-				"hooks": [
-					{
-						"type": "command",
-						"command": "PYTHONDONTWRITEBYTECODE=1 python3 \"$(git rev-parse --show-toplevel)/.roblox-harness/openai/hooks/adapter.py\" --host codex --event SubagentStop --hook-scope project",
-						"timeout": 60
-					}
-				]
-			}
-		],
-		"UserPromptSubmit": [
-			{
-				"hooks": [
-					{
-						"type": "command",
-						"command": "PYTHONDONTWRITEBYTECODE=1 python3 \"$(git rev-parse --show-toplevel)/.roblox-harness/openai/hooks/adapter.py\" --host codex --event UserPromptSubmit --hook-scope project",
-						"timeout": 30
-					}
-				]
-			}
-		]
-	}
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "PYTHONDONTWRITEBYTECODE=1 python3 \"$(git rev-parse --show-toplevel)/rblx-harness/openai/hooks/adapter.py\" --host codex --event PreToolUse --hook-scope project",
+            "commandWindows": "powershell.exe -NoProfile -Command \"$root = git rev-parse --show-toplevel; & py -3 -B (Join-Path $root 'rblx-harness\\openai\\hooks\\adapter.py') --host codex --event PreToolUse --hook-scope project\"",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "PYTHONDONTWRITEBYTECODE=1 python3 \"$(git rev-parse --show-toplevel)/rblx-harness/openai/hooks/adapter.py\" --host codex --event SubagentStart --hook-scope project",
+            "commandWindows": "powershell.exe -NoProfile -Command \"$root = git rev-parse --show-toplevel; & py -3 -B (Join-Path $root 'rblx-harness\\openai\\hooks\\adapter.py') --host codex --event SubagentStart --hook-scope project\"",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "PYTHONDONTWRITEBYTECODE=1 python3 \"$(git rev-parse --show-toplevel)/rblx-harness/openai/hooks/adapter.py\" --host codex --event SubagentStop --hook-scope project",
+            "commandWindows": "powershell.exe -NoProfile -Command \"$root = git rev-parse --show-toplevel; & py -3 -B (Join-Path $root 'rblx-harness\\openai\\hooks\\adapter.py') --host codex --event SubagentStop --hook-scope project\"",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
 }

@@ -1,7 +1,7 @@
 """Shared StudioMCP seam for the Python Studio tools.
 
-Every tool outside Claude's own client must spawn its own StudioMCP instance
-over stdio — measured: a spawned instance answers initialize, returns all
+Every standalone tool must spawn its own StudioMCP instance over stdio —
+measured: a spawned instance answers initialize, returns all
 tools, and reaches every open Studio; a second TCP client on the singleton's
 port cannot be used. Selection is explicit: the proxy manages several Studios
 and picks one by heuristic unless told, so every Studio-touching tool runs

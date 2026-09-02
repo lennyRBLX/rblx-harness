@@ -1,4 +1,0 @@
-interface:
-  display_name: "Math Tool"
-  short_description: "Run bounded pinned symbolic computations"
-  default_prompt: "Use $math-tool to compute this result with the pinned symbolic tool."

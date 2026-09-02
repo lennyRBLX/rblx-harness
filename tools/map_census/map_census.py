@@ -58,9 +58,9 @@ print("CENSUS>>")
 
 def read_places_map(root):
     mapping = {}
-    claude_md = os.path.join(root, "CLAUDE.md")
-    if os.path.exists(claude_md):
-        with open(claude_md, encoding="utf-8") as f:
+    agents_md = os.path.join(root, "AGENTS.md")
+    if os.path.exists(agents_md):
+        with open(agents_md, encoding="utf-8") as f:
             text = f.read()
         m = re.search(r"^## places\s*\n(.*?)(?=^## |\Z)", text, re.MULTILINE | re.DOTALL)
         if m:

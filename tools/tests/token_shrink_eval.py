@@ -30,7 +30,7 @@ def main():
             sys.stderr.write("FAIL|%s|expected output or token count changed\n" % fixture["agent"])
             return 1
         saved += before - after
-    sys.stdout.write("PASS|o200k_base|5 roles|%d tokens saved\n" % saved)
+    sys.stdout.write("PASS|o200k_base|4 roles|%d tokens saved\n" % saved)
     return 0
 
 

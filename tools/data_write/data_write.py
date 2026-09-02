@@ -10,8 +10,8 @@ Process — refuse first, write last:
   1  read both modules, apply the edit to each in memory
   2  data_check --load over both resulting modules (in the core)
   3  type parity across the pair, every key
-  4  data_shape_diff — refuse configured hard boundaries; schema notes are
-     evidence for the prior human ruling
+  4  data_shape_diff — refuse configured hard boundaries and report schema
+     compatibility notes without requiring human approval
   5  generate the export type in Default.luau from the validated shape
   6  only then write: both temps, verify parse, rename Default then
      Development; if the second rename fails, restore the first; if the
@@ -105,8 +105,8 @@ def main(argv):
                     print(line)
             return 2
 
-        # data_shape_diff over the baseline and the proposed default. DATA34
-        # notes are evidence for the prior human ruling, not a hard rule.
+        # data_shape_diff over the baseline and the proposed default. Schema
+        # notes are informational and never require a separate approval.
         if os.path.exists(default_path):
             d = subprocess.run(
                 [LUTE, "run", SHAPE_DIFF, default_path, out_default, "--migrations", services_dir],

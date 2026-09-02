@@ -1,5 +1,4 @@
-#!/usr/bin/env python3
-"""Host adapter runner for documented OpenAI and Claude hook payloads."""
+"""Run the three supported Codex project gates."""
 
 import argparse
 import json
@@ -9,21 +8,20 @@ import sys
 
 
 EVENT_SCRIPTS = {
-    "PreToolUse": "write_gate.py",
-    "Stop": "done_gate.py",
-    "SessionStart": "session_gate.py",
-    "PreCompact": "compact_gate.py",
-    "SubagentStart": "agent_start.py",
-    "SubagentStop": "record_check.py",
-    "UserPromptSubmit": "turn_stamp.py",
+    "PreToolUse": "tool_gate.py",
+    "SubagentStart": "agent_gate.py",
+    "SubagentStop": "agent_gate.py",
 }
 
 
 def main(host, argv=None):
     parser = argparse.ArgumentParser()
     parser.add_argument("--event", choices=sorted(EVENT_SCRIPTS), required=True)
-    parser.add_argument("--hook-scope", choices=("project", "user"), required=True)
+    parser.add_argument("--hook-scope", choices=("project",), default="project")
     args = parser.parse_args(argv)
+    if host != "codex":
+        sys.stderr.write("hook-adapter: only Codex is supported\n")
+        return 2
     try:
         payload = json.load(sys.stdin)
     except (TypeError, ValueError):
@@ -32,21 +30,18 @@ def main(host, argv=None):
     if not isinstance(payload, dict):
         sys.stderr.write("hook-adapter: payload is not an object\n")
         return 2
-    reported_event = payload.get("hook_event_name")
-    if reported_event is not None and reported_event != args.event:
+    reported = payload.get("hook_event_name")
+    if reported is not None and reported != args.event:
         sys.stderr.write("hook-adapter: event does not match configured command\n")
         return 2
     payload["hook_event_name"] = args.event
-    payload["_harness_host"] = host
     gate = os.path.join(os.path.dirname(os.path.abspath(__file__)), EVENT_SCRIPTS[args.event])
-    environment = dict(os.environ)
-    environment["PYTHONDONTWRITEBYTECODE"] = "1"
     result = subprocess.run(
-        [sys.executable, "-B", gate, "--host", host, "--hook-scope", args.hook_scope],
+        [sys.executable, "-B", gate, "--event", args.event],
         input=json.dumps(payload),
         capture_output=True,
         text=True,
-        env=environment,
+        env=dict(os.environ, PYTHONDONTWRITEBYTECODE="1"),
     )
     sys.stdout.write(result.stdout)
     sys.stderr.write(result.stderr)

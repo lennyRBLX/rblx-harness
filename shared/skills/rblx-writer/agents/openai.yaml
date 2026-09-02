@@ -1,0 +1,4 @@
+interface:
+  display_name: "Roblox Writer"
+  short_description: "Write Roblox code through research, optimization, and review"
+  default_prompt: "Use $rblx-writer to implement this Roblox change."

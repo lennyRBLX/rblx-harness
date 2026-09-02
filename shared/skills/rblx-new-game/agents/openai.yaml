@@ -1,0 +1,4 @@
+interface:
+  display_name: "Roblox New Game"
+  short_description: "Inspect and scaffold a multi-place Roblox project"
+  default_prompt: "Use $rblx-new-game to inspect this folder, interview me, and scaffold the project."

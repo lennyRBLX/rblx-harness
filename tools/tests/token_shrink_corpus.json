@@ -18,24 +18,17 @@
     },
     {
       "agent": "optimizer",
-      "source": "optimizer: MEASURED\n\nopt|42|loop is required to process input and output|worker is able to batch both in order to save 4 ms",
-      "expected": "optimizer: MEASURED\n\nopt|42|loop must process input and output|worker can batch both to save 4 ms",
-      "before_tokens": 32,
-      "after_tokens": 26
-    },
-    {
-      "agent": "maintainer",
-      "source": "maintainer: READY\n\nrepair|git-sync|input and output|python3 tools/input and output.py",
-      "expected": "maintainer: READY\n\nrepair|git-sync|input and output|python3 tools/input and output.py",
-      "before_tokens": 21,
-      "after_tokens": 21
+      "source": "optimizer: ISSUES\n\nissue|shared/Foo.luau:42|loop is required to process input and output|worker is able to batch both in order to save 4 ms",
+      "expected": "optimizer: ISSUES\n\nissue|shared/Foo.luau:42|loop must process input and output|worker can batch both to save 4 ms",
+      "before_tokens": 38,
+      "after_tokens": 32
     },
     {
       "agent": "reviewer",
-      "source": "reviewer: BLOCKED\n\n42|7|WRIT33!|input and output declaration is required to be current|obtain the exact declaration in order to continue",
-      "expected": "reviewer: BLOCKED\n\n42|7|WRIT33!|input and output declaration is required to be current|obtain the exact declaration in order to continue",
-      "before_tokens": 34,
-      "after_tokens": 34
+      "source": "reviewer: ISSUES\n\nfinding|shared/Foo.luau:42|high|declaration is required to be current|obtain the exact declaration in order to continue",
+      "expected": "reviewer: ISSUES\n\nfinding|shared/Foo.luau:42|high|declaration must be current|obtain the exact declaration to continue",
+      "before_tokens": 36,
+      "after_tokens": 32
     }
   ]
 }
