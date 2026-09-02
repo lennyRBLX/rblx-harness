@@ -10,10 +10,21 @@ import sys
 
 HARNESS = os.path.dirname(os.path.abspath(__file__))
 AGENTS = ("researcher", "optimizer", "reviewer", "debugger")
-PROJECT_SKILLS = ("rblx-writer", "rblx-debug", "rblx-optimize", "rblx-new-game")
+PROJECT_SKILLS = ("rblx-writer", "rblx-debug", "rblx-optimize")
 MANIFEST = ".rblx-harness.json"
 IGNORE_BEGIN = "# BEGIN rblx-harness links"
 IGNORE_END = "# END rblx-harness links"
+LOCAL_IGNORE_BEGIN = "# BEGIN rblx-new-game"
+LOCAL_IGNORE_END = "# END rblx-new-game"
+LOCAL_IGNORE_ENTRIES = (
+    "/.agents/",
+    "/.codex/",
+    "/.serena/",
+    "/.roblox",
+    "/.rblx-new-game.json",
+    ".DS_Store",
+)
+ASSET_ORDER = ("packages", "services", "controllers", "plugins")
 
 
 def fail(message):
@@ -31,6 +42,10 @@ def read_json(path):
     return value
 
 
+def write_json(path, value):
+    write_text(path, json.dumps(value, indent=2, sort_keys=True) + "\n")
+
+
 def write_text(path, text):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     try:
@@ -44,9 +59,11 @@ def write_text(path, text):
     return True
 
 
-def remove_link(path):
-    if os.path.islink(path):
+def remove_path(path):
+    if os.path.islink(path) or os.path.isfile(path):
         os.unlink(path)
+    elif os.path.isdir(path):
+        shutil.rmtree(path)
 
 
 def relative_link(source, destination, directory=False, replace_regular=False):
@@ -87,6 +104,65 @@ def update_ignore(directory, names):
     managed = "\n".join((IGNORE_BEGIN,) + tuple(sorted(set(names))) + (IGNORE_END,))
     rendered = "\n\n".join(part for part in (current, managed) if part).strip() + "\n"
     write_text(path, rendered)
+
+
+def update_local_ignore(project):
+    path = os.path.join(project, ".gitignore")
+    try:
+        with open(path, encoding="utf-8") as handle:
+            current = handle.read()
+    except OSError:
+        current = ""
+    begin = current.find(LOCAL_IGNORE_BEGIN)
+    end = current.find(LOCAL_IGNORE_END, begin if begin >= 0 else 0)
+    if begin >= 0 and end >= begin:
+        end += len(LOCAL_IGNORE_END)
+        current = (current[:begin] + current[end:]).strip()
+    managed = "\n".join((LOCAL_IGNORE_BEGIN,) + LOCAL_IGNORE_ENTRIES + (LOCAL_IGNORE_END,))
+    rendered = "\n\n".join(part for part in (current, managed) if part).strip() + "\n"
+    write_text(path, rendered)
+
+
+def ensure_marker(project):
+    marker = os.path.join(project, ".roblox")
+    if os.path.lexists(marker) and (os.path.islink(marker) or not os.path.isfile(marker)):
+        fail(".roblox must be a regular file")
+    if not os.path.exists(marker):
+        write_text(marker, "")
+
+
+def normalize_assets(manifest):
+    raw = manifest.get("assets") or []
+    if not isinstance(raw, list) or any(not isinstance(value, str) for value in raw):
+        fail("manifest assets must be a list of names")
+    selected = set()
+    for value in raw:
+        canonical = "plugins" if value == "plugin" else value
+        if canonical not in ASSET_ORDER:
+            fail("unknown harness asset: %s" % value)
+        selected.add(canonical)
+    return [name for name in ASSET_ORDER if name in selected]
+
+
+def migrate_plugins_directory(project):
+    legacy = os.path.join(project, "plugin")
+    plugins = os.path.join(project, "plugins")
+    if not os.path.lexists(legacy):
+        return
+    if os.path.lexists(plugins):
+        fail("both legacy plugin/ and plugins/ exist; merge them before setup")
+    if os.path.islink(legacy) or not os.path.isdir(legacy):
+        fail("legacy plugin/ must be a regular directory")
+    os.rename(legacy, plugins)
+
+
+def ensure_plugins_directory(project):
+    directory = os.path.join(project, "plugins")
+    if os.path.lexists(directory) and (os.path.islink(directory) or not os.path.isdir(directory)):
+        fail("plugins/ must be a regular directory")
+    os.makedirs(directory, exist_ok=True)
+    if not os.listdir(directory):
+        write_text(os.path.join(directory, ".gitkeep"), "")
 
 
 def link_tree(source_root, destination_root, replace_regular=False):
@@ -145,6 +221,7 @@ def copy_codex_support(project):
 
     skills_root = os.path.join(project, ".agents", "skills")
     os.makedirs(skills_root, exist_ok=True)
+    remove_path(os.path.join(skills_root, "rblx-new-game"))
     for name in PROJECT_SKILLS:
         relative_link(
             os.path.join(project, "rblx-harness", "shared", "skills", name),
@@ -173,23 +250,26 @@ def render_templates(project, manifest):
         .replace("{{ASSETS}}", ", ".join(assets) if assets else "none")
     )
     write_text(os.path.join(project, "AGENTS.md"), rendered)
-    handoff = os.path.join(project, "HANDOFF.md")
-    if not os.path.exists(handoff):
-        shutil.copy2(os.path.join(HARNESS, "templates", "HANDOFF.md"), handoff)
 
 
 def install(project, manifest):
     project = os.path.realpath(project)
     if not os.path.isdir(project):
         fail("project directory is absent: %s" % project)
-    if not os.path.isfile(os.path.join(project, ".roblox")):
-        fail("project has no .roblox marker")
     if not os.path.exists(os.path.join(project, "rblx-harness")):
         fail("project has no rblx-harness submodule")
     places = manifest.get("places")
-    assets = set(manifest.get("assets") or [])
     if not isinstance(places, list) or not places:
         fail("manifest has no places")
+    migrate_plugins_directory(project)
+    assets = normalize_assets(manifest)
+    if os.path.isdir(os.path.join(project, "plugins")) and "plugins" not in assets:
+        assets.append("plugins")
+    assets = [name for name in ASSET_ORDER if name in set(assets)]
+    manifest = dict(manifest)
+    manifest["assets"] = assets
+    update_local_ignore(project)
+    ensure_marker(project)
     for place in places:
         os.makedirs(os.path.join(project, "places", place, "src", "ServerScriptService", "Services"), exist_ok=True)
         os.makedirs(
@@ -226,17 +306,14 @@ def install(project, manifest):
             ),
             os.path.join(project, "shared", "src", "StarterPlayer", "StarterPlayerScripts", "Controllers"),
         )
-    if "plugin" in assets or os.path.isdir(os.path.join(project, "plugin")):
-        os.makedirs(os.path.join(project, "plugin"), exist_ok=True)
-        marker = os.path.join(project, "plugin", ".gitkeep")
-        if not os.path.exists(marker):
-            open(marker, "a", encoding="utf-8").close()
+    if "plugins" in assets:
+        ensure_plugins_directory(project)
 
     copy_codex_support(project)
     render_templates(project, manifest)
     print("setup-project|READY|places=%s|assets=%s" % (
         ",".join(places),
-        ",".join(sorted(assets)) if assets else "none",
+        ",".join(assets) if assets else "none",
     ))
     for category in sorted(linked):
         counts = linked[category]
@@ -246,6 +323,7 @@ def install(project, manifest):
             counts["exact"],
             counts["preserved"],
         ))
+    return manifest
 
 
 def main(argv=None):
@@ -258,7 +336,9 @@ def main(argv=None):
     manifest_path = args.manifest or os.path.join(project, MANIFEST)
     if not args.from_state and not args.manifest:
         fail("use --from-state or --manifest")
-    install(project, read_json(manifest_path))
+    manifest = install(project, read_json(manifest_path))
+    if os.path.realpath(manifest_path) == os.path.realpath(os.path.join(project, MANIFEST)):
+        write_json(manifest_path, manifest)
     return 0
 
 

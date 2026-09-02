@@ -10,11 +10,12 @@ optimization, and multi-place project scaffolding.
 - Tools: Roblox API and Creator Docs lookup, data and type writers, Git repair,
   MicroProfiler analysis, boilerplate generation, and style assessment.
 - Rules: `shared/CORE.md`.
-- Codex support: project agent definitions, project skills, and three lean hook
-  events.
-- Templates: shared Packages, `AGENTS.md`, and `HANDOFF.md`.
+- Codex support: reproducible project agent definitions, project skills, and
+  three lean hook events.
+- Templates: shared Packages, project `AGENTS.md`, and one shared
+  `shared/HANDOFF.md`.
 - Token compression: bounded agent records and `token_shrink.py`.
-- Plugin support: an optional project `plugin/` directory.
+- Plugin support: an optional project `plugins/` directory.
 
 Claude support is not included.
 
@@ -44,6 +45,9 @@ python3 -c 'import os,pathlib; r=pathlib.Path.cwd(); d=pathlib.Path.home()/".age
 
 Run `$rblx-new-game` from the target project directory.
 
+`rblx-new-game` is a bootstrap skill. It is not installed into the generated
+project's `.agents/skills/` directory.
+
 ## rblx-new-game flow
 
 1. Inspect the current folder and identify existing places, Services,
@@ -64,8 +68,25 @@ normal clone with `git submodule update --init --recursive`.
 `setup_project.py` replaces the former Windows batch setup. It creates relative
 file symlinks for accepted harness Packages, Services, and Controllers on
 Windows, Linux, and macOS. Shared links are mounted by every generated place;
-place-specific source remains under `places/<Place>/`. The optional `plugin/`
+place-specific source remains under `places/<Place>/`. The optional `plugins/`
 directory is created only when selected or already present.
+
+## Generated local state
+
+The submodule contains the tracked source for Codex support, but Codex discovers
+project configuration, agents, hooks, and repository skills only from the
+project root. Run setup after cloning:
+
+```bash
+git submodule update --init --recursive
+python3 rblx-harness/setup_project.py --project "$(pwd)" --from-state
+```
+
+Setup recreates the ignored `.roblox` marker, `.codex/`, and the
+`.agents/skills/` links for `rblx-writer`, `rblx-debug`, and `rblx-optimize`.
+Serena creates `.serena/` when it is initialized. All four paths are ignored
+and must not be committed. Project `HANDOFF.md` is not generated; every harness
+project uses `rblx-harness/shared/HANDOFF.md`.
 
 ## Hooks and gates
 

@@ -18,7 +18,25 @@ MANIFEST_FILE = ".rblx-harness.json"
 FIELDS = ("gameplay", "places", "services", "controllers", "assets", "harness")
 COMPONENT = re.compile(r"^[A-Za-z][A-Za-z0-9]*$")
 SOURCE_SUFFIXES = (".lua", ".luau")
-SKIP_DIRS = {".git", "rblx-harness", ".agents", ".codex", "__pycache__"}
+SKIP_DIRS = {
+    ".git",
+    "rblx-harness",
+    ".agents",
+    ".codex",
+    ".serena",
+    "plugin",
+    "plugins",
+    "__pycache__",
+}
+LOCAL_IGNORE_ENTRIES = (
+    "/.agents/",
+    "/.codex/",
+    "/.serena/",
+    "/.roblox",
+    "/.rblx-new-game.json",
+    ".DS_Store",
+)
+ASSET_ORDER = ("packages", "services", "controllers", "plugins")
 
 SERVICE_FRAME = """local m = {}
 
@@ -210,13 +228,14 @@ def inspect_project(root):
     services = sorted(found["services"].values(), key=lambda item: (item["scope"].casefold(), item["name"].casefold(), item["path"]))
     controllers = sorted(found["controllers"].values(), key=lambda item: (item["scope"].casefold(), item["name"].casefold(), item["path"]))
     project_files = [name for name in os.listdir(root) if name.endswith(".project.json")]
-    existing = bool(source_count or services or controllers or places or project_files)
+    plugins = os.path.isdir(os.path.join(root, "plugins")) or os.path.isdir(os.path.join(root, "plugin"))
+    existing = bool(source_count or services or controllers or places or project_files or plugins)
     return {
         "root": root,
         "project": "existing" if existing else "new",
         "git": os.path.exists(os.path.join(root, ".git")),
         "harness": os.path.exists(os.path.join(root, "rblx-harness")),
-        "plugin": os.path.isdir(os.path.join(root, "plugin")),
+        "plugins": plugins,
         "places": sorted(places, key=str.casefold),
         "services": services,
         "controllers": controllers,
@@ -267,7 +286,7 @@ def scoped_components(text, places=None):
 def asset_names(text):
     normalized = " ".join(text.casefold().replace(",", " ").replace(";", " ").split())
     if normalized in ("all", "accept all", "yes all", "yes to all"):
-        return ["packages", "services", "controllers", "plugin"]
+        return list(ASSET_ORDER)
     if normalized in ("none", "no"):
         return []
     aliases = {
@@ -277,8 +296,8 @@ def asset_names(text):
         "services": "services",
         "controller": "controllers",
         "controllers": "controllers",
-        "plugin": "plugin",
-        "plugins": "plugin",
+        "plugin": "plugins",
+        "plugins": "plugins",
         "support": None,
         "and": None,
     }
@@ -328,11 +347,12 @@ def answer(root, field, text):
         raise ValueError("field must be one of: %s" % ", ".join(FIELDS))
     state = load_state(root)
     state[field] = validate_answer(field, text, state)
+    append_root_ignore(root)
     write_json(state_path(root), state)
     print("ANSWERED|%s|%s" % (field, state[field]))
 
 
-def validate_state(state, plugin_exists=False):
+def validate_state(state, plugins_exist=False):
     missing = [field for field in FIELDS if not isinstance(state.get(field), str) or not state[field].strip()]
     if missing:
         raise ValueError("missing interview answers: %s" % ", ".join(missing))
@@ -341,8 +361,8 @@ def validate_state(state, plugin_exists=False):
     controllers = scoped_components(state["controllers"], places)
     assets = asset_names(state["assets"])
     harness = yes_no(state["harness"])
-    if plugin_exists and "plugin" not in assets:
-        assets.append("plugin")
+    if plugins_exist and "plugins" not in assets:
+        assets.append("plugins")
     if not harness and set(assets).intersection(("packages", "services", "controllers")):
         raise ValueError("harness packages, services, and controllers require rblx-harness")
     return places, services, controllers, assets, harness
@@ -452,8 +472,29 @@ def append_root_ignore(root):
         current = ""
     pattern = re.compile(re.escape(begin) + r".*?" + re.escape(end) + r"\s*", re.DOTALL)
     retained = pattern.sub("", current).strip()
-    managed = "%s\n%s\n.DS_Store\n%s" % (begin, INTERVIEW_FILE, end)
+    managed = "\n".join((begin,) + LOCAL_IGNORE_ENTRIES + (end,))
     write_text(path, "\n\n".join(part for part in (retained, managed) if part) + "\n")
+
+
+def migrate_plugins_directory(root):
+    legacy = os.path.join(root, "plugin")
+    plugins = os.path.join(root, "plugins")
+    if not os.path.lexists(legacy):
+        return
+    if os.path.lexists(plugins):
+        raise ValueError("both legacy plugin/ and plugins/ exist; merge them before scaffolding")
+    if os.path.islink(legacy) or not os.path.isdir(legacy):
+        raise ValueError("legacy plugin/ must be a regular directory")
+    os.rename(legacy, plugins)
+
+
+def ensure_plugins_directory(root):
+    directory = os.path.join(root, "plugins")
+    if os.path.lexists(directory) and (os.path.islink(directory) or not os.path.isdir(directory)):
+        raise ValueError("plugins/ must be a regular directory")
+    os.makedirs(directory, exist_ok=True)
+    if not os.listdir(directory):
+        write_text(os.path.join(directory, ".gitkeep"), "")
 
 
 def render_without_harness(root, state, places, assets):
@@ -468,7 +509,6 @@ def render_without_harness(root, state, places, assets):
         ", ".join(assets) if assets else "none",
     )
     write_text(os.path.join(root, "AGENTS.md"), text)
-    write_text(os.path.join(root, "HANDOFF.md"), "goal:\nchanged:\nevidence:\nopen:\n", overwrite=False)
 
 
 def emit(root):
@@ -476,12 +516,13 @@ def emit(root):
     if not os.path.isdir(root):
         raise ValueError("project root is absent")
     state = load_state(root)
-    plugin_exists = os.path.isdir(os.path.join(root, "plugin"))
-    places, services, controllers, assets, harness = validate_state(state, plugin_exists)
+    plugins_exist = os.path.isdir(os.path.join(root, "plugins")) or os.path.isdir(os.path.join(root, "plugin"))
+    places, services, controllers, assets, harness = validate_state(state, plugins_exist)
     dependency = os.path.join(root, "rblx-harness")
     if harness and not os.path.isfile(os.path.join(dependency, "setup_project.py")):
         raise ValueError("rblx-harness submodule is absent; run dependency.py setup --yes")
 
+    migrate_plugins_directory(root)
     inspection = inspect_project(root)
     snapshots = snapshot_modules(root, inspection)
     project_name = os.path.basename(root.rstrip(os.sep)) or "game"
@@ -523,8 +564,8 @@ def emit(root):
         write_text(os.path.join(root, place + ".project.json"), content)
         if index == 0:
             write_text(os.path.join(root, "default.project.json"), content)
-    if "plugin" in assets:
-        os.makedirs(os.path.join(root, "plugin"), exist_ok=True)
+    if "plugins" in assets:
+        ensure_plugins_directory(root)
 
     manifest = {
         "schema": 1,

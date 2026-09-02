@@ -51,6 +51,7 @@ def harness_fixture(directory):
         "openai",
         "packages",
         "shared/CORE.md",
+        "shared/HANDOFF.md",
         "shared/gates",
         "shared/skills",
         "templates",
@@ -113,6 +114,21 @@ def require_submodule(root):
     require(status.returncode == 0 and status.stdout.startswith(" "), status.stdout + status.stderr)
 
 
+def require_ignored_local_state(root):
+    paths = {
+        ".agents": ".agents/.verify-probe",
+        ".codex": ".codex/.verify-probe",
+        ".serena": ".serena/.verify-probe",
+        ".roblox": ".roblox",
+        ".rblx-new-game.json": ".rblx-new-game.json",
+    }
+    for relative, probe in paths.items():
+        ignored = run(["git", "check-ignore", "--no-index", "--quiet", "--", probe], cwd=root)
+        require(ignored.returncode == 0, "%s is not ignored" % relative)
+        tracked = run(["git", "ls-files", "--", relative], cwd=root)
+        require(tracked.returncode == 0 and not tracked.stdout.strip(), "%s is tracked" % relative)
+
+
 def case(name):
     def decorator(function):
         CASES.append((name, function))
@@ -140,6 +156,10 @@ def _():
     require(not os.path.exists(os.path.join(ROOT, ".claude")), ".claude directory remains")
     require(not os.path.exists(os.path.join(ROOT, "setup_windows.bat")), "Windows batch remains")
     require(os.path.isfile(os.path.join(ROOT, "setup_project.py")), "Python setup is absent")
+    require(os.path.isfile(os.path.join(ROOT, "shared", "HANDOFF.md")), "shared handoff is absent")
+    require(not os.path.exists(os.path.join(ROOT, "templates", "HANDOFF.md")), "project handoff template remains")
+    tracked_local = run(["git", "ls-files", "--", ".agents", ".codex", ".serena", ".roblox"])
+    require(tracked_local.returncode == 0 and not tracked_local.stdout.strip(), tracked_local.stdout)
     for skill in skills:
         text = open(os.path.join(ROOT, "shared", "skills", skill, "SKILL.md"), encoding="utf-8").read()
         require(text.startswith("---\nname: %s\n" % skill), "%s frontmatter" % skill)
@@ -148,7 +168,7 @@ def _():
 
 @case("hooks support only agents, tools, and rules")
 def _():
-    for relative in ("openai/hooks/project.json", ".codex/hooks.json"):
+    for relative in ("openai/hooks/project.json",):
         document = json.load(open(os.path.join(ROOT, relative), encoding="utf-8"))
         require(set(document["hooks"]) == {"PreToolUse", "SubagentStart", "SubagentStop"}, relative)
         serialized = json.dumps(document)
@@ -217,6 +237,8 @@ def _():
         installed = run([PY, copied, "setup", "--root", project, "--yes"], env=environment)
         require(installed.returncode == 0, installed.stdout + installed.stderr)
         require_submodule(project)
+        require(os.path.isfile(os.path.join(project, ".roblox")), "local marker is absent")
+        require_ignored_local_state(project)
         require(os.path.isfile(os.path.join(project, SUBMODULE_NAME, "setup_project.py")), "submodule is absent")
         repeated = run([PY, copied, "setup", "--root", project, "--yes"], env=environment)
         require(repeated.returncode == 0 and "mode=submodule-ready" in repeated.stdout, repeated.stdout + repeated.stderr)
@@ -304,12 +326,16 @@ def _():
         require(os.path.islink(os.path.join(root, "shared", "src", "ServerScriptService", "Services", "Payments.luau")), "service link absent")
         effects = os.path.join(root, "shared", "src", "StarterPlayer", "StarterPlayerScripts", "Controllers", "Effects", "init.luau")
         require(os.path.islink(effects), "controller link absent")
-        require(os.path.isdir(os.path.join(root, "plugin")), "plugin folder absent")
+        require(os.path.isdir(os.path.join(root, "plugins")), "plugins folder absent")
+        require(not os.path.lexists(os.path.join(root, "plugin")), "legacy plugin folder remains")
         require(not os.path.exists(os.path.join(root, ".claude")), "Claude support emitted")
         require(not os.path.exists(os.path.join(root, "CLAUDE.md")), "CLAUDE.md emitted")
+        require(not os.path.exists(os.path.join(root, "HANDOFF.md")), "project handoff was emitted")
         require(sorted(os.path.splitext(name)[0] for name in os.listdir(os.path.join(root, ".codex", "agents"))) == ["debugger", "optimizer", "researcher", "reviewer"], "agent set")
-        for skill in ("rblx-writer", "rblx-debug", "rblx-optimize", "rblx-new-game"):
+        for skill in ("rblx-writer", "rblx-debug", "rblx-optimize"):
             require(os.path.islink(os.path.join(root, ".agents", "skills", skill)), "%s is not linked" % skill)
+        require(not os.path.lexists(os.path.join(root, ".agents", "skills", "rblx-new-game")), "rblx-new-game was installed in project")
+        require_ignored_local_state(root)
         inspected = run([PY, SCAFFOLD, "inspect", "--root", root])
         require(inspected.returncode == 0, inspected.stdout + inspected.stderr)
         report = json.loads(inspected.stdout)
@@ -326,20 +352,39 @@ def _():
         validated = run([PY, PROJECT_GATE, "--project-root", root])
         require(validated.returncode == 0, validated.stdout + validated.stderr)
 
+        shutil.rmtree(os.path.join(root, ".agents"))
+        shutil.rmtree(os.path.join(root, ".codex"))
+        os.unlink(os.path.join(root, ".roblox"))
+        os.makedirs(os.path.join(root, ".agents", "skills", "rblx-new-game"))
+        write(os.path.join(root, ".agents", "skills", "rblx-new-game", "stale"), "stale\n")
+        restored = run(
+            [PY, os.path.join(root, SUBMODULE_NAME, "setup_project.py"), "--project", root, "--from-state"],
+            cwd=root,
+        )
+        require(restored.returncode == 0, restored.stdout + restored.stderr)
+        require(os.path.isfile(os.path.join(root, ".roblox")), "setup did not recreate .roblox")
+        require(os.path.isfile(os.path.join(root, ".codex", "hooks.json")), "setup did not recreate .codex")
+        require(not os.path.lexists(os.path.join(root, ".agents", "skills", "rblx-new-game")), "setup retained rblx-new-game")
+        os.makedirs(os.path.join(root, ".serena"))
+        write(os.path.join(root, ".serena", "project.yml"), "project_name: game\n")
+        require_ignored_local_state(root)
+        revalidated = run([PY, PROJECT_GATE, "--project-root", root])
+        require(revalidated.returncode == 0, revalidated.stdout + revalidated.stderr)
 
-@case("plugin directory is optional")
+
+@case("plugins directory is optional")
 def _():
     with tempfile.TemporaryDirectory() as directory:
         root = os.path.join(directory, "game")
         os.makedirs(root)
         run(["git", "init"], cwd=root)
         scaffold_project(root, assets="none")
-        require(not os.path.exists(os.path.join(root, "plugin")), "plugin was created")
+        require(not os.path.exists(os.path.join(root, "plugins")), "plugins was created")
         validated = run([PY, PROJECT_GATE, "--project-root", root])
         require(validated.returncode == 0, validated.stdout + validated.stderr)
 
 
-@case("existing plugin support remains when the harness is declined")
+@case("legacy plugin support migrates when the harness is declined")
 def _():
     with tempfile.TemporaryDirectory() as directory:
         root = os.path.join(directory, "game")
@@ -357,7 +402,9 @@ def _():
             require(result.returncode == 0, result.stdout + result.stderr)
         emitted = run([PY, SCAFFOLD, "emit", "--root", root])
         require(emitted.returncode == 0, emitted.stdout + emitted.stderr)
-        require(os.path.isdir(os.path.join(root, "plugin")), "existing plugin folder was removed")
+        require(os.path.isdir(os.path.join(root, "plugins")), "plugins folder was not migrated")
+        require(not os.path.lexists(os.path.join(root, "plugin")), "legacy plugin folder remains")
+        require(not os.path.exists(os.path.join(root, "HANDOFF.md")), "project handoff was emitted")
         require(not os.path.exists(os.path.join(root, SUBMODULE_NAME)), "harness was installed")
 
 

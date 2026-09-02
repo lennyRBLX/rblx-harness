@@ -9,6 +9,16 @@ import sys
 
 DEPENDENCY_NAME = "rblx-harness"
 REPOSITORY_URL = "https://github.com/lennyRBLX/rblx-harness.git"
+LOCAL_IGNORE_BEGIN = "# BEGIN rblx-new-game"
+LOCAL_IGNORE_END = "# END rblx-new-game"
+LOCAL_IGNORE_ENTRIES = (
+    "/.agents/",
+    "/.codex/",
+    "/.serena/",
+    "/.roblox",
+    "/.rblx-new-game.json",
+    ".DS_Store",
+)
 
 
 class DependencyError(RuntimeError):
@@ -29,6 +39,24 @@ def valid_harness(path):
     )
 
 
+def update_local_ignore(root):
+    path = os.path.join(root, ".gitignore")
+    try:
+        with open(path, encoding="utf-8") as handle:
+            current = handle.read()
+    except OSError:
+        current = ""
+    begin = current.find(LOCAL_IGNORE_BEGIN)
+    end = current.find(LOCAL_IGNORE_END, begin if begin >= 0 else 0)
+    if begin >= 0 and end >= begin:
+        end += len(LOCAL_IGNORE_END)
+        current = (current[:begin] + current[end:]).strip()
+    managed = "\n".join((LOCAL_IGNORE_BEGIN,) + LOCAL_IGNORE_ENTRIES + (LOCAL_IGNORE_END,))
+    rendered = "\n\n".join(part for part in (current, managed) if part).strip() + "\n"
+    with open(path, "w", encoding="utf-8", newline="\n") as handle:
+        handle.write(rendered)
+
+
 def ensure_project(root):
     root = os.path.realpath(root)
     if not os.path.isdir(root):
@@ -36,6 +64,7 @@ def ensure_project(root):
     top = run(["git", "rev-parse", "--show-toplevel"], root, check=False)
     if top.returncode != 0 or os.path.realpath(top.stdout.strip()) != root:
         run(["git", "init"], root)
+    update_local_ignore(root)
     marker = os.path.join(root, ".roblox")
     if os.path.lexists(marker) and (os.path.islink(marker) or not os.path.isfile(marker)):
         raise DependencyError(".roblox must be a regular file")

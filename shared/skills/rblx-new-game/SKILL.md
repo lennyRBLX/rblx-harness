@@ -37,7 +37,7 @@ Use this order:
    its inferred scope, then add modules justified by the gameplay loop. If none
    exist, the user must name the shared and place-specific modules to create.
 4. Harness assets. Ask independently for packages, services, controllers, and
-   plugin support. `all` accepts all four. An existing `plugin/` directory
+   plugin support. `all` accepts all four. An existing `plugins/` directory
    keeps plugin support without another decision.
 5. Harness use. Ask whether the project should use rblx-harness. The optional
    Roblox permission profile is not part of this decision. Full Access is
@@ -96,15 +96,26 @@ python3 <SKILL_DIR>/scripts/scaffold.py emit --root <project-root>
 ```
 
 The emitter creates one Argon project per place, shared and place-specific
-source trees, confirmed boilerplate, AGENTS.md, the compact handoff, Codex
-agents and project skills, and only the three lean hook events. It calls the
+source trees, confirmed boilerplate, AGENTS.md, Codex agents, three project
+workflow skills, and only the three lean hook events. It calls the
 cross-platform Python setup script to symlink accepted harness packages,
-Services, and Controllers on macOS, Linux, and Windows. Existing detected
-Service and Controller bytes overwrite generated boilerplate at their
-confirmed destination, even when their formatting differs.
+Services, and Controllers on macOS, Linux, and Windows. `rblx-new-game` remains
+a bootstrap skill and is not installed into the generated project's
+`.agents/skills/`. Existing detected Service and Controller bytes overwrite
+generated boilerplate at their confirmed destination, even when their
+formatting differs.
 
-Create `plugin/` only when accepted or already present. Its absence is valid
+Create `plugins/` only when accepted or already present. Its absence is valid
 and must not fail setup or validation.
+
+Do not create project `HANDOFF.md`. Use the single static compaction handoff at
+`rblx-harness/shared/HANDOFF.md`.
+
+The generated `.agents/`, `.codex/`, and `.roblox` paths are local runtime
+state and must remain ignored. `.codex/` is required at runtime because Codex
+discovers project configuration, agents, and hooks from the project root; the
+submodule alone does not replace it. Serena owns `.serena/`, which is also
+ignored and is created only when Serena initializes the project.
 
 Do not request a session restart. Report the emitted places and preserved
 modules when the command succeeds.
@@ -116,3 +127,6 @@ For an existing harness project, restore Codex support and asset links with:
 ```bash
 python3 rblx-harness/setup_project.py --project <project-root> --from-state
 ```
+
+This command also recreates the ignored `.roblox` marker and removes any stale
+project-local `rblx-new-game` skill install.
