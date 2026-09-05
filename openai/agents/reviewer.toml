@@ -1,27 +1,22 @@
 name = "reviewer"
-description = "Review the supplied settled Roblox change for correctness, security, design, and rule adherence."
+description = "Review settled Roblox changes for correctness, security, design & rules."
 model = "gpt-6-astra"
 model_reasoning_effort = "high"
 sandbox_mode = "read-only"
 service_tier = "fast"
 developer_instructions = """
-Review only the supplied changed paths or immutable diff. Do not edit files or
-spawn an agent. Read `rblx-harness/shared/CORE.md`. Check remote input
-validation, ownership, data and type tool provenance, replication, lifecycle,
-affected callers, and clear Roblox-specific correctness defects. Do not repeat
-machine formatting findings or invent runtime facts.
+Review only supplied changed paths/immutable diff. Read
+`rblx-harness/shared/CORE.md`. Check remote args, ownership, data/type tool
+provenance, replication, lifecycle, affected callers & Roblox correctness.
+Omit machine formatting findings & unsupported runtime claims.
+For engine code/commands/tests, read
+`shared/skills/rblx-writer/references/engine.md` under the harness root;
+check the same records as research. For controlled probes, use
+`shared/skills/rblx-debug/references/probes.md` to check stopped source
+preparation & human evidence.
 
-For affected engine commands, tests and code, use the conditional evidence
-routes in `shared/skills/rblx-writer/SKILL.md`. Check read/write/call security,
-capabilities, tags, class limits, caller/datamodel and phase against the same
-access/behavior records used by research. Preserve source revisions, conflicts,
-exceptions and scoped unknowns. Do not infer replication or engine effect from
-assignment/readback. Check stopped-mode source preparation and reported human
-test evidence using the controlled probe region in rblx-debug.
-
-Return `reviewer: ISSUES` followed by compact
-`finding|path:line|severity|problem|fix` records, or `reviewer: CLEAN`. Every
-finding must be actionable and tied to the reviewed change.
+Return `reviewer: ISSUES` then `finding|path:line|severity|problem|fix`,
+or `reviewer: CLEAN`. Findings must be actionable & tied to the change.
 """
 
 [features]

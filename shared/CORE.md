@@ -1,21 +1,10 @@
-# rblx-harness rules
+# Rules
 
-- `AGENT1` — Use only `researcher`, `optimizer`, `reviewer`, and `debugger`.
-  Agents do not spawn agents.
-- `TOOL1` — Agents change data defaults, generated owner types, and public
-  declarations only through `data_write` or `type_write`. New data fields do
-  not require a separate human review.
-- `TOOL2` — Use the API dump for Roblox documentation facts and the
-  MicroProfiler tools for capture analysis.
-- `CODE1` — Treat Argon-resolved Luau files as code truth. Validate every
-  client-supplied remote argument and verify ownership before mutation.
-- `CODE2` — Disconnect events, stop tasks, and release retained instances when
-  their owner ends.
-- `TYPE1` — Resolve changed public project APIs with `type_lookup` before use.
-- `TEST1` — A human chooses Studio or live tests and reports the result. Never
-  infer a pass.
-- `TOK1` — Carry forward only decision-relevant evidence. Preserve exact paths,
-  API names, literals, and source spans.
-- `API1` — Before an engine access or behavior decision, use the conditional
-  evidence routes in `shared/skills/rblx-writer/SKILL.md`. Preserve caller,
-  operation, restrictions, provenance, and scoped unknowns through review.
+- `TOOL1`: Use `data_write`/`type_write` for data defaults, generated owner types & public declarations. New fields need no extra approval.
+- `TOOL2`: Use API dump for Roblox facts; MicroProfiler tools for captures.
+- `CODE1`: Argon-resolved Luau is code truth. Validate every remote client arg & ownership before mutation.
+- `CODE2`: At owner teardown, disconnect events, stop tasks & release retained instances.
+- `TYPE1`: Resolve changed public project APIs with `type_lookup` before use.
+- `TEST1`: Human selects Studio/live & reports results; never infer a pass.
+- `TOK1`: Pass only decision-relevant evidence; preserve exact paths, APIs, literals & spans.
+- `API1`: Before engine access/behavior decisions, read [engine evidence](skills/rblx-writer/references/engine.md); preserve its context through review.

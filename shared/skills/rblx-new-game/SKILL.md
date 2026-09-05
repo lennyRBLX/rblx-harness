@@ -1,151 +1,74 @@
 ---
 name: rblx-new-game
-description: Inspect, interview, and scaffold a new or existing multi-place Roblox project. Use for project creation or adoption, including optional rblx-harness assets and plugin support; do not use for feature work.
+description: Inspect, interview & scaffold new/existing multi-place Roblox projects with optional harness assets/plugins. Excludes feature work.
 ---
 
-# rblx-new-game
+Use cwd as `<ROOT>` & this skill directory as `<SKILL_DIR>`.
 
-Use the current working directory as the project root. Do not ask for another
-path or project name. Resolve `<SKILL_DIR>` as this skill directory.
-
-Before the interview, read [references/interview.md](references/interview.md)
-and run:
-
-```bash
-python3 <SKILL_DIR>/scripts/scaffold.py inspect --root <project-root>
-```
-
-Use the inspection result to decide whether this is a new or existing project
-and to identify existing places, Services, Controllers, their shared or
-place-specific scope, Git state, and plugin support. Do not modify the project
-during inspection.
+1. Read [interview.md](references/interview.md); inspect without edits:
+   `python3 <SKILL_DIR>/scripts/scaffold.py inspect --root <ROOT>`.
+2. Interview in the order below. Reuse explicit answers; ask only missing/conflicting fields. Use exact reference openings & revisable project-specific proposals.
+3. Record each accepted field separately:
+   `python3 <SKILL_DIR>/scripts/scaffold.py answer <field> "<answer>" --root <ROOT>`.
+   Fields: `gameplay`, `places`, `services`, `controllers`, `assets`, `harness`.
 
 ## Interview
 
-Accept explicit answers already present in the user's request. Ask only for
-missing or contradictory answers. Use the static opening text in the interview
-reference and append a project-specific proposal where that reference permits
-one. A proposal must remain open to revision.
-
-Use this order:
-
-1. Gameplay loop. Ask even when Services or Controllers already exist. Propose
-   a concise repeatable action, result or reward, and restart or continuation.
-2. Places. Always retain a multi-place layout, including when there is one
-   place. Propose places from the gameplay loop and inspection.
-3. Services and Controllers. Propose every detected module first, preserving
-   its inferred scope, then add modules justified by the gameplay loop. Do not
-   propose names listed under `harness_assets` in the inspection report; the
-   matching harness asset selection adds those modules automatically. This
-   includes `PlayerData` and `Gui`. Name every new module with a bare PascalCase
-   feature noun: use `Inventory`, never `InventoryService`, and use `Camera`,
-   never `CameraController`. If none exist, the user must name the shared and
-   place-specific modules to create.
-4. Harness assets. Ask independently for packages, services, controllers, and
-   plugin support. `all` accepts all four. An existing `plugins/` directory
-   keeps plugin support without another decision.
-5. Harness use. Ask whether the project should use rblx-harness. The optional
-   Roblox permission profile is not part of this decision. Full Access is
-   supported.
-
-Record each accepted field separately:
-
-```bash
-python3 <SKILL_DIR>/scripts/scaffold.py answer gameplay "<answer>" --root <project-root>
-python3 <SKILL_DIR>/scripts/scaffold.py answer places "<answer>" --root <project-root>
-python3 <SKILL_DIR>/scripts/scaffold.py answer services "<answer>" --root <project-root>
-python3 <SKILL_DIR>/scripts/scaffold.py answer controllers "<answer>" --root <project-root>
-python3 <SKILL_DIR>/scripts/scaffold.py answer assets "<answer>" --root <project-root>
-python3 <SKILL_DIR>/scripts/scaffold.py answer harness "<yes-or-no>" --root <project-root>
-```
-
-Use `shared: Name, Name; Place: Name` for Services and Controllers. Use `none`
-when the confirmed set is empty. Use safe bare feature names that begin with a
-letter, contain only letters or digits, and do not end in `Service` or
-`Controller`.
-
-Packages, harness Services, and harness Controllers require harness use. If the
-user selects those assets and declines the harness, ask them to revise one of
-the two answers. Plugin support can exist without the harness.
+1. **Gameplay:** Confirm even with existing modules. Propose repeatable action, reward/result & continuation/restart.
+2. **Places:** Propose from gameplay & inspection; retain multi-place layout even for one place.
+3. **Services/Controllers:** Propose every detected module first with inferred shared/place scope, then gameplay-driven additions. Exclude inspected `harness_assets` (including `PlayerData`/`Gui`); asset selection supplies them. If none exist, user must name shared/place modules. New names: bare PascalCase feature nouns, letters/digits only, starting with a letter; no `Service`/`Controller` suffix. Answer format: `shared: Name, Name; Place: Name`; `none` for a confirmed empty set.
+4. **Assets:** Ask independently for packages, services, controllers & plugins; `all` selects four. Existing `plugins/` keeps support without another decision.
+5. **Harness:** Confirm yes/no independently of optional Roblox permissions; Full Access is valid. Packages/services/controllers require harness; resolve conflicting answers. Plugins can stand alone.
 
 ## Scaffold
 
-When harness use is accepted, run:
+After explicit harness approval:
 
-```bash
-python3 <SKILL_DIR>/scripts/dependency.py setup --root <project-root> --yes
+```sh
+python3 <SKILL_DIR>/scripts/dependency.py setup --root <ROOT> --yes
 ```
 
-After explicit harness approval, the dependency tool runs the equivalent of:
+This preserves existing Git & adds the public
+`https://github.com/lennyRBLX/rblx-harness.git` submodule at `rblx-harness/`,
+with staged `.gitmodules` & pinned gitlink. Use this dependency tool without
+substitute links, clones or URLs; no permission profile required.
 
-```bash
-git submodule add https://github.com/lennyRBLX/rblx-harness.git
+For a clone missing its pinned checkout:
+
+```sh
+python3 <SKILL_DIR>/scripts/dependency.py init --root <ROOT>
 ```
 
-Git checks out the repository at `rblx-harness/`, records the public URL in
-`.gitmodules`, and stages that file plus the pinned submodule gitlink. Do not
-replace this with a symlink, nested clone, alternate URL, or hidden dependency
-directory. The command preserves an existing Git repository and never requires
-the Roblox permission profile.
+Then emit:
 
-After cloning a scaffolded project without recursive submodules, initialize
-the pinned harness checkout with:
-
-```bash
-python3 <SKILL_DIR>/scripts/dependency.py init --root <project-root>
+```sh
+python3 <SKILL_DIR>/scripts/scaffold.py emit --root <ROOT>
 ```
 
-Then run:
+Confirmed data belongs in root `manifest.json`. On `project integration failed`,
+retain emitted files/state & retry only integration with the Relink command.
+Do not rerun the pinned submodule's scaffolder; interview-state versions may differ.
 
-```bash
-python3 <SKILL_DIR>/scripts/scaffold.py emit --root <project-root>
-```
+Emission creates per-place Argon projects, shared/place source, confirmed
+boilerplate, AGENTS.md, README, Codex agents, three workflow skills & three hook
+events. Preserve existing README; new README includes gameplay & post-clone setup.
+Detected Service/Controller bytes replace boilerplate at confirmed destinations,
+including original formatting. Setup links accepted harness assets on
+macOS/Linux/Windows. `plugins/` is optional: create only if accepted/already present;
+absence must pass validation.
 
-Store the confirmed project information in the project-root `manifest.json`.
-
-If emission reports `project integration failed`, retain the emitted files and
-`manifest.json`. Do not run `scaffold.py` from the pinned submodule because it
-may use a different interview-state version. Retry only the remaining
-integration:
-
-```bash
-python3 <project-root>/rblx-harness/setup_project.py --project <project-root> --from-state
-```
-
-The emitter creates one Argon project per place, shared and place-specific
-source trees, confirmed boilerplate, AGENTS.md, a minimal README.md, Codex
-agents, three project workflow skills, and only the three lean hook events. The
-README contains the confirmed gameplay loop and required post-clone setup
-commands. Preserve an existing README. The emitter calls the
-cross-platform Python setup script to symlink accepted harness packages,
-Services, and Controllers on macOS, Linux, and Windows. `rblx-new-game` remains
-a bootstrap skill and is not installed into the generated project's
-`.agents/skills/`. Existing detected Service and Controller bytes overwrite
-generated boilerplate at their confirmed destination, even when their
-formatting differs.
-
-Create `plugins/` only when accepted or already present. Its absence is valid
-and must not fail setup or validation.
-
-Do not create project `HANDOFF.md`. Use the single static compaction handoff at
-`rblx-harness/shared/HANDOFF.md`.
-
-The generated `.agents/`, `.codex/`, and `.roblox` paths are local runtime
-state and must remain ignored. `.codex/` is required at runtime because Codex
-discovers project configuration, agents, and hooks from the project root; the
-submodule alone does not replace it. Serena owns `.serena/`, which is also
-ignored and is created only when Serena initializes the project.
-
-Do not request a session restart. Report the emitted places and preserved
-modules when the command succeeds.
+Keep `.agents/`, `.codex/`, `.roblox` & Serena-owned `.serena/` ignored. Root
+`.codex/` is required for discovery; Serena alone initializes `.serena/`.
+Use shared `rblx-harness/shared/HANDOFF.md`. Bootstrap `rblx-new-game` stays outside
+generated project skills. No session restart; report emitted places & preserved modules.
 
 ## Relink
 
-For an existing harness project, restore Codex support and asset links with:
+For existing projects or failed integration:
 
-```bash
-python3 rblx-harness/setup_project.py --project <project-root> --from-state
+```sh
+python3 <ROOT>/rblx-harness/setup_project.py --project <ROOT> --from-state
 ```
 
-This command also recreates the ignored `.roblox` marker and removes any stale
-project-local `rblx-new-game` skill install.
+Restores Codex support, asset links & `.roblox`; removes stale project-local
+`rblx-new-game` installs.

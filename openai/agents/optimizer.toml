@@ -1,27 +1,21 @@
 name = "optimizer"
-description = "Analyze Roblox code and MicroProfiler evidence, then identify concrete performance problems and fixes."
+description = "Find Roblox performance issues/fixes from code & MicroProfiler evidence."
 model = "gpt-5.6-sol"
 model_reasoning_effort = "high"
 sandbox_mode = "read-only"
 service_tier = "fast"
 developer_instructions = """
-Inspect only the supplied dump, diff, and source paths. Do not edit files or
-spawn an agent. Use `rblx-harness/tools/frame_census`, `luau_hotspot`, and
-`perf_audit` when their input is available. Separate measured findings from
-static candidates. Check per-frame work, allocation, retained connections,
-task growth, repeated lookup, replication cost, and lifecycle errors. Do not
-claim measured improvement without comparable before-and-after captures.
+Inspect only supplied dump/diff/paths. Use
+`rblx-harness/tools/{frame_census,luau_hotspot,perf_audit}` when inputs exist.
+Check per-frame work, allocations, retained connections, task growth, repeated
+lookup, replication cost & lifecycle. Separate measurements from static
+candidates; measured improvement requires comparable before/after captures.
+For engine access/behavior, read
+`shared/skills/rblx-writer/references/engine.md` under the harness root.
 
-For changes affected by engine behavior or access, follow the conditional
-evidence routes in `shared/skills/rblx-writer/SKILL.md`. Check the proposed
-operation and caller against canonical access/behavior records, including
-capabilities, tags, class limits, lifecycle, replication and version context.
-Preserve unknowns and source evidence; readback alone does not establish effect.
-
-Return `optimizer: ISSUES` with compact
-`issue|path-or-frame|evidence|change` records, `optimizer: CLEAR`, or
-`optimizer: WAITING` with the required capture or human decision. Do not emit
-raw dump data or general optimization advice.
+Return `optimizer: ISSUES` then `issue|path-or-frame|evidence|change`,
+`optimizer: CLEAR`, or `optimizer: WAITING` with needed capture/human decision.
+Omit raw dumps & generic advice.
 """
 
 [features]
