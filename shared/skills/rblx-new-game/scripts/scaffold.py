@@ -5,6 +5,7 @@ import argparse
 import json
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -13,7 +14,6 @@ import sys
 HERE = os.path.dirname(os.path.realpath(__file__))
 SKILL_DIR = os.path.dirname(HERE)
 LOCAL_HARNESS = os.path.dirname(os.path.dirname(os.path.dirname(SKILL_DIR)))
-INTERVIEW_FILE = ".rblx-new-game.json"
 MANIFEST_FILE = "manifest.json"
 FIELDS = ("gameplay", "places", "services", "controllers", "assets", "harness")
 COMPONENT = re.compile(r"^[A-Za-z][A-Za-z0-9]*$")
@@ -33,7 +33,6 @@ LOCAL_IGNORE_ENTRIES = (
     "/.codex/",
     "/.serena/",
     "/.roblox",
-    "/.rblx-new-game.json",
     ".DS_Store",
 )
 ASSET_ORDER = ("packages", "services", "controllers", "plugins")
@@ -113,7 +112,7 @@ end
 
 
 def state_path(root):
-    return os.path.join(root, INTERVIEW_FILE)
+    return os.path.join(root, MANIFEST_FILE)
 
 
 def load_state(root):
@@ -122,7 +121,15 @@ def load_state(root):
             value = json.load(handle)
     except (OSError, ValueError):
         return {}
-    return value if isinstance(value, dict) else {}
+    if not isinstance(value, dict):
+        return {}
+    if isinstance(value.get("places"), list):
+        value["places"] = ", ".join(value["places"])
+    if isinstance(value.get("assets"), list):
+        value["assets"] = ", ".join(value["assets"]) or "none"
+    if isinstance(value.get("harness"), bool):
+        value["harness"] = "yes" if value["harness"] else "no"
+    return value
 
 
 def write_json(path, value):
@@ -610,18 +617,28 @@ def emit(root):
         "assets": assets,
         "harness": harness,
     }
+    write_json(state_path(root), manifest)
     if harness:
-        write_json(os.path.join(root, MANIFEST_FILE), manifest)
         result = subprocess.run(
             [sys.executable, os.path.join(dependency, "setup_project.py"), "--project", root, "--from-state"],
             cwd=root,
             text=True,
         )
         if result.returncode != 0:
-            raise RuntimeError("project integration failed")
+            recovery = [
+                sys.executable,
+                os.path.join(dependency, "setup_project.py"),
+                "--project",
+                root,
+                "--from-state",
+            ]
+            command = subprocess.list2cmdline(recovery) if os.name == "nt" else shlex.join(recovery)
+            raise RuntimeError(
+                "project integration failed; keep the emitted files and manifest.json; "
+                "do not rerun scaffold.py; retry integration with: %s" % command
+            )
     else:
         render_without_harness(root, state, places, assets)
-    os.remove(state_path(root))
     print("EMITTED|%s|places=%s|assets=%s|preserved=%s" % (
         project_name,
         ",".join(places),

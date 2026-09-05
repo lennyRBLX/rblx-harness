@@ -101,8 +101,16 @@ Then run:
 python3 <SKILL_DIR>/scripts/scaffold.py emit --root <project-root>
 ```
 
-When harness use is accepted, store the confirmed project information in the
-project-root `manifest.json`.
+Store the confirmed project information in the project-root `manifest.json`.
+
+If emission reports `project integration failed`, retain the emitted files and
+`manifest.json`. Do not run `scaffold.py` from the pinned submodule because it
+may use a different interview-state version. Retry only the remaining
+integration:
+
+```bash
+python3 <project-root>/rblx-harness/setup_project.py --project <project-root> --from-state
+```
 
 The emitter creates one Argon project per place, shared and place-specific
 source trees, confirmed boilerplate, AGENTS.md, a minimal README.md, Codex

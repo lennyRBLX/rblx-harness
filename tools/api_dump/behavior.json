@@ -1,0 +1,1245 @@
+{
+  "schema": "roblox-behavior-v1",
+  "records": [
+    {
+      "id": "workspace-gravity",
+      "topics": [
+        "workspace",
+        "physics"
+      ],
+      "apis": [
+        "Workspace.Gravity"
+      ],
+      "category": "knowledge",
+      "need": "conditional",
+      "limit_type": "none",
+      "context": "Serial game code; caller capabilities and network ownership assessed separately",
+      "fact": "Gravity controls acceleration of falling BaseParts and can be changed during play. ReadSafe describes parallel reads; the dump lists Basic for reads and Basic plus Physics for writes.",
+      "action": "Use a serial runtime assignment after checking caller access. Verify falling-part effect, readback, other-process behavior and restoration separately.",
+      "sources": [
+        {
+          "path": "reference/engine/classes/Workspace.yaml",
+          "excerpt": "By changing this value, developers can simulate",
+          "url": "https://github.com/Roblox/creator-docs/blob/d6c42cac06f61535fc5316e1287dbdacc8f2e403/content/en-us/reference/engine/classes/Workspace.yaml",
+          "sha256": "745ea96eead9bb8c117e92c5e5785696ea5a34f75f6ac06743d6552c6fd7aa48"
+        }
+      ],
+      "exceptions": "This establishes no runtime rule for other Workspace properties or MCP permissions.",
+      "status": "documented",
+      "confidence": "high",
+      "creator_docs_revision": "d6c42cac06f61535fc5316e1287dbdacc8f2e403",
+      "recheck": "Recheck the decisive source when API dump, Creator Docs, Studio/MCP version, relevant feature setting or project implementation changes.",
+      "runtime": {
+        "Workspace.Gravity": {
+          "runtime_assignment": "supported in documented serial game code; caller capabilities still apply",
+          "effective_when": "runtime gravity; exact observation timing unknown"
+        }
+      },
+      "api_dump_sha256": "2598cf2eca58282370ab872ec6733202d42a6e7abeae31eec5b1c24735050d58",
+      "tested_behavior": {
+        "studio_build": "0.737.0.7371584",
+        "mcp_executable_sha256": "8a0a1753f601d43adbd2956d0fd5f40948c07401a7c4f2b9c0393cccafd693e4",
+        "context": "Serial ordinary Script/LocalScript, direct or required-module access; MCP Edit, Server and Client in a disposable place.",
+        "rule": "Server Gravity writes affected an owned falling part and were observed by the client. Client writes affected a client-local part while server Gravity stayed unchanged; MCP Server did not observe the MCP Client-created part. Module wrapping did not change the ordinary caller results. Stopped MCP Edit accepted assignment/readback without simulating the unanchored part.",
+        "limits": "Use separate readback, physics and other-process checks. Bounded falling-part samples used broad tolerances; they do not establish exact integration, replication latency, saved persistence or privileges in other callers."
+      }
+    },
+    {
+      "id": "workspace-streaming",
+      "topics": [
+        "workspace",
+        "replication"
+      ],
+      "apis": [
+        "Workspace.StreamingEnabled",
+        "Workspace.StreamingMinRadius",
+        "Workspace.StreamingTargetRadius",
+        "Workspace.StreamingIntegrityMode",
+        "Workspace.ModelStreamingBehavior",
+        "Workspace.StreamOutBehavior"
+      ],
+      "category": "constraint",
+      "need": "conditional",
+      "limit_type": "engine",
+      "context": "Listed Workspace streaming settings, Studio configuration",
+      "fact": "The streaming guide requires its listed settings to be configured in Studio. A read permission or PluginSecurity write does not by itself establish when an engine setting takes effect.",
+      "action": "Configure these settings while stopped, then use a fresh Play. Check each diagnostic member with access: StreamingMinRadius and StreamingTargetRadius are NotScriptable in the recorded API dump despite ReadSafe; do not read them from Luau. Preserve read/write denial separately; do not design a production runtime streaming toggle.",
+      "sources": [
+        {
+          "path": "workspace/streaming/index.md",
+          "excerpt": "must be set on the `Class.Workspace` object in Studio",
+          "url": "https://github.com/Roblox/creator-docs/blob/d6c42cac06f61535fc5316e1287dbdacc8f2e403/content/en-us/workspace/streaming/index.md",
+          "sha256": "f5e41f302ed58f025dbbc2bb21381ce549d8c3ebea62f5247c9b1902da716810"
+        }
+      ],
+      "exceptions": "Model.ModelStreamingMode has a separate server-Script rule; other Workspace properties need their own evidence.",
+      "status": "documented",
+      "confidence": "high",
+      "creator_docs_revision": "d6c42cac06f61535fc5316e1287dbdacc8f2e403",
+      "recheck": "Recheck the decisive source when API dump, Creator Docs, Studio/MCP version, relevant feature setting or project implementation changes.",
+      "runtime": {
+        "Workspace.StreamingEnabled": {
+          "edit_configuration": "supported in Studio",
+          "runtime_assignment": "denied for ordinary game code",
+          "effective_when": "configure before a fresh Play; MCP runtime behavior unknown"
+        }
+      },
+      "api_dump_sha256": "2598cf2eca58282370ab872ec6733202d42a6e7abeae31eec5b1c24735050d58",
+      "tested_behavior": {
+        "studio_build": "0.737.0.7371584",
+        "mcp_executable_sha256": "8a0a1753f601d43adbd2956d0fd5f40948c07401a7c4f2b9c0393cccafd693e4",
+        "context": "Separate fresh Plays after stopped configuration; ordinary server/client; near part at (0,5,0), far part at (10000,5,0), character near origin.",
+        "rule": "With streaming disabled, both callers observed both parts. With streaming enabled, the server observed both and the client observed only the near part. Configure before Play and interpret client absence as a bounded presence observation.",
+        "limits": "Streaming radii were not read. No universal distance threshold, residency guarantee or runtime-toggle behavior was established."
+      }
+    },
+    {
+      "id": "camera-local-and-replacement",
+      "topics": [
+        "workspace",
+        "assets",
+        "replication"
+      ],
+      "apis": [
+        "Workspace.CurrentCamera",
+        "Camera.FieldOfView"
+      ],
+      "category": "knowledge",
+      "need": "conditional",
+      "limit_type": "none",
+      "context": "Client camera and disposable camera probes",
+      "fact": "CurrentCamera denotes the local player's camera. Setting it destroys other Workspace cameras; an invalid or removed current camera causes an engine-created replacement.",
+      "action": "Read the client's CurrentCamera. For a reversible local-value probe, change and restore FieldOfView on that camera; do not swap CurrentCamera while assuming the previous camera remains restorable.",
+      "sources": [
+        {
+          "path": "reference/engine/classes/Workspace.yaml",
+          "excerpt": "all other `Camera` objects in the `Workspace` are destroyed",
+          "url": "https://github.com/Roblox/creator-docs/blob/d6c42cac06f61535fc5316e1287dbdacc8f2e403/content/en-us/reference/engine/classes/Workspace.yaml",
+          "sha256": "745ea96eead9bb8c117e92c5e5785696ea5a34f75f6ac06743d6552c6fd7aa48"
+        }
+      ],
+      "exceptions": "Local camera success does not establish saved-place or server-wide changes.",
+      "status": "documented",
+      "confidence": "high",
+      "creator_docs_revision": "d6c42cac06f61535fc5316e1287dbdacc8f2e403",
+      "recheck": "Recheck the decisive source when API dump, Creator Docs, Studio/MCP version, relevant feature setting or project implementation changes.",
+      "runtime": {
+        "Workspace.CurrentCamera": {
+          "replication": "client-local camera; no server-wide effect established"
+        }
+      },
+      "api_dump_sha256": "2598cf2eca58282370ab872ec6733202d42a6e7abeae31eec5b1c24735050d58",
+      "tested_behavior": {
+        "studio_build": "0.737.0.7371584",
+        "mcp_executable_sha256": "8a0a1753f601d43adbd2956d0fd5f40948c07401a7c4f2b9c0393cccafd693e4",
+        "context": "Ordinary LocalScript and MCP Client; paired MCP Server observer and a separate fresh-Play client control.",
+        "rule": "Changing and restoring FieldOfView on the existing client camera preserved its within-session identity. During the acknowledged client write window, the server camera FieldOfView stayed unchanged. A separate fresh-Play client control also restored its original value.",
+        "limits": "No CurrentCamera replacement was performed. Matching camera paths do not establish cross-context or cross-session object identity. Visual effect, general replication and untouched saved-place persistence remain unmeasured."
+      }
+    },
+    {
+      "id": "inactive-interpolation-setting",
+      "topics": [
+        "workspace",
+        "environment"
+      ],
+      "apis": [
+        "Workspace.InterpolationThrottling"
+      ],
+      "category": "constraint",
+      "need": "conditional",
+      "limit_type": "engine",
+      "context": "Studio 0.737 documentation; deprecated Workspace setting",
+      "fact": "Current documentation says InterpolationThrottling no longer takes effect.",
+      "action": "Do not use it for new work or treat assignment/readback as a physics effect.",
+      "sources": [
+        {
+          "path": "reference/engine/classes/Workspace.yaml",
+          "excerpt": "it no longer takes effect",
+          "url": "https://github.com/Roblox/creator-docs/blob/d6c42cac06f61535fc5316e1287dbdacc8f2e403/content/en-us/reference/engine/classes/Workspace.yaml",
+          "sha256": "745ea96eead9bb8c117e92c5e5785696ea5a34f75f6ac06743d6552c6fd7aa48"
+        }
+      ],
+      "exceptions": "This says nothing about Gravity or other writable settings.",
+      "status": "documented",
+      "confidence": "high",
+      "creator_docs_revision": "d6c42cac06f61535fc5316e1287dbdacc8f2e403",
+      "recheck": "Recheck the decisive source when API dump, Creator Docs, Studio/MCP version, relevant feature setting or project implementation changes.",
+      "runtime": {
+        "Workspace.InterpolationThrottling": {
+          "effective_when": "no engine effect according to current documentation"
+        }
+      },
+      "api_dump_sha256": "2598cf2eca58282370ab872ec6733202d42a6e7abeae31eec5b1c24735050d58"
+    },
+    {
+      "id": "editor-source-access",
+      "topics": [
+        "modules",
+        "environment"
+      ],
+      "apis": [
+        "ModuleScript.Source",
+        "Script.Source",
+        "LocalScript.Source",
+        "ScriptEditorService.UpdateSourceAsync",
+        "ScriptEditorService"
+      ],
+      "category": "constraint",
+      "need": "conditional",
+      "limit_type": "engine",
+      "context": "Source authoring and editor APIs",
+      "fact": "ScriptEditorService is restricted to Studio plugins and Command Bar. Source properties can require PluginOrOpenCloud capabilities even when read/write Security is None.",
+      "action": "Query access for the exact class/member and caller. For GetService, distinguish pcall success from a non-nil service; record method access only when attempted. Author all source in stopped Edit under the project rule. Do not use editor APIs as a runtime source-edit route.",
+      "sources": [
+        {
+          "path": "reference/engine/classes/ScriptEditorService.yaml",
+          "excerpt": "only available in Studio plugins and the command bar",
+          "url": "https://github.com/Roblox/creator-docs/blob/d6c42cac06f61535fc5316e1287dbdacc8f2e403/content/en-us/reference/engine/classes/ScriptEditorService.yaml",
+          "sha256": "c8de6d94fb89f0092c8da0593a2911dbf3f5c589face80fe3d9eae29bad22667"
+        },
+        {
+          "path": "reference/engine/classes/ModuleScript.yaml",
+          "excerpt": "PluginOrOpenCloud",
+          "url": "https://github.com/Roblox/creator-docs/blob/d6c42cac06f61535fc5316e1287dbdacc8f2e403/content/en-us/reference/engine/classes/ModuleScript.yaml",
+          "sha256": "825f02f9025ffb852d76046db75bf1f67a7cf5cd7197c4a53a4072b1a596e472"
+        }
+      ],
+      "exceptions": "Creating non-code instances, activating prepared scripts and cloning prepared code are separate operations. MCP access is unknown until verified in that context.",
+      "status": "documented",
+      "confidence": "high",
+      "creator_docs_revision": "d6c42cac06f61535fc5316e1287dbdacc8f2e403",
+      "recheck": "Recheck the decisive source when API dump, Creator Docs, Studio/MCP version, relevant feature setting or project implementation changes.",
+      "api_dump_sha256": "2598cf2eca58282370ab872ec6733202d42a6e7abeae31eec5b1c24735050d58",
+      "tested_behavior": {
+        "studio_build": "0.737.0.7371584",
+        "mcp_executable_sha256": "8a0a1753f601d43adbd2956d0fd5f40948c07401a7c4f2b9c0393cccafd693e4",
+        "context": "Ordinary serial server/client callers and MCP Edit/Server/Client; owned ModuleScript.",
+        "rule": "Ordinary Source reads failed with: The current thread cannot read 'Source' (lacking capability PluginOrOpenCloud). Ordinary GetService('ScriptEditorService') returned nil without throwing, so method access was not tested. MCP Source reads and guarded GetScriptDocuments calls succeeded in all three datamodels; Source writing/readback succeeded only in the tested stopped Edit procedure.",
+        "limits": "Service acquisition, non-nil return, method access and Source access are separate checks. No runtime Source writing or document-content changes were tested. MCP access is version- and caller-specific."
+      }
+    },
+    {
+      "id": "module-cache-and-replacement",
+      "topics": [
+        "modules",
+        "parallel"
+      ],
+      "apis": [
+        "ModuleScript",
+        "ModuleScript.Source"
+      ],
+      "category": "knowledge",
+      "need": "conditional",
+      "limit_type": "none",
+      "context": "A specific ModuleScript instance within one Luau environment",
+      "fact": "require initializes once per environment and subsequent requires return the same value. Server, client and Command Bar environments have independent results.",
+      "action": "For Source changes, compare same-instance requires with an owned destroy/recreate while stopped; retain old instance/value references separately. For ordinary/MCP cache comparisons, use the same actual ModuleScript instance in one Play and compare initialization markers and retained return tables across separate calls. A fresh Play is a distinct environment. Query caller restrictions separately.",
+      "sources": [
+        {
+          "path": "reference/engine/classes/ModuleScript.yaml",
+          "excerpt": "run once and only once per Luau environment",
+          "url": "https://github.com/Roblox/creator-docs/blob/d6c42cac06f61535fc5316e1287dbdacc8f2e403/content/en-us/reference/engine/classes/ModuleScript.yaml",
+          "sha256": "825f02f9025ffb852d76046db75bf1f67a7cf5cd7197c4a53a4072b1a596e472"
+        }
+      ],
+      "exceptions": "A ModuleScript class does not create its own permission identity. Server/client results do not establish MCP cache lifetime.",
+      "status": "documented",
+      "confidence": "high",
+      "creator_docs_revision": "d6c42cac06f61535fc5316e1287dbdacc8f2e403",
+      "recheck": "Recheck the decisive source when API dump, Creator Docs, Studio/MCP version, relevant feature setting or project implementation changes.",
+      "unknown": "Same-session MCP Server/Client cache identity, Actor cases and other caller arrangements remain unestablished.",
+      "next_evidence": "For a changed caller or version, compare the same actual ModuleScript instance and retained returned tables across calls in that environment.",
+      "api_dump_sha256": "2598cf2eca58282370ab872ec6733202d42a6e7abeae31eec5b1c24735050d58",
+      "tested_behavior": {
+        "studio_build": "0.737.0.7371584",
+        "mcp_executable_sha256": "8a0a1753f601d43adbd2956d0fd5f40948c07401a7c4f2b9c0393cccafd693e4",
+        "context": "Owned ModuleScript in ordinary serial server/client environments and MCP Edit/Server/Client.",
+        "rule": "Repeated requires reused the same returned table within each tested environment. In stopped MCP Edit, a same-instance Source edit retained the old cached return; recreating from the verified edited source produced a new table, while retained old references stayed unchanged. In one Play on the same actual instance, ordinary Server and MCP Server had different initialization markers; the corresponding Client comparison also differed. Separate calls within each MCP context reused its table.",
+        "limits": "The Server and Client comparisons used separate Plays and do not establish a same-session MCP Server/Client comparison. Other builds, Actors and caller arrangements require their own evidence."
+      }
+    },
+    {
+      "id": "module-yield-and-cycle",
+      "topics": [
+        "modules",
+        "assets"
+      ],
+      "apis": [
+        "ModuleScript"
+      ],
+      "category": "knowledge",
+      "need": "conditional",
+      "limit_type": "none",
+      "context": "First require and module dependency initialization",
+      "fact": "An initial require waits if module initialization yields. Current primary docs conflict on circular require: the class reference says it hangs without an error; the module guide says it produces a recursive-require error.",
+      "action": "Keep dependencies acyclic. If diagnosing an existing cycle, run a bounded external observer and retain the exact error or timeout with build/context.",
+      "sources": [
+        {
+          "path": "reference/engine/classes/ModuleScript.yaml",
+          "excerpt": "cyclic `Global.LuaGlobals.require()` calls do not generate errors",
+          "url": "https://github.com/Roblox/creator-docs/blob/d6c42cac06f61535fc5316e1287dbdacc8f2e403/content/en-us/reference/engine/classes/ModuleScript.yaml",
+          "sha256": "825f02f9025ffb852d76046db75bf1f67a7cf5cd7197c4a53a4072b1a596e472"
+        },
+        {
+          "path": "scripting/module.md",
+          "excerpt": "Requested module was required recursively",
+          "url": "https://github.com/Roblox/creator-docs/blob/d6c42cac06f61535fc5316e1287dbdacc8f2e403/content/en-us/scripting/module.md",
+          "sha256": "c4cbabc2bb19b17d03f3cfec03258da3ef4e181d5f979970d33a4733a10c9803"
+        }
+      ],
+      "exceptions": "A repeated require of an already initialized module does not rerun its source.",
+      "status": "conflicting",
+      "confidence": "unknown",
+      "creator_docs_revision": "d6c42cac06f61535fc5316e1287dbdacc8f2e403",
+      "recheck": "Recheck the decisive source when API dump, Creator Docs, Studio/MCP version, relevant feature setting or project implementation changes.",
+      "unknown": "Other cycle arrangements, MCP callers and ordinary yielding initialization remain outside the measured cycle behavior.",
+      "next_evidence": "If a fix depends on another arrangement or build, use a bounded exact-context observer and retain the primary documentation conflict.",
+      "api_dump_sha256": "2598cf2eca58282370ab872ec6733202d42a6e7abeae31eec5b1c24735050d58",
+      "tested_behavior": {
+        "studio_build": "0.737.0.7371584",
+        "mcp_executable_sha256": "8a0a1753f601d43adbd2956d0fd5f40948c07401a7c4f2b9c0393cccafd693e4",
+        "context": "Prepared two-module cycle in ordinary serial server and client callers; bounded external observer.",
+        "rule": "The inner require emitted Requested module was required recursively; the outer protected call returned Requested module experienced an error while loading before timeout. Keep the conflicting class-reference and module-guide descriptions visible.",
+        "limits": "This does not establish every cycle arrangement, MCP caller or engine build. A normal yielding initializer was not tested."
+      }
+    },
+    {
+      "id": "deferred-disconnect-cleanup",
+      "topics": [
+        "signals"
+      ],
+      "apis": [
+        "RBXScriptConnection.Disconnect",
+        "Instance.Destroy",
+        "RBXScriptSignal.Once",
+        "Workspace.SignalBehavior"
+      ],
+      "category": "knowledge",
+      "need": "conditional",
+      "limit_type": "none",
+      "context": "Deferred engine signals and pending callbacks",
+      "fact": "Deferred callbacks run at a later resumption point. Disconnect drops pending invocations, while destruction disconnects signals but permits already pending callbacks to run.",
+      "action": "Use explicit owner cleanup and disconnected/ended guards where deferred work can remain. Workspace.SignalBehavior is NotScriptable: record the human-observed editor setting separately from the measured dispatch of each exact event. Do not infer the setting or Default mapping from one callback observation; treat observed ordering as a version/context observation.",
+      "sources": [
+        {
+          "path": "scripting/events/deferred.md",
+          "excerpt": "drops all pending event handler invocations",
+          "url": "https://github.com/Roblox/creator-docs/blob/d6c42cac06f61535fc5316e1287dbdacc8f2e403/content/en-us/scripting/events/deferred.md",
+          "sha256": "a60d885f1715d191e5de972fa61aed86d145cde9e2d2a8e95b3f1ee382bb3415"
+        },
+        {
+          "path": "reference/engine/classes/BindableEvent.yaml",
+          "excerpt": "This method does not yield",
+          "url": "https://github.com/Roblox/creator-docs/blob/d6c42cac06f61535fc5316e1287dbdacc8f2e403/content/en-us/reference/engine/classes/BindableEvent.yaml",
+          "sha256": "ea18f3980218f8c85432c69268b07306195be8b55e6116211519319cee6f470d"
+        }
+      ],
+      "exceptions": "Immediate signals and direct function calls have different timing; no total order among unrelated callbacks and task.defer is established. BindableEvent.Fire not yielding does not imply immediate listener execution. pcall return is not listed as a deferred resumption point in the reviewed guide.",
+      "status": "documented",
+      "confidence": "high",
+      "creator_docs_revision": "d6c42cac06f61535fc5316e1287dbdacc8f2e403",
+      "recheck": "Recheck the decisive source when API dump, Creator Docs, Studio/MCP version, relevant feature setting or project implementation changes.",
+      "api_dump_sha256": "2598cf2eca58282370ab872ec6733202d42a6e7abeae31eec5b1c24735050d58",
+      "tested_behavior": {
+        "studio_build": "0.737.0.7371584",
+        "mcp_executable_sha256": "8a0a1753f601d43adbd2956d0fd5f40948c07401a7c4f2b9c0393cccafd693e4",
+        "context": "Ordinary serial server/client BindableEvent.Event and Folder.ChildAdded with human-confirmed Deferred setting.",
+        "rule": "Callbacks were absent inside the trigger and immediately after pcall, then delivered after yielding. Explicit Disconnect before yield prevented pending delivery. Destroy disconnected the signal but allowed an already-pending callback after yield.",
+        "limits": "Do not infer the configured setting, Default mapping, a pcall scheduling exception or universal callback order from this dispatch result."
+      }
+    },
+    {
+      "id": "destroying-owner-lifetime",
+      "topics": [
+        "signals"
+      ],
+      "apis": [
+        "Instance.Destroying",
+        "Instance.Destroy"
+      ],
+      "category": "knowledge",
+      "need": "conditional",
+      "limit_type": "none",
+      "context": "Deferred destruction; scripts attached to the destroyed owner",
+      "fact": "A deferred Destroying callback may run after destruction. A script connected to its own destruction can be removed before its callback runs.",
+      "action": "Put required cleanup in an external surviving owner and release tasks/connections explicitly.",
+      "sources": [
+        {
+          "path": "reference/engine/classes/Instance.yaml",
+          "excerpt": "the script will be destroyed before the callback can be called",
+          "url": "https://github.com/Roblox/creator-docs/blob/d6c42cac06f61535fc5316e1287dbdacc8f2e403/content/en-us/reference/engine/classes/Instance.yaml",
+          "sha256": "c33d7492848cbfc84df6e94edae30c3dbe128ed8a3303fffb33cf6a05b22731e"
+        }
+      ],
+      "exceptions": "Ancestry changes can arise from stream-out or reparenting and do not establish Destroy.",
+      "status": "documented",
+      "confidence": "high",
+      "creator_docs_revision": "d6c42cac06f61535fc5316e1287dbdacc8f2e403",
+      "recheck": "Recheck the decisive source when API dump, Creator Docs, Studio/MCP version, relevant feature setting or project implementation changes.",
+      "api_dump_sha256": "2598cf2eca58282370ab872ec6733202d42a6e7abeae31eec5b1c24735050d58"
+    },
+    {
+      "id": "task-cancel-limits",
+      "topics": [
+        "signals",
+        "parallel"
+      ],
+      "apis": [
+        "task.cancel"
+      ],
+      "category": "constraint",
+      "need": "conditional",
+      "limit_type": "engine",
+      "context": "Task cancellation including current/resuming coroutine states",
+      "fact": "task.cancel closes a thread, but some executing/resuming states can error; documentation does not define every failing state.",
+      "action": "Treat cancellation errors as observations and design owner-ended checks for work that has already started. Cancel pending owned tasks during cleanup.",
+      "sources": [
+        {
+          "path": "reference/engine/libraries/task.yaml",
+          "excerpt": "the currently executing thread",
+          "url": "https://github.com/Roblox/creator-docs/blob/d6c42cac06f61535fc5316e1287dbdacc8f2e403/content/en-us/reference/engine/libraries/task.yaml",
+          "sha256": "05aceb742bb8975de3b285fc9da532b666dab83b663e4ac1bb3c338954840b2f"
+        }
+      ],
+      "exceptions": "A successful delayed-task cancellation does not establish how every running coroutine behaves.",
+      "status": "documented",
+      "confidence": "high",
+      "creator_docs_revision": "d6c42cac06f61535fc5316e1287dbdacc8f2e403",
+      "recheck": "Recheck the decisive source when API dump, Creator Docs, Studio/MCP version, relevant feature setting or project implementation changes.",
+      "unknown": "Exact current/resuming-thread failure states and scheduler interleavings.",
+      "next_evidence": "If a fix depends on one state, use a bounded Studio probe for that state; do not persist an undocumented scheduler workaround.",
+      "api_dump_sha256": "2598cf2eca58282370ab872ec6733202d42a6e7abeae31eec5b1c24735050d58",
+      "tested_behavior": {
+        "studio_build": "0.737.0.7371584",
+        "mcp_executable_sha256": "8a0a1753f601d43adbd2956d0fd5f40948c07401a7c4f2b9c0393cccafd693e4",
+        "context": "Ordinary serial server/client; suspended owned task.defer and task.delay threads.",
+        "rule": "Explicit task.cancel changed suspended threads to dead and their callbacks remained unfired during the bounded observation. Owner destruction accompanied explicit cancellation.",
+        "limits": "Automatic cancellation on owner destruction and executing/resuming-thread cancellation were not established."
+      }
+    },
+    {
+      "id": "replication-message-order",
+      "topics": [
+        "replication"
+      ],
+      "apis": [
+        "RemoteEvent.FireAllClients",
+        "RemoteEvent.OnClientEvent",
+        "Instance.WaitForChild",
+        "Instance.GetAttribute"
+      ],
+      "category": "knowledge",
+      "need": "conditional",
+      "limit_type": "none",
+      "context": "Server property/attribute writes and client remote callbacks",
+      "fact": "Object and property replication need not arrive before a RemoteEvent sent after the write. The docs say same-type changes generally arrive in order; this is not a universal synchronization guarantee.",
+      "action": "Use versioned state or events plus current-state checks; wait with a timeout for separately replicated objects and handle absent references.",
+      "sources": [
+        {
+          "path": "scripting/attributes.md",
+          "excerpt": "the property change might replicate to the client before or after",
+          "url": "https://github.com/Roblox/creator-docs/blob/d6c42cac06f61535fc5316e1287dbdacc8f2e403/content/en-us/scripting/attributes.md",
+          "sha256": "00ddc650583c7a14c11f461a3485228f308d8748a93519e937925194bae9c5e0"
+        }
+      ],
+      "exceptions": "Do not generalize the statement to a total order for same-type attributes or to RemoteEvent payload delivery alone.",
+      "status": "documented",
+      "confidence": "high",
+      "creator_docs_revision": "d6c42cac06f61535fc5316e1287dbdacc8f2e403",
+      "recheck": "Recheck the decisive source when API dump, Creator Docs, Studio/MCP version, relevant feature setting or project implementation changes.",
+      "api_dump_sha256": "2598cf2eca58282370ab872ec6733202d42a6e7abeae31eec5b1c24735050d58"
+    },
+    {
+      "id": "streamout-state-and-owner",
+      "topics": [
+        "replication",
+        "signals"
+      ],
+      "apis": [
+        "Instance.Destroying",
+        "Instance.AncestryChanged",
+        "Workspace.StreamingEnabled"
+      ],
+      "category": "knowledge",
+      "need": "conditional",
+      "limit_type": "none",
+      "context": "Client stream-out/stream-in of server instances",
+      "fact": "Stream-out parents instances to nil rather than Destroy; local-only property changes can be lost on return, and collections/references may be incomplete.",
+      "action": "Use stream-aware ownership, rebinding and idempotent state application. Destroying-only cleanup is insufficient when stream-out is meant to end the local owner.",
+      "sources": [
+        {
+          "path": "workspace/streaming/index.md",
+          "excerpt": "the instance itself is not destroyed in the same sense",
+          "url": "https://github.com/Roblox/creator-docs/blob/d6c42cac06f61535fc5316e1287dbdacc8f2e403/content/en-us/workspace/streaming/index.md",
+          "sha256": "f5e41f302ed58f025dbbc2bb21381ce549d8c3ebea62f5247c9b1902da716810"
+        }
+      ],
+      "exceptions": "Client-created instances are exempt unless under a server-created instance; partless model exemptions and anchored assembly exceptions need the guide's exact scope.",
+      "status": "documented",
+      "confidence": "high",
+      "creator_docs_revision": "d6c42cac06f61535fc5316e1287dbdacc8f2e403",
+      "recheck": "Recheck the decisive source when API dump, Creator Docs, Studio/MCP version, relevant feature setting or project implementation changes.",
+      "api_dump_sha256": "2598cf2eca58282370ab872ec6733202d42a6e7abeae31eec5b1c24735050d58"
+    },
+    {
+      "id": "assembly-ownership-effect",
+      "topics": [
+        "physics"
+      ],
+      "apis": [
+        "BasePart.Anchored",
+        "BasePart.SetNetworkOwner",
+        "BasePart.ApplyImpulse",
+        "BasePart.AssemblyLinearVelocity"
+      ],
+      "category": "knowledge",
+      "need": "conditional",
+      "limit_type": "none",
+      "context": "Assembly physics and server/client ownership",
+      "fact": "Anchored parts are server-owned; unanchored assemblies can be automatically client-owned. Anchoring changes assembly roots/splitting. A client physics write to a server-owned assembly may have no effect.",
+      "action": "Inspect actual owner, root, anchoring and simulation state before interpreting a write. Keep readback and observed movement distinct.",
+      "sources": [
+        {
+          "path": "physics/network-ownership.md",
+          "excerpt": "the server **always** owns anchored",
+          "url": "https://github.com/Roblox/creator-docs/blob/d6c42cac06f61535fc5316e1287dbdacc8f2e403/content/en-us/physics/network-ownership.md",
+          "sha256": "2c63976c630a631cdedabdb48c913fb27ac2598254baf67fd1de30f3ce551fd9"
+        },
+        {
+          "path": "physics/assemblies.md",
+          "excerpt": "anchored",
+          "url": "https://github.com/Roblox/creator-docs/blob/d6c42cac06f61535fc5316e1287dbdacc8f2e403/content/en-us/physics/assemblies.md",
+          "sha256": "e278e08e3e0900e070025746d0270a4ac697dbe9b13d2884bb34cba8a5ab85ff"
+        }
+      ],
+      "exceptions": "An anchored part may still be moved by a CFrame assignment; a failed impulse does not prove all writes are denied.",
+      "status": "documented",
+      "confidence": "high",
+      "creator_docs_revision": "d6c42cac06f61535fc5316e1287dbdacc8f2e403",
+      "recheck": "Recheck the decisive source when API dump, Creator Docs, Studio/MCP version, relevant feature setting or project implementation changes.",
+      "api_dump_sha256": "2598cf2eca58282370ab872ec6733202d42a6e7abeae31eec5b1c24735050d58"
+    },
+    {
+      "id": "spatial-query-filters",
+      "topics": [
+        "physics"
+      ],
+      "apis": [
+        "BasePart.CanQuery",
+        "RaycastParams",
+        "OverlapParams",
+        "WorldRoot.Raycast",
+        "WorldRoot.GetPartsInPart",
+        "WorldRoot.GetPartBoundsInBox"
+      ],
+      "category": "knowledge",
+      "need": "conditional",
+      "limit_type": "none",
+      "context": "Raycasts and overlap queries",
+      "fact": "CanQuery exclusion requires CanCollide disabled. RespectCanCollide uses CanCollide instead. Include nil permits all, an empty include permits none, and exclusion takes precedence. Bounds queries differ from exact part overlap.",
+      "action": "Choose the correct filter and geometry semantics, inspect the current datatype docs, and reuse query params when stable. Legacy filter fields may be superseded by IncludeInstances/ExcludeInstances.",
+      "sources": [
+        {
+          "path": "reference/engine/classes/BasePart.yaml",
+          "excerpt": "must be disabled for `CanQuery` to take effect",
+          "url": "https://github.com/Roblox/creator-docs/blob/d6c42cac06f61535fc5316e1287dbdacc8f2e403/content/en-us/reference/engine/classes/BasePart.yaml",
+          "sha256": "d67c34968616938f4a9deda21805851b847c9ad8c14580bda1a46a8f7c160904"
+        },
+        {
+          "path": "reference/engine/datatypes/RaycastParams.yaml",
+          "excerpt": "ExcludeInstances",
+          "url": "https://github.com/Roblox/creator-docs/blob/d6c42cac06f61535fc5316e1287dbdacc8f2e403/content/en-us/reference/engine/datatypes/RaycastParams.yaml",
+          "sha256": "ffa439d1eb21f6999fd9a4882e984941b75a5bbc81b26c46901d6ffce2ba8be0"
+        },
+        {
+          "path": "reference/engine/datatypes/OverlapParams.yaml",
+          "excerpt": "IncludeInstances",
+          "url": "https://github.com/Roblox/creator-docs/blob/d6c42cac06f61535fc5316e1287dbdacc8f2e403/content/en-us/reference/engine/datatypes/OverlapParams.yaml",
+          "sha256": "6a0597ea526724fd65c285bcecaa38446b35c51f80670a33fbbd4182a8b0cfa3"
+        }
+      ],
+      "exceptions": "Do not replace exact GetPartsInPart with a bounds query unless false positives are acceptable.",
+      "status": "documented",
+      "confidence": "high",
+      "creator_docs_revision": "d6c42cac06f61535fc5316e1287dbdacc8f2e403",
+      "recheck": "Recheck the decisive source when API dump, Creator Docs, Studio/MCP version, relevant feature setting or project implementation changes.",
+      "api_dump_sha256": "2598cf2eca58282370ab872ec6733202d42a6e7abeae31eec5b1c24735050d58"
+    },
+    {
+      "id": "collision-group-replication-bridge",
+      "topics": [
+        "physics",
+        "replication"
+      ],
+      "apis": [
+        "BasePart.CollisionGroup"
+      ],
+      "category": "knowledge",
+      "need": "conditional",
+      "limit_type": "none",
+      "context": "CollisionGroup property tagged NotReplicated",
+      "fact": "The documented public property is NotReplicated, but the engine replicates its value through a private property for compatibility.",
+      "action": "Use the member description as well as tags when judging observable replication. Do not conclude that every NotReplicated property has no cross-process effect.",
+      "sources": [
+        {
+          "path": "reference/engine/classes/BasePart.yaml",
+          "excerpt": "replicates the value through another private property",
+          "url": "https://github.com/Roblox/creator-docs/blob/d6c42cac06f61535fc5316e1287dbdacc8f2e403/content/en-us/reference/engine/classes/BasePart.yaml",
+          "sha256": "d67c34968616938f4a9deda21805851b847c9ad8c14580bda1a46a8f7c160904"
+        }
+      ],
+      "exceptions": "This bridge is specific to CollisionGroup; it does not establish replication of CurrentCamera.",
+      "status": "documented",
+      "confidence": "high",
+      "creator_docs_revision": "d6c42cac06f61535fc5316e1287dbdacc8f2e403",
+      "recheck": "Recheck the decisive source when API dump, Creator Docs, Studio/MCP version, relevant feature setting or project implementation changes.",
+      "api_dump_sha256": "2598cf2eca58282370ab872ec6733202d42a6e7abeae31eec5b1c24735050d58"
+    },
+    {
+      "id": "datastore-transform-retry",
+      "topics": [
+        "persistence"
+      ],
+      "apis": [
+        "GlobalDataStore.UpdateAsync"
+      ],
+      "category": "constraint",
+      "need": "conditional",
+      "limit_type": "engine",
+      "context": "Concurrent persistent updates; non-yielding callback",
+      "fact": "UpdateAsync can rerun its callback after a concurrent key change and discard the prior result; returning nil cancels. The callback cannot yield. Omitted user IDs or metadata clear the corresponding existing values.",
+      "action": "Use a pure, repeatable transform, preserve unchanged metadata/UserIds, and perform external side effects after the result with application-level idempotency. Account for both read and write budgets.",
+      "sources": [
+        {
+          "path": "reference/engine/classes/GlobalDataStore.yaml",
+          "excerpt": "discarding the result of the previous call",
+          "url": "https://github.com/Roblox/creator-docs/blob/d6c42cac06f61535fc5316e1287dbdacc8f2e403/content/en-us/reference/engine/classes/GlobalDataStore.yaml",
+          "sha256": "4f28b79752c064460478df8c3a8256b8da22dee605b78e8a0b697f95225cecf7"
+        }
+      ],
+      "exceptions": "This establishes repeatability, not a fixed retry count or a guarantee of successful network completion.",
+      "status": "documented",
+      "confidence": "high",
+      "creator_docs_revision": "d6c42cac06f61535fc5316e1287dbdacc8f2e403",
+      "recheck": "Recheck the decisive source when API dump, Creator Docs, Studio/MCP version, relevant feature setting or project implementation changes.",
+      "unknown": "Fixed internal retry count is not specified.",
+      "next_evidence": "Use the documented repeatable-transform contract; measure exact attempts only if a deployment-specific diagnosis needs them.",
+      "api_dump_sha256": "2598cf2eca58282370ab872ec6733202d42a6e7abeae31eec5b1c24735050d58"
+    },
+    {
+      "id": "datastore-ambiguous-write-cache",
+      "topics": [
+        "persistence"
+      ],
+      "apis": [
+        "GlobalDataStore.GetAsync",
+        "GlobalDataStore.SetAsync",
+        "GlobalDataStore.UpdateAsync",
+        "DataStoreGetOptions.UseCache"
+      ],
+      "category": "knowledge",
+      "need": "conditional",
+      "limit_type": "none",
+      "context": "Recovery after a network write failure",
+      "fact": "A failed write response may follow a committed write. GetAsync can return a local four-second cache per DataStore instance; UseCache=false requests fresh backend state and consumes request budget.",
+      "action": "Before retrying a non-idempotent operation or issuing compensation, verify authoritative state and application operation identity. UseCache=false when cached readback cannot answer the recovery question.",
+      "sources": [
+        {
+          "path": "cloud-services/data-stores/error-codes-and-limits.md",
+          "excerpt": "does not always guarantee that the backend write did not occur",
+          "url": "https://github.com/Roblox/creator-docs/blob/d6c42cac06f61535fc5316e1287dbdacc8f2e403/content/en-us/cloud-services/data-stores/error-codes-and-limits.md",
+          "sha256": "b708866be749a56db515650dedff4a0a763561c7e0ba89526e195563c8814105"
+        },
+        {
+          "path": "cloud-services/data-stores/versioning-listing-and-caching.md",
+          "excerpt": "four seconds",
+          "url": "https://github.com/Roblox/creator-docs/blob/d6c42cac06f61535fc5316e1287dbdacc8f2e403/content/en-us/cloud-services/data-stores/versioning-listing-and-caching.md",
+          "sha256": "d4b935f9152d58c1600221dcc0a7227222485112e5c08d4a04f2ac8a6c3d5ccb"
+        }
+      ],
+      "exceptions": "Version/list APIs and separate DataStore instances have different cache behavior; do not treat ProfileStore.Mock as backend evidence.",
+      "status": "documented",
+      "confidence": "high",
+      "creator_docs_revision": "d6c42cac06f61535fc5316e1287dbdacc8f2e403",
+      "recheck": "Recheck the decisive source when API dump, Creator Docs, Studio/MCP version, relevant feature setting or project implementation changes.",
+      "api_dump_sha256": "2598cf2eca58282370ab872ec6733202d42a6e7abeae31eec5b1c24735050d58"
+    },
+    {
+      "id": "datastore-serialization",
+      "topics": [
+        "persistence"
+      ],
+      "apis": [
+        "DataStoreService",
+        "HttpService.JSONEncode"
+      ],
+      "category": "constraint",
+      "need": "conditional",
+      "limit_type": "engine",
+      "context": "Luau values crossing persistent serialization",
+      "fact": "Supported JSON conversion includes documented Luau types and buffers. Unsupported values may fail or become nil; nonfinite numbers and table key conversion require explicit handling. The current limits table lists 4,194,304 characters per serialized key value; use its JSONEncode sizing procedure.",
+      "action": "Validate the serialized shape, reject nonfinite/unsupported project values, and preview JSON conversion. Check current limits rather than assuming a recalled numeric maximum.",
+      "sources": [
+        {
+          "path": "cloud-services/data-stores/versioning-listing-and-caching.md",
+          "excerpt": "Numeric keys are translated into strings if the length of the table is 0",
+          "url": "https://github.com/Roblox/creator-docs/blob/d6c42cac06f61535fc5316e1287dbdacc8f2e403/content/en-us/cloud-services/data-stores/versioning-listing-and-caching.md",
+          "sha256": "d4b935f9152d58c1600221dcc0a7227222485112e5c08d4a04f2ac8a6c3d5ccb"
+        },
+        {
+          "path": "cloud-services/data-stores/error-codes-and-limits.md",
+          "excerpt": "4,194,304 per key",
+          "url": "https://github.com/Roblox/creator-docs/blob/d6c42cac06f61535fc5316e1287dbdacc8f2e403/content/en-us/cloud-services/data-stores/error-codes-and-limits.md",
+          "sha256": "b708866be749a56db515650dedff4a0a763561c7e0ba89526e195563c8814105"
+        }
+      ],
+      "exceptions": "Open Cloud already accepts JSON; runtime-only state need not satisfy datastore shape restrictions.",
+      "status": "documented",
+      "confidence": "high",
+      "creator_docs_revision": "d6c42cac06f61535fc5316e1287dbdacc8f2e403",
+      "recheck": "Recheck the decisive source when API dump, Creator Docs, Studio/MCP version, relevant feature setting or project implementation changes.",
+      "api_dump_sha256": "2598cf2eca58282370ab872ec6733202d42a6e7abeae31eec5b1c24735050d58"
+    },
+    {
+      "id": "datastore-budget-and-queues",
+      "topics": [
+        "persistence"
+      ],
+      "apis": [
+        "DataStoreService.GetRequestBudgetForRequestType",
+        "GlobalDataStore.UpdateAsync"
+      ],
+      "category": "constraint",
+      "need": "conditional",
+      "limit_type": "engine",
+      "context": "Request throttling and autosave/backoff",
+      "fact": "Request queues are bounded; UpdateAsync consumes both read and write budgets. Game-server and Open Cloud traffic share applicable limits.",
+      "action": "Read the current limits guide and actual request budgets; bound backoff and saving concurrency. Do not use one cached numeric limit as a universal throughput rule.",
+      "sources": [
+        {
+          "path": "cloud-services/data-stores/error-codes-and-limits.md",
+          "excerpt": "30",
+          "url": "https://github.com/Roblox/creator-docs/blob/d6c42cac06f61535fc5316e1287dbdacc8f2e403/content/en-us/cloud-services/data-stores/error-codes-and-limits.md",
+          "sha256": "b708866be749a56db515650dedff4a0a763561c7e0ba89526e195563c8814105"
+        }
+      ],
+      "exceptions": "Cached reads, request types and backend capacity measures are distinct; storage size limits do not establish safe request rate.",
+      "status": "documented",
+      "confidence": "high",
+      "creator_docs_revision": "d6c42cac06f61535fc5316e1287dbdacc8f2e403",
+      "recheck": "Recheck the decisive source when API dump, Creator Docs, Studio/MCP version, relevant feature setting or project implementation changes.",
+      "api_dump_sha256": "2598cf2eca58282370ab872ec6733202d42a6e7abeae31eec5b1c24735050d58"
+    },
+    {
+      "id": "shutdown-save-window",
+      "topics": [
+        "persistence",
+        "signals"
+      ],
+      "apis": [
+        "DataModel.BindToClose"
+      ],
+      "category": "constraint",
+      "need": "conditional",
+      "limit_type": "engine",
+      "context": "Server shutdown callbacks",
+      "fact": "Bound functions run concurrently. The server waits up to 30 seconds total before closing, even when callbacks are still running.",
+      "action": "Coordinate pending saves within the shared shutdown window; do not rely on callback order or give each callback its own 30-second budget.",
+      "sources": [
+        {
+          "path": "reference/engine/classes/DataModel.yaml",
+          "excerpt": "waits 30 seconds for all bound functions",
+          "url": "https://github.com/Roblox/creator-docs/blob/d6c42cac06f61535fc5316e1287dbdacc8f2e403/content/en-us/reference/engine/classes/DataModel.yaml",
+          "sha256": "6ccd3a610059f42a9384fddbb5fb2daa45fc687c813f83d168b5e0343d5503a5"
+        }
+      ],
+      "exceptions": "Studio/mock cleanup is not proof that live backend saves finish.",
+      "status": "documented",
+      "confidence": "high",
+      "creator_docs_revision": "d6c42cac06f61535fc5316e1287dbdacc8f2e403",
+      "recheck": "Recheck the decisive source when API dump, Creator Docs, Studio/MCP version, relevant feature setting or project implementation changes.",
+      "api_dump_sha256": "2598cf2eca58282370ab872ec6733202d42a6e7abeae31eec5b1c24735050d58"
+    },
+    {
+      "id": "studio-persistence-isolation",
+      "topics": [
+        "persistence",
+        "environment"
+      ],
+      "apis": [
+        "DataStoreService",
+        "RunService.IsStudio"
+      ],
+      "category": "knowledge",
+      "need": "conditional",
+      "limit_type": "none",
+      "context": "Studio datastore tests and bundled PlayerData/ProfileStore",
+      "fact": "Studio datastore access is disabled by default; enabling it can reach the same data as live. Bundled PlayerData selects ProfileStore.Mock in Studio, so its successful mock save is not live persistence evidence.",
+      "action": "Use a separate test experience for real datastore tests and inspect the project's storage adapter before interpreting results.",
+      "sources": [
+        {
+          "path": "cloud-services/data-stores/index.md",
+          "excerpt": "same data stores",
+          "url": "https://github.com/Roblox/creator-docs/blob/d6c42cac06f61535fc5316e1287dbdacc8f2e403/content/en-us/cloud-services/data-stores/index.md",
+          "sha256": "7804d7eb5db513661d916dad3b5d4e789e2504b1be663d49532162267fe3eb64"
+        }
+      ],
+      "exceptions": "Adopted projects can change PlayerData; recheck packages/ServerScriptService/Services/PlayerData/init.luau and ProfileStore before applying the project observation.",
+      "status": "documented",
+      "confidence": "high",
+      "creator_docs_revision": "d6c42cac06f61535fc5316e1287dbdacc8f2e403",
+      "recheck": "Recheck the decisive source when API dump, Creator Docs, Studio/MCP version, relevant feature setting or project implementation changes.",
+      "project_sources": [
+        {
+          "path": "packages/ServerScriptService/Services/PlayerData/init.luau",
+          "sha256": "b465c1249db2b0d6a2f7dd6afcf58bccb8a8b87ec1736ba690f77e95c5363c5a"
+        },
+        {
+          "path": "packages/ServerScriptService/Modules/ProfileStore.luau",
+          "sha256": "ad43737203688b8e88cab34ebe8c483000c157e53bfb41e35f1b49ee89d0c95f"
+        }
+      ],
+      "api_dump_sha256": "2598cf2eca58282370ab872ec6733202d42a6e7abeae31eec5b1c24735050d58"
+    },
+    {
+      "id": "clone-readiness-and-references",
+      "topics": [
+        "assets"
+      ],
+      "apis": [
+        "Instance.Clone",
+        "Instance.Archivable"
+      ],
+      "category": "knowledge",
+      "need": "conditional",
+      "limit_type": "none",
+      "context": "Programmatic cloning of templates",
+      "fact": "A non-Archivable root yields nil; non-Archivable descendants are omitted. The clone is unparented and only references to objects also cloned are remapped; other references remain external.",
+      "action": "Check the result and reference ownership, finish initialization before parenting/activation, and preserve intentional external references.",
+      "sources": [
+        {
+          "path": "reference/engine/classes/Instance.yaml",
+          "excerpt": "the same value is maintained in the copy",
+          "url": "https://github.com/Roblox/creator-docs/blob/d6c42cac06f61535fc5316e1287dbdacc8f2e403/content/en-us/reference/engine/classes/Instance.yaml",
+          "sha256": "c33d7492848cbfc84df6e94edae30c3dbe128ed8a3303fffb33cf6a05b22731e"
+        }
+      ],
+      "exceptions": "Studio Duplicate/Copy has different Archivable behavior; this does not authorize runtime source authoring.",
+      "status": "documented",
+      "confidence": "high",
+      "creator_docs_revision": "d6c42cac06f61535fc5316e1287dbdacc8f2e403",
+      "recheck": "Recheck the decisive source when API dump, Creator Docs, Studio/MCP version, relevant feature setting or project implementation changes.",
+      "api_dump_sha256": "2598cf2eca58282370ab872ec6733202d42a6e7abeae31eec5b1c24735050d58"
+    },
+    {
+      "id": "preload-result-and-residency",
+      "topics": [
+        "assets"
+      ],
+      "apis": [
+        "ContentProvider.PreloadAsync",
+        "ContentProvider.RequestQueueSize"
+      ],
+      "category": "knowledge",
+      "need": "conditional",
+      "limit_type": "none",
+      "context": "Asset preload and loading UI",
+      "fact": "PreloadAsync reports per-asset final status. Asset failures can log while the call completes without throwing. Invisible textures can be unloaded from memory after preload; SurfaceAppearance and MaterialVariant are unsupported.",
+      "action": "Use callback status and bounded user-visible waiting; preload essential assets. Do not use queue size as reliable completion progress or call success as universal readiness.",
+      "sources": [
+        {
+          "path": "reference/engine/classes/ContentProvider.yaml",
+          "excerpt": "The method itself will not error",
+          "url": "https://github.com/Roblox/creator-docs/blob/d6c42cac06f61535fc5316e1287dbdacc8f2e403/content/en-us/reference/engine/classes/ContentProvider.yaml",
+          "sha256": "e01c5c828f597c51ab6053589abf6668ea3e43f455770793297e3ea44740bf25"
+        }
+      ],
+      "exceptions": "Preloading is not proof of animation-track readiness or permanent memory residency.",
+      "status": "documented",
+      "confidence": "high",
+      "creator_docs_revision": "d6c42cac06f61535fc5316e1287dbdacc8f2e403",
+      "recheck": "Recheck the decisive source when API dump, Creator Docs, Studio/MCP version, relevant feature setting or project implementation changes.",
+      "api_dump_sha256": "2598cf2eca58282370ab872ec6733202d42a6e7abeae31eec5b1c24735050d58"
+    },
+    {
+      "id": "animator-initialization-replication",
+      "topics": [
+        "assets",
+        "replication"
+      ],
+      "apis": [
+        "Animator.LoadAnimation",
+        "Animator.GetTrackByAnimationId"
+      ],
+      "category": "constraint",
+      "need": "conditional",
+      "limit_type": "engine",
+      "context": "Animation loading and replication",
+      "fact": "Animator must be in Workspace for LoadAnimation. Each call creates a new track. Replication requires a server-created Animator; player-character and non-character start contexts differ.",
+      "action": "Wait for the server-created Animator, load/start in the documented context and reuse existing tracks. Bound waiting for track readiness when assets can fail.",
+      "sources": [
+        {
+          "path": "reference/engine/classes/Animator.yaml",
+          "excerpt": "Calling `LoadAnimation()` always creates a **new**",
+          "url": "https://github.com/Roblox/creator-docs/blob/d6c42cac06f61535fc5316e1287dbdacc8f2e403/content/en-us/reference/engine/classes/Animator.yaml",
+          "sha256": "0c27226f86d3f8eb7315a0e2aa2730a34a252abdceb8c30d4c87e1f850785f87"
+        }
+      ],
+      "exceptions": "A locally-created Animator does not establish server replication; client network ownership alone does not override the documented non-character rule.",
+      "status": "documented",
+      "confidence": "high",
+      "creator_docs_revision": "d6c42cac06f61535fc5316e1287dbdacc8f2e403",
+      "recheck": "Recheck the decisive source when API dump, Creator Docs, Studio/MCP version, relevant feature setting or project implementation changes.",
+      "project_sources": [
+        {
+          "path": "packages/ReplicatedStorage/Packages/AnimationPlayer.luau",
+          "sha256": "8b2b0294257c2363cf2c74810b4ab4a61e898ac7c3943107a0064adc20de490a"
+        }
+      ],
+      "unknown": "Bundled AnimationPlayer can wait indefinitely for Length after loading; invalid/unavailable asset behavior has not been tested here.",
+      "next_evidence": "Inspect the Length wait path; before changing it, use a bounded disposable rig probe with a known permitted asset and a failed asset, then human-reported results.",
+      "api_dump_sha256": "2598cf2eca58282370ab872ec6733202d42a6e7abeae31eec5b1c24735050d58"
+    },
+    {
+      "id": "environment-observation-boundaries",
+      "topics": [
+        "environment"
+      ],
+      "apis": [
+        "Workspace.SignalBehavior"
+      ],
+      "category": "knowledge",
+      "need": "conditional",
+      "limit_type": "none",
+      "context": "Version, rollout/beta settings and Studio MCP observations",
+      "fact": "API schema Version is not an engine build. Documentation, dump and executable identities can differ. The reviewed SignalBehavior enum documentation and deferred-events guide describe Default as currently equivalent to Immediate, with a future change to Deferred; templates select Deferred explicitly. Enum numeric values alone do not establish the effective Default behavior in a deployed build.",
+      "action": "Record builds, cache identities, the human-observed editor setting, exact event, caller and datamodel. Keep configured setting, observed dispatch and the documented Default mapping separate. Re-enumerate Studio targets before execution, and recheck changed evidence in the active agent session.",
+      "sources": [
+        {
+          "path": "scripting/events/deferred.md",
+          "excerpt": "Template places are directly set",
+          "url": "https://github.com/Roblox/creator-docs/blob/d6c42cac06f61535fc5316e1287dbdacc8f2e403/content/en-us/scripting/events/deferred.md",
+          "sha256": "a60d885f1715d191e5de972fa61aed86d145cde9e2d2a8e95b3f1ee382bb3415"
+        },
+        {
+          "path": "studio/mcp.md",
+          "excerpt": "Studio",
+          "url": "https://github.com/Roblox/creator-docs/blob/d6c42cac06f61535fc5316e1287dbdacc8f2e403/content/en-us/studio/mcp.md",
+          "sha256": "f51c96ef79c96586250c9e64659fd18c958e99f0b85972006cbb1f16539aebb0"
+        },
+        {
+          "path": "reference/engine/enums/SignalBehavior.yaml",
+          "excerpt": "currently equivalent to `Immediate`",
+          "url": "https://github.com/Roblox/creator-docs/blob/d6c42cac06f61535fc5316e1287dbdacc8f2e403/content/en-us/reference/engine/enums/SignalBehavior.yaml",
+          "sha256": "5ddc8e2e232a0482c29c28f12862c68ae77176079c1815adbcf95a3a13012d23"
+        }
+      ],
+      "exceptions": "An observed default or MCP privilege is not a portable engine contract. No general agent-session restart gate is introduced.",
+      "status": "documented",
+      "confidence": "high",
+      "creator_docs_revision": "d6c42cac06f61535fc5316e1287dbdacc8f2e403",
+      "recheck": "Recheck the decisive source when API dump, Creator Docs, Studio/MCP version, relevant feature setting or project implementation changes.",
+      "unknown": "The cause of inconsistent signal calibration remains unresolved.",
+      "next_evidence": "If dispatch differs from expectations, measure trigger-return, protected-call-return and explicit-yield boundaries in the same run; do not infer setting changes or a pcall exception.",
+      "api_dump_sha256": "2598cf2eca58282370ab872ec6733202d42a6e7abeae31eec5b1c24735050d58",
+      "tested_behavior": {
+        "studio_build": "0.737.0.7371584",
+        "mcp_executable_sha256": "8a0a1753f601d43adbd2956d0fd5f40948c07401a7c4f2b9c0393cccafd693e4",
+        "context": "MCP Edit diagnostic access and ordinary server/client signal calibration.",
+        "rule": "Workspace.SignalBehavior was inaccessible to the tested MCP read and marked NotScriptable/nonserializable. Use the human-observed editor setting and measure trigger-return, protected-call-return and explicit-yield boundaries separately.",
+        "limits": "Conflicting calibration results do not identify their cause or establish a setting change, Default mapping or pcall exception."
+      }
+    },
+    {
+      "id": "actor-module-isolation",
+      "topics": [
+        "parallel",
+        "modules"
+      ],
+      "apis": [
+        "Actor",
+        "ModuleScript"
+      ],
+      "category": "constraint",
+      "need": "conditional",
+      "limit_type": "engine",
+      "context": "Actor or sandboxed module execution; exact caller and phase",
+      "fact": "Actor documentation specifies isolated module state from other Actors and the main thread; requiring a module does not make it an Actor descendant.",
+      "action": "Do not share mutable state by assuming one module table across Actors. Check actual ancestry for GetActor; use explicit Actor messaging or supported shared state.",
+      "sources": [
+        {
+          "path": "reference/engine/classes/Actor.yaml",
+          "excerpt": "module-level state is isolated per `Actor`",
+          "url": "https://github.com/Roblox/creator-docs/blob/d6c42cac06f61535fc5316e1287dbdacc8f2e403/content/en-us/reference/engine/classes/Actor.yaml",
+          "sha256": "282b0ac8114bf01b9ddb268fb6bf98e6fc5819d6a7551bfd2565b37d0085a750"
+        }
+      ],
+      "exceptions": "Main-thread and ordinary server/client module scopes remain separate; module location and require environment are different facts.",
+      "status": "documented",
+      "confidence": "high",
+      "creator_docs_revision": "d6c42cac06f61535fc5316e1287dbdacc8f2e403",
+      "recheck": "Recheck after API/docs/engine or sandbox/Actor configuration changes.",
+      "api_dump_sha256": "2598cf2eca58282370ab872ec6733202d42a6e7abeae31eec5b1c24735050d58"
+    },
+    {
+      "id": "parallel-phase-and-require",
+      "topics": [
+        "parallel",
+        "modules"
+      ],
+      "apis": [
+        "Actor",
+        "task.desynchronize",
+        "task.synchronize",
+        "ModuleScript"
+      ],
+      "category": "constraint",
+      "need": "conditional",
+      "limit_type": "engine",
+      "context": "Actor or sandboxed module execution; exact caller and phase",
+      "fact": "Scripts in one Actor execute sequentially; parallel work is distributed across Actors. require is unavailable in a desynchronized parallel phase; desynchronize requires Actor ancestry.",
+      "action": "Require dependencies in serial code, then enter the parallel phase. Query each API's thread safety and return to serial for unsafe operations.",
+      "sources": [
+        {
+          "path": "scripting/multithreading.md",
+          "excerpt": "You can't use `require()` in a desynchronized parallel phase",
+          "url": "https://github.com/Roblox/creator-docs/blob/d6c42cac06f61535fc5316e1287dbdacc8f2e403/content/en-us/scripting/multithreading.md",
+          "sha256": "fc595ea81368ecae9c2ff188e5cc36192e1ee6ef455614a3ee4ac205a4f1482a"
+        }
+      ],
+      "exceptions": "ReadSafe allows reads, not writes; independent Actors do not establish arbitrary callback order.",
+      "status": "documented",
+      "confidence": "high",
+      "creator_docs_revision": "d6c42cac06f61535fc5316e1287dbdacc8f2e403",
+      "recheck": "Recheck after API/docs/engine or sandbox/Actor configuration changes.",
+      "api_dump_sha256": "2598cf2eca58282370ab872ec6733202d42a6e7abeae31eec5b1c24735050d58"
+    },
+    {
+      "id": "sandbox-module-capabilities",
+      "topics": [
+        "parallel",
+        "modules"
+      ],
+      "apis": [
+        "ModuleScript",
+        "Instance.Capabilities"
+      ],
+      "category": "constraint",
+      "need": "conditional",
+      "limit_type": "engine",
+      "context": "Actor or sandboxed module execution; exact caller and phase",
+      "fact": "A sandboxed caller requiring a module outside its container must meet the target capability set, with documented RunClientScript/RunServerScript exceptions. ModuleScripts do not need those execution capabilities to be required.",
+      "action": "Inspect container capabilities and the direct-call rules; target capability restrictions can remain even when caller instance access is available. Distinguish Source property access from require permission.",
+      "sources": [
+        {
+          "path": "scripting/capabilities.md",
+          "excerpt": "smaller or equal",
+          "url": "https://github.com/Roblox/creator-docs/blob/d6c42cac06f61535fc5316e1287dbdacc8f2e403/content/en-us/scripting/capabilities.md",
+          "sha256": "d34e7cd689c79078b6edad7bc825ab74de838c06d4a4c98626cb1eaf2dfa2922"
+        }
+      ],
+      "exceptions": "Passed functions and newly scheduled tasks have different capability behavior; read the direct-call section before crossing a sandbox boundary.",
+      "status": "documented",
+      "confidence": "high",
+      "creator_docs_revision": "d6c42cac06f61535fc5316e1287dbdacc8f2e403",
+      "recheck": "Recheck after API/docs/engine or sandbox/Actor configuration changes.",
+      "api_dump_sha256": "2598cf2eca58282370ab872ec6733202d42a6e7abeae31eec5b1c24735050d58"
+    },
+    {
+      "category": "knowledge",
+      "need": "conditional",
+      "limit_type": "none",
+      "topics": [
+        "gui",
+        "assets"
+      ],
+      "status": "documented",
+      "confidence": "high for documented rule; exact numerical behavior pending probe",
+      "creator_docs_revision": "d6c42cac06f61535fc5316e1287dbdacc8f2e403",
+      "api_dump_sha256": "2598cf2eca58282370ab872ec6733202d42a6e7abeae31eec5b1c24735050d58",
+      "recheck": "Recheck after engine/docs changes or changes to layout, constraints, scale, padding, nesting or selected automatic axes.",
+      "id": "gui-automatic-size-minimum",
+      "apis": [
+        "GuiObject.AutomaticSize",
+        "GuiObject.Size",
+        "Frame"
+      ],
+      "context": "Frame with selected automatic axes; fixed unconstrained parent for numerical comparison",
+      "fact": "AutomaticSize fits descendants on selected axes, while Size supplies the minimum. Size combines parent-relative Scale and additive Offset; AbsoluteSize exposes the resulting pixel size.",
+      "action": "Retain the configured Size as the minimum instead of assuming AutomaticSize replaces it or considers Offset alone. For a clean Y comparison hold width and parent size fixed; query the canvas record for ScrollingFrame.",
+      "sources": [
+        {
+          "path": "ui/size-modifiers.md",
+          "excerpt": "controls its **minimum size**",
+          "url": "https://github.com/Roblox/creator-docs/blob/d6c42cac06f61535fc5316e1287dbdacc8f2e403/content/en-us/ui/size-modifiers.md",
+          "sha256": "442add765c5fb691f8a1aa3c0c0ddb9cb6a853aec70c17af2fc4dcc80444e028"
+        },
+        {
+          "path": "reference/engine/classes/GuiObject.yaml",
+          "excerpt": "The scalar size is relative to the size of the parent GUI element",
+          "url": "https://github.com/Roblox/creator-docs/blob/d6c42cac06f61535fc5316e1287dbdacc8f2e403/content/en-us/reference/engine/classes/GuiObject.yaml",
+          "sha256": "5cd7d553c969b34e8add2f1b838b1008b697ebe33ada7c073f49d5835690ac87"
+        }
+      ],
+      "exceptions": "SizeConstraint, UISizeConstraint, layout/flex, wrapping and UIScale can change the applicable calculation. AutomaticSize=None is a separate control.",
+      "unknown": "General formulas, other negative Scale/Offset boundaries, rounding and update timing remain unestablished.",
+      "next_evidence": "Recheck a changed layout or engine version before extending the tested minimum-size behavior.",
+      "tested_behavior": {
+        "studio_build": "0.737.0.7371584",
+        "mcp_executable_sha256": "8a0a1753f601d43adbd2956d0fd5f40948c07401a7c4f2b9c0393cccafd693e4",
+        "context": "Client Frame with fixed parent height 200, fixed child height 48 and controlled width; AutomaticSize.Y versus None.",
+        "rule": "Offset heights 36 and 72 produced AutoY heights 48 and 72; None retained 36. AutoY Scale 0.4 with Offset -8 or 0 produced 80, and Offset +8 produced 88. Scale 0.1 plus Offset 30 produced 50. The None control with Scale 0.4/Offset -8 produced 72. Therefore max(content,parent*Scale+signedOffset) is not a general formula for this automatic path. Y-only sizing left the width control unchanged.",
+        "limits": "Do not extend these values to other layout, constraint, scale, rounding or update-order arrangements without rechecking."
+      }
+    },
+    {
+      "category": "knowledge",
+      "need": "conditional",
+      "limit_type": "none",
+      "topics": [
+        "gui",
+        "assets"
+      ],
+      "status": "documented",
+      "confidence": "high for documented rule; exact numerical behavior pending probe",
+      "creator_docs_revision": "d6c42cac06f61535fc5316e1287dbdacc8f2e403",
+      "api_dump_sha256": "2598cf2eca58282370ab872ec6733202d42a6e7abeae31eec5b1c24735050d58",
+      "recheck": "Recheck after engine/docs changes or changes to layout, constraints, scale, padding, nesting or selected automatic axes.",
+      "id": "gui-canvas-versus-viewport",
+      "apis": [
+        "ScrollingFrame.AutomaticCanvasSize",
+        "ScrollingFrame.CanvasSize",
+        "ScrollingFrame.AbsoluteCanvasSize",
+        "ScrollingFrame.AbsoluteWindowSize",
+        "ScrollingFrame"
+      ],
+      "context": "ScrollingFrame scrollable canvas and visible viewport",
+      "fact": "AutomaticCanvasSize adapts the canvas rather than base Size. The AbsoluteCanvasSize reference describes a maximum of CanvasSize and child size when automatic canvas sizing is enabled. AbsoluteWindowSize is the visible area after scrollbar gutters.",
+      "action": "Read configured Size and CanvasSize separately from AbsoluteSize, AbsoluteCanvasSize and AbsoluteWindowSize. Do not treat an expanded scrollable canvas as a resized viewport.",
+      "sources": [
+        {
+          "path": "reference/engine/classes/ScrollingFrame.yaml",
+          "excerpt": "maximum of the `Class.ScrollingFrame.CanvasSize|CanvasSize`",
+          "url": "https://github.com/Roblox/creator-docs/blob/d6c42cac06f61535fc5316e1287dbdacc8f2e403/content/en-us/reference/engine/classes/ScrollingFrame.yaml",
+          "sha256": "e08dcfb8d9de984ff41e7dca14e4972958cc9a3d48c04b3c3c8b75774b674e1a"
+        },
+        {
+          "path": "reference/engine/classes/ScrollingFrame.yaml",
+          "excerpt": "minus the space occupied by any currently visible scroll bar gutters",
+          "url": "https://github.com/Roblox/creator-docs/blob/d6c42cac06f61535fc5316e1287dbdacc8f2e403/content/en-us/reference/engine/classes/ScrollingFrame.yaml",
+          "sha256": "e08dcfb8d9de984ff41e7dca14e4972958cc9a3d48c04b3c3c8b75774b674e1a"
+        }
+      ],
+      "exceptions": "A manually large CanvasSize can enable scrolling with AutomaticCanvasSize=None. AutomaticSize and AutomaticCanvasSize are distinct properties; combined operation needs its own evidence.",
+      "unknown": "General componentwise behavior, nesting and update timing remain unestablished.",
+      "next_evidence": "Measure viewport and canvas separately when the layout or engine version changes.",
+      "tested_behavior": {
+        "studio_build": "0.737.0.7371584",
+        "mcp_executable_sha256": "8a0a1753f601d43adbd2956d0fd5f40948c07401a7c4f2b9c0393cccafd693e4",
+        "context": "Client ScrollingFrame with child height 48 and fixed parent height 200; controlled viewport, CanvasSize, AutomaticSize and AutomaticCanvasSize.",
+        "rule": "AutoCanvasY left viewport height 24 unchanged while canvas offsets 36/72 produced canvas heights 48/72. Viewport height 96 produced canvas height 96 with either offset; the offset-36 case also produced 96 with AutoCanvas=None. Canvas Scale 0.5 produced 100. AutoSizeY raised viewport 24 to 48 with either tested canvas automatic mode. AbsoluteWindowSize remained distinct from base size when scrollbar gutters applied.",
+        "limits": "A larger scrollable canvas is not an enlarged viewport. The observed viewport floor does not establish a universal componentwise formula, nesting rule or update order."
+      }
+    },
+    {
+      "category": "knowledge",
+      "need": "conditional",
+      "limit_type": "none",
+      "topics": [
+        "gui",
+        "assets"
+      ],
+      "status": "documented",
+      "confidence": "high for documented rule; exact numerical behavior pending probe",
+      "creator_docs_revision": "d6c42cac06f61535fc5316e1287dbdacc8f2e403",
+      "api_dump_sha256": "2598cf2eca58282370ab872ec6733202d42a6e7abeae31eec5b1c24735050d58",
+      "recheck": "Recheck after engine/docs changes or changes to layout, constraints, scale, padding, nesting or selected automatic axes.",
+      "id": "gui-sizing-modifiers",
+      "apis": [
+        "UISizeConstraint",
+        "UIScale",
+        "UIPadding",
+        "UIListLayout",
+        "UIGridStyleLayout.AbsoluteContentSize"
+      ],
+      "context": "Automatic UI sizing under constraints, layout, padding and scaling",
+      "fact": "The UISizeConstraint reference describes minimum/maximum bounds and layout sizing limits. Layout/flex, text wrapping, spacing and scale can alter content measured by automatic sizing; these descriptions do not establish the combined evaluation order.",
+      "action": "Include actual constraints and layout before applying a sizing formula. The accepted AutoY/content80/MaxSize50 cases returned80 while the fixed-size control returned50; do not assume the generic MaxSize summary caps automatic content in this pattern. Keep text width fixed for Y wrapping and measure over bounded frames.",
+      "sources": [
+        {
+          "path": "ui/size-modifiers.md",
+          "excerpt": "the constraint will **override** the layout",
+          "url": "https://github.com/Roblox/creator-docs/blob/d6c42cac06f61535fc5316e1287dbdacc8f2e403/content/en-us/ui/size-modifiers.md",
+          "sha256": "442add765c5fb691f8a1aa3c0c0ddb9cb6a853aec70c17af2fc4dcc80444e028"
+        },
+        {
+          "path": "reference/engine/classes/UIListLayout.yaml",
+          "excerpt": "automatic flex basis",
+          "url": "https://github.com/Roblox/creator-docs/blob/d6c42cac06f61535fc5316e1287dbdacc8f2e403/content/en-us/reference/engine/classes/UIListLayout.yaml",
+          "sha256": "543da6746fae4c3ca04fc1c68619d91e01283566eb495dc62c29a09a7b36c8a0"
+        },
+        {
+          "path": "reference/engine/classes/UIScale.yaml",
+          "excerpt": "AbsoluteSize",
+          "url": "https://github.com/Roblox/creator-docs/blob/d6c42cac06f61535fc5316e1287dbdacc8f2e403/content/en-us/reference/engine/classes/UIScale.yaml",
+          "sha256": "5a735dd29abf1a09d6d5d7f407c2263e170d263afb40735774a0a5670e26f505"
+        }
+      ],
+      "exceptions": "An unconstrained, unscaled Frame with fixed-size children is the baseline. No general convergence or evaluation order is established for nested parent-relative sizing.",
+      "unknown": "Modifier evaluation order outside the tested layouts remains unestablished.",
+      "next_evidence": "Recheck changed layouts or builds before extending the automatic-versus-fixed MaxSize distinction.",
+      "tested_behavior": {
+        "studio_build": "0.737.0.7371584",
+        "mcp_executable_sha256": "8a0a1753f601d43adbd2956d0fd5f40948c07401a7c4f2b9c0393cccafd693e4",
+        "context": "Client AutoY Frame controls with padding, UIListLayout, UISizeConstraint, child Scale feedback and UIScale.",
+        "rule": "Automatic content height 80 exceeded MaxSize.Y 50 with either constraint creation order; the fixed-size control was capped at 50. Padding produced height 64, list spacing produced 48, and UIScale 1.5 produced 180x72. Do not assume the generic MaxSize description caps automatic content in this arrangement.",
+        "limits": "The child-Scale feedback value of 45 was only a bounded observation, not a convergence proof. Other modifier combinations and evaluation order remain unestablished."
+      }
+    },
+    {
+      "id": "cframe-transform-versus-euler-sign",
+      "topics": [
+        "transforms"
+      ],
+      "apis": [
+        "CFrame",
+        "CFrame.Angles",
+        "CFrame.fromOrientation",
+        "CFrame.new",
+        "CFrame.GetComponents",
+        "CFrame.ToOrientation",
+        "CFrame.ToEulerAnglesXYZ"
+      ],
+      "category": "knowledge",
+      "need": "conditional",
+      "limit_type": "none",
+      "context": "Euler construction/readback, half-turns and full-component transform reconstruction",
+      "fact": "CFrame stores position and a 3x3 rotation matrix. Angles uses XYZ Euler order and fromOrientation uses YXZ; both take radians. Euler extraction returns approximate angles that could generate the transform, not a promise to reproduce the original input angles. GetComponents returns the position and nine rotation entries in the same order accepted by the 12-argument CFrame.new constructor.",
+      "action": "When preserving an existing transform, retain the CFrame or reconstruct its full 12 components without an unnecessary Euler conversion. For signed rotation direction or accumulated turns, retain that scalar/state separately. Compare transform components or basis vectors within a stated tolerance; do not diagnose a changed orientation solely from a -180/+180 Euler label.",
+      "sources": [
+        {
+          "path": "reference/engine/datatypes/CFrame.yaml",
+          "excerpt": "reverse of the 12-argument",
+          "url": "https://github.com/Roblox/creator-docs/blob/d6c42cac06f61535fc5316e1287dbdacc8f2e403/content/en-us/reference/engine/datatypes/CFrame.yaml",
+          "sha256": "42e0818ffb5475328f8b91d624100cfb8edea75840648bf272bb4000c449c1fb"
+        }
+      ],
+      "exceptions": "CFrame.Angles and fromOrientation use different rotation orders, so mixed-axis inputs are not interchangeable. Floating-point residuals and Euler branch choices can affect values near a half-turn. Exact components should not be rounded before reconstruction.",
+      "status": "documented",
+      "confidence": "high",
+      "unknown": "Mixed-axis inputs, interpolation direction, editor formatting and other builds remain outside the single-axis result.",
+      "next_evidence": "For a transform or direction failure, capture exact input, readback operation and component/basis differences before changing constructors.",
+      "creator_docs_revision": "d6c42cac06f61535fc5316e1287dbdacc8f2e403",
+      "api_dump_sha256": "2598cf2eca58282370ab872ec6733202d42a6e7abeae31eec5b1c24735050d58",
+      "recheck": "Recheck when Studio build, Creator Docs, API dump, rotation order, readback method or relevant project transform path changes.",
+      "tested_behavior": {
+        "studio_build": "0.737.0.7371584",
+        "mcp_executable_sha256": "8a0a1753f601d43adbd2956d0fd5f40948c07401a7c4f2b9c0393cccafd693e4",
+        "context": "Ordinary server, independent single-axis half-turns; Angles, fromOrientation, exact matrices and full-component copies.",
+        "rule": "Full CFrame.new(cf:GetComponents()) copies preserved every component exactly. Opposite-sign Euler half-turns differed by about 1.75e-7 within a 1e-6 tolerance. Euler extraction returned both signs; Part.Orientation used positive half-turn labels, including exact matrix controls. Preserve the transform without Euler reconstruction, and retain signed rotation or accumulated turns separately.",
+        "limits": "Matrix construction does not preserve signed-angle history or guarantee a negative displayed angle. Mixed-axis paths, interpolation direction and editor formatting were not established."
+      }
+    }
+  ]
+}

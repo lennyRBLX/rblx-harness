@@ -16,3 +16,6 @@
   infer a pass.
 - `TOK1` — Carry forward only decision-relevant evidence. Preserve exact paths,
   API names, literals, and source spans.
+- `API1` — Before an engine access or behavior decision, use the conditional
+  evidence routes in `shared/skills/rblx-writer/SKILL.md`. Preserve caller,
+  operation, restrictions, provenance, and scoped unknowns through review.

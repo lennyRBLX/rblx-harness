@@ -28,3 +28,12 @@ Follow this cycle:
 Use `tools/frame_census`, `tools/luau_hotspot`, and `tools/perf_audit` for dump
 and source analysis. Do not claim improvement without the human's comparable
 before-and-after evidence.
+
+## Knowledge — conditional engine evidence
+
+When a proposed optimization depends on engine access, scheduling, replication,
+physics, modules, persistence, or asset readiness, use the canonical evidence
+routes and operation constraints in `shared/skills/rblx-writer/SKILL.md`.
+Carry context, source revision, exceptions and unknowns into review. A changed
+engine or MCP version requires rechecking the affected record; no session restart
+is required to load updated evidence.

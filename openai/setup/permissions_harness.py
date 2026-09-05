@@ -20,6 +20,8 @@ extends = ":workspace"
 "~/.cache/harness/creator-docs/.git" = "write"
 
 [permissions.Roblox.filesystem.":workspace_roots"]
+".agents" = "write"
+".codex" = "write"
 ".git" = "write"
 "rblx-harness/tools/bin" = "write"
 "tools/bin" = "write"
@@ -37,6 +39,8 @@ enabled = true
 "127.0.0.1" = "allow"
 # END optional rblx-harness Roblox profile
 """
+WORKSPACE_ROOTS_HEADER = '[permissions.Roblox.filesystem.":workspace_roots"]'
+RUNTIME_WRITE_ENTRIES = (".agents", ".codex")
 
 
 def config_path():
@@ -46,6 +50,24 @@ def config_path():
 
 def profile_present(text):
     return bool(re.search(r"(?m)^\s*\[permissions\.Roblox\]\s*$", text))
+
+
+def add_runtime_writes(text):
+    """Add runtime-directory grants to a legacy unmarked Roblox profile."""
+    header = re.search(r"(?m)^\s*" + re.escape(WORKSPACE_ROOTS_HEADER) + r"\s*$", text)
+    if not header:
+        return text, False
+    following = re.search(r"(?m)^\s*\[", text[header.end():])
+    end = header.end() + following.start() if following else len(text)
+    section = text[header.start():end]
+    missing = [
+        name for name in RUNTIME_WRITE_ENTRIES
+        if not re.search(r'(?m)^\s*"' + re.escape(name) + r'"\s*=', section)
+    ]
+    if not missing:
+        return text, False
+    inserted = "".join('\n"%s" = "write"' % name for name in missing)
+    return text[:header.end()] + inserted + text[header.end():], True
 
 
 def install_profile():
@@ -58,7 +80,13 @@ def install_profile():
     pattern = re.compile(re.escape(BEGIN) + r".*?" + re.escape(END) + r"\s*", re.DOTALL)
     unmanaged = pattern.sub("", current).strip()
     if profile_present(unmanaged):
-        print("permissions-profile|PRESENT|optional; Full Access remains supported")
+        updated, changed = add_runtime_writes(current)
+        if changed:
+            with open(path, "w", encoding="utf-8", newline="\n") as handle:
+                handle.write(updated)
+            print("permissions-profile|UPDATED|runtime directories allowed; Full Access remains supported")
+        else:
+            print("permissions-profile|PRESENT|optional; Full Access remains supported")
         return 0
     rendered = "\n\n".join(part for part in (unmanaged, PROFILE.strip()) if part) + "\n"
     with open(path, "w", encoding="utf-8", newline="\n") as handle:

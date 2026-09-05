@@ -18,7 +18,6 @@ LOCAL_STATE = {
     ".codex": ".codex/.rblx-harness-probe",
     ".serena": ".serena/.rblx-harness-probe",
     ".roblox": ".roblox",
-    ".rblx-new-game.json": ".rblx-new-game.json",
 }
 
 

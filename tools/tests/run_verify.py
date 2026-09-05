@@ -7,6 +7,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import tomllib
 from pathlib import Path
 
 
@@ -121,7 +122,6 @@ def require_ignored_local_state(root):
         ".codex": ".codex/.verify-probe",
         ".serena": ".serena/.verify-probe",
         ".roblox": ".roblox",
-        ".rblx-new-game.json": ".rblx-new-game.json",
     }
     for relative, probe in paths.items():
         ignored = run(["git", "check-ignore", "--no-index", "--quiet", "--", probe], cwd=root)
@@ -197,7 +197,7 @@ def _():
         require(status.returncode == 0 and not status.stdout.strip(), status.stdout + status.stderr)
 
 
-@case("Roblox permission profile is optional and does not become the default")
+@case("Roblox permission profile allows generated runtime directories and remains optional")
 def _():
     with tempfile.TemporaryDirectory() as directory:
         environment = dict(os.environ, CODEX_HOME=os.path.join(directory, "codex"))
@@ -206,8 +206,33 @@ def _():
         installed = run([PY, PERMISSIONS, "--install"], env=environment)
         require(installed.returncode == 0, installed.stdout + installed.stderr)
         config = open(os.path.join(environment["CODEX_HOME"], "config.toml"), encoding="utf-8").read()
-        require("[permissions.Roblox]" in config, config)
-        require("default_permissions" not in config, config)
+        parsed = tomllib.loads(config)
+        workspace_roots = parsed["permissions"]["Roblox"]["filesystem"][":workspace_roots"]
+        require(workspace_roots[".agents"] == "write", workspace_roots)
+        require(workspace_roots[".codex"] == "write", workspace_roots)
+        require("default_permissions" not in parsed, parsed)
+
+
+@case("Roblox permission installer upgrades a legacy unmarked profile")
+def _():
+    with tempfile.TemporaryDirectory() as directory:
+        environment = dict(os.environ, CODEX_HOME=os.path.join(directory, "codex"))
+        config_path = os.path.join(environment["CODEX_HOME"], "config.toml")
+        write(
+            config_path,
+            '''custom = "retained"\n\n[permissions.Roblox]\nextends = ":workspace"\n\n[permissions.Roblox.filesystem.":workspace_roots"]\n".git" = "write"\n"tools/bin" = "write"\n''',
+        )
+        updated = run([PY, PERMISSIONS, "--install"], env=environment)
+        require(updated.returncode == 0 and "UPDATED" in updated.stdout, updated.stdout + updated.stderr)
+        config = open(config_path, encoding="utf-8").read()
+        parsed = tomllib.loads(config)
+        workspace_roots = parsed["permissions"]["Roblox"]["filesystem"][":workspace_roots"]
+        require(workspace_roots[".agents"] == "write", workspace_roots)
+        require(workspace_roots[".codex"] == "write", workspace_roots)
+        require(parsed["custom"] == "retained", parsed)
+        repeated = run([PY, PERMISSIONS, "--install"], env=environment)
+        require(repeated.returncode == 0 and "PRESENT" in repeated.stdout, repeated.stdout + repeated.stderr)
+        require(open(config_path, encoding="utf-8").read() == config, "profile update is not byte-stable")
 
 
 @case("Codex config merge preserves custom tables")
@@ -218,8 +243,6 @@ def _():
     existing = "[custom]\nvalue = 7\n"
     canonical = open(os.path.join(ROOT, "openai", "config", "project.toml"), encoding="utf-8").read()
     merged = gatelib.merge_project_codex_config(existing, canonical)
-    import tomllib
-
     parsed = tomllib.loads(merged)
     require(parsed["custom"]["value"] == 7, merged)
     require(parsed["features"]["multi_agent"] is True, merged)
@@ -292,7 +315,7 @@ def _():
         require(any(item["name"] == "Movement" and item["scope"] == "Match" for item in report["controllers"]), report)
         require("PlayerData" in report["harness_assets"]["services"], report)
         require("Gui" in report["harness_assets"]["controllers"], report)
-        require(not os.path.exists(os.path.join(root, ".rblx-new-game.json")), "inspection wrote state")
+        require(not os.path.exists(os.path.join(root, "manifest.json")), "inspection wrote manifest")
 
 
 @case("scaffold requires bare service and controller names")
@@ -300,6 +323,7 @@ def _():
     with tempfile.TemporaryDirectory() as root:
         places = run([PY, SCAFFOLD, "answer", "places", "Lobby", "--root", root])
         require(places.returncode == 0, places.stdout + places.stderr)
+        require(os.path.isfile(os.path.join(root, "manifest.json")), "answer did not write manifest.json")
         service = run([PY, SCAFFOLD, "answer", "services", "shared: InventoryService", "--root", root])
         require(service.returncode == 2 and "use Inventory instead of InventoryService" in service.stderr, service.stdout + service.stderr)
         controller = run([PY, SCAFFOLD, "answer", "controllers", "shared: CameraController", "--root", root])
@@ -332,6 +356,39 @@ def scaffold_project(root, assets="Accept all", source=""):
     emitted = run([PY, SCAFFOLD, "emit", "--root", root], cwd=root)
     require(emitted.returncode == 0, emitted.stdout + emitted.stderr)
     return emitted
+
+
+@case("integration failure retains state and reports setup-only recovery")
+def _():
+    with tempfile.TemporaryDirectory() as directory:
+        root = os.path.join(directory, "game")
+        os.makedirs(root)
+        run(["git", "init"], cwd=root)
+        answer_all(root)
+        source = harness_fixture(directory)
+        dependency = run(
+            [PY, DEPENDENCY, "setup", "--root", root, "--yes"],
+            env=submodule_test_environment(source),
+        )
+        require(dependency.returncode == 0, dependency.stdout + dependency.stderr)
+        write(os.path.join(root, ".codex"), "blocked\n")
+        emitted = run([PY, SCAFFOLD, "emit", "--root", root], cwd=root)
+        require(emitted.returncode == 2, emitted.stdout + emitted.stderr)
+        require("project integration failed" in emitted.stderr, emitted.stderr)
+        require("do not rerun scaffold.py" in emitted.stderr, emitted.stderr)
+        require("setup_project.py" in emitted.stderr and "--from-state" in emitted.stderr, emitted.stderr)
+        require(os.path.isfile(os.path.join(root, "manifest.json")), "integration failure removed manifest.json")
+        require(os.path.isfile(os.path.join(root, "Lobby.project.json")), "emitted place is absent")
+        state = run([PY, SCAFFOLD, "status", "--root", root], cwd=root)
+        require(state.returncode == 0, state.stdout + state.stderr)
+
+        os.unlink(os.path.join(root, ".codex"))
+        recovered = run(
+            [PY, os.path.join(root, SUBMODULE_NAME, "setup_project.py"), "--project", root, "--from-state"],
+            cwd=root,
+        )
+        require(recovered.returncode == 0, recovered.stdout + recovered.stderr)
+        require(os.path.isfile(os.path.join(root, ".codex", "config.toml")), "recovery did not create .codex")
 
 
 @case("full scaffold links assets and preserves existing module bytes")
@@ -445,6 +502,7 @@ def _():
             require(result.returncode == 0, result.stdout + result.stderr)
         emitted = run([PY, SCAFFOLD, "emit", "--root", root])
         require(emitted.returncode == 0, emitted.stdout + emitted.stderr)
+        require(os.path.isfile(os.path.join(root, "manifest.json")), "manifest.json is absent")
         require(os.path.isdir(os.path.join(root, "plugins")), "plugins folder was not migrated")
         require(not os.path.lexists(os.path.join(root, "plugin")), "legacy plugin folder remains")
         require(not os.path.exists(os.path.join(root, "HANDOFF.md")), "project handoff was emitted")
@@ -552,6 +610,12 @@ def _():
     require(result.returncode == 0 and "must preserve input to continue" in result.stdout, result.stdout + result.stderr)
     removed = run([PY, tool, "--agent", "maintainer"], input_text="maintainer: READY")
     require(removed.returncode != 0, removed.stdout + removed.stderr)
+
+
+@case("API access evidence and agent compaction preserve restrictions")
+def _():
+    result = run([PY, os.path.join(ROOT, "tools", "tests", "test_api_evidence.py")])
+    require(result.returncode == 0, result.stdout + result.stderr)
 
 
 def main():

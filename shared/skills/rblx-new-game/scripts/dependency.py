@@ -16,7 +16,6 @@ LOCAL_IGNORE_ENTRIES = (
     "/.codex/",
     "/.serena/",
     "/.roblox",
-    "/.rblx-new-game.json",
     ".DS_Store",
 )
 

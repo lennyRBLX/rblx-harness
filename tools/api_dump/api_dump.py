@@ -15,9 +15,17 @@ agent — the schema lives in its def, never restated here.
 Exit codes: 0 ok · 2 crash · 3 environment precondition unmet.
 Security-filtered by default: only Security.Read == "None" members surface;
 --all lifts the filter for a deliberate lookup.
+
+Additive evidence verbs emit JSON lines with schema roblox-evidence-v1:
+  access Class[.Member]  Full restrictions, inherited owner and class prose.
+  inventory Class       All inherited properties, including restricted ones.
+  behavior TopicOrAPI   Sourced operational decisions and scoped unknowns.
+These verbs do not change legacy records. Unknown is not permission. ReadSafe
+is parallel read safety, not write permission, replication, or startup timing.
 """
 
 import json
+import hashlib
 import os
 import re
 import shutil
@@ -43,6 +51,7 @@ GLOBALS_PATH = os.path.join(CACHE, "api_globals.luau")
 DUMP_URL = "https://raw.githubusercontent.com/MaximumADHD/Roblox-Client-Tracker/roblox/API-Dump.json"
 DOCS_URL = "https://github.com/Roblox/creator-docs"
 OVERLAY_PATH = os.path.join(HERE, "house_overlay.txt")
+BEHAVIOR_PATH = os.path.join(HERE, "behavior.json")
 
 # class tags carried; member tags carried. CustomLuaState and NotBrowsable are
 # dropped deliberately — dropping a tag never drops a member.
@@ -287,10 +296,12 @@ def classes_by_name():
 def ancestry(name, by_name):
     chain = []
     cur = by_name.get(name)
+    seen = {name}
     while cur:
         sup = cur.get("Superclass")
-        if not sup or sup == "<<<ROOT>>>":
+        if not sup or sup == "<<<ROOT>>>" or sup in seen:
             break
+        seen.add(sup)
         chain.append(sup)
         cur = by_name.get(sup)
     return chain
@@ -442,6 +453,241 @@ def class_header(c, cy):
 
 
 # -------------------------------------------------------------------- verbs --
+
+
+def file_sha256(path):
+    try:
+        with open(path, "rb") as handle:
+            return hashlib.sha256(handle.read()).hexdigest()
+    except OSError:
+        return "unknown"
+
+
+def docs_revision():
+    try:
+        result = subprocess.run(
+            ["git", "-C", DOCS_ROOT, "rev-parse", "HEAD"],
+            capture_output=True, text=True, timeout=5,
+        )
+        return result.stdout.strip() if result.returncode == 0 else "unknown"
+    except (OSError, subprocess.TimeoutExpired):
+        return "unknown"
+
+
+def corpus_provenance():
+    """A schema version is not an engine build; independent sources may differ."""
+    current = {"api_dump_sha256": file_sha256(DUMP_PATH),
+               "creator_docs_revision": docs_revision()}
+    try:
+        with open(REFRESH_PATH, encoding="utf-8") as handle:
+            manifest = json.load(handle)
+        if not isinstance(manifest, dict):
+            manifest = {}
+    except (OSError, ValueError):
+        manifest = {}
+    keys = tuple(current)
+    try:
+        with open(os.path.join(ENGINE, "STUDIO_VERSION"), encoding="utf-8") as handle:
+            docs_build = handle.read().strip() or "unknown"
+    except OSError:
+        docs_build = "unknown"
+    current.update({
+        "api_dump_url": DUMP_URL,
+        "api_dump_schema_version": load_dump().get("Version", "unknown"),
+        "refreshed_at": manifest.get("refreshed_at", "unknown"),
+        "cache_manifest_match": (
+            "unknown" if any(key not in manifest for key in keys)
+            else "match" if all(manifest[key] == current[key] for key in keys)
+            else "mismatch"
+        ),
+        "engine_build": "unknown", "studio_build": "unknown", "mcp_version": "unknown",
+        "engine_docs_alignment": "unknown",
+        "creator_docs_engine_version": docs_build,
+    })
+    refreshed = manifest.get("refreshed_at")
+    age = time.time() - refreshed if isinstance(refreshed, (int, float)) and not isinstance(refreshed, bool) else None
+    current["freshness"] = "unknown" if age is None or age < -300 else "stale" if age >= gatelib.CORPUS_MAX_AGE else "fresh"
+    return current
+
+
+def evidence_json(record):
+    print(json.dumps({"schema": "roblox-evidence-v1", **record}, ensure_ascii=False, sort_keys=True))
+
+
+def description_evidence(class_name, entry):
+    path = "reference/engine/classes/" + class_name + ".yaml"
+    # Preserve complete prose: a short summary can omit the decisive restriction.
+    return {
+        "status": "available" if entry else "missing",
+        "path": path,
+        "sha256": file_sha256(os.path.join(CONTENT, path)),
+        "summary": entry.get("summary") or "unknown" if entry else "unknown",
+        "description": entry.get("description") or "unknown" if entry else "unknown",
+        "deprecation_message": entry.get("deprecation_message") or "none" if entry else "unknown",
+        "source_route": "api_dump.py doc " + path,
+        "metadata": {key: entry[key] for key in ("security", "capabilities", "tags", "thread_safety")
+                     if entry and key in entry},
+    }
+
+
+def behavior_records(query):
+    """Operational rules, queried by exact topic, API, or finding id; never overlay."""
+    try:
+        with open(BEHAVIOR_PATH, encoding="utf-8") as handle:
+            records = json.load(handle)["records"]
+    except FileNotFoundError:
+        return []
+    return [row for row in records if query == row["id"] or query in row["topics"] or query in row["apis"]]
+
+
+def behavior_evidence(row, provenance):
+    result = dict(row)
+    reviewed = row.get("creator_docs_revision")
+    result["revision_status"] = (
+        "unknown" if not reviewed or provenance["creator_docs_revision"] == "unknown"
+        else "reviewed" if reviewed == provenance["creator_docs_revision"]
+        else "recheck-required"
+    )
+    checks = []
+    for source in row.get("sources", []):
+        actual = file_sha256(os.path.join(CONTENT, source["path"]))
+        expected = source.get("sha256", "unknown")
+        checks.append({"path": source["path"], "status":
+                       "missing" if actual == "unknown" else
+                       "unknown" if expected == "unknown" else
+                       "match" if expected == actual else "mismatch"})
+    for source in row.get("project_sources", []):
+        actual = file_sha256(os.path.join(HARNESS, source["path"]))
+        checks.append({"path": source["path"], "status":
+                       "missing" if actual == "unknown" else
+                       "match" if source.get("sha256") == actual else "mismatch"})
+    result["source_checks"] = checks
+    if any(check["status"] in ("missing", "mismatch") for check in checks):
+        result["revision_status"] = "recheck-required"
+    if row.get("api_dump_sha256") and row["api_dump_sha256"] != provenance["api_dump_sha256"]:
+        result["revision_status"] = "recheck-required"
+    if provenance.get("freshness") == "stale":
+        result["revision_status"] = "recheck-required"
+    result["evidence_status"] = "current" if (
+        result["revision_status"] == "reviewed" and checks and all(check["status"] == "match" for check in checks)
+    ) else "unknown" if result["revision_status"] == "reviewed" else result["revision_status"]
+    return result
+
+
+def operation_evidence(member):
+    kind = member["MemberType"]
+    operations = ("read", "write") if kind == "Property" else (
+        ("connect",) if kind == "Event" else ("assign_callback",) if kind == "Callback" else ("call",)
+    )
+    result = {}
+    for operation in operations:
+        security = member.get("Security", "unknown")
+        capabilities = member.get("Capabilities", "unknown")
+        if isinstance(security, dict):
+            security = security.get(operation.title(), "unknown")
+        if isinstance(capabilities, dict):
+            capabilities = capabilities.get(operation.title(), "unknown")
+        tags = member.get("Tags") or []
+        reasons = []
+        if "NotScriptable" in tags:
+            reasons.append("NotScriptable")
+        if operation == "write" and "ReadOnly" in tags:
+            reasons.append("ReadOnly")
+        if security not in ("None", "unknown", None):
+            reasons.append("requires " + str(security))
+        contexts = {}
+        for context in ("game-server", "game-client", "studio-plugin", "command-bar", "mcp-edit", "mcp-server", "mcp-client"):
+            denied = bool(reasons) and context in ("game-server", "game-client")
+            contexts[context] = "denied" if denied else "unknown"
+        result[operation] = {"security": security, "capabilities": capabilities,
+                             "contexts": contexts, "ordinary_game_denial_basis": reasons}
+    return result
+
+
+def access_member(requested_class, declaring_class, member, provenance, detailed=True):
+    name = member["Name"]
+    key = declaring_class + "." + name
+    behavior = [behavior_evidence(row, provenance) for row in behavior_records(key)]
+    record = {
+        "record": "access", "requested_class": requested_class,
+        "declaring_class": declaring_class, "member": name, "kind": member["MemberType"],
+        "operations": operation_evidence(member), "tags": member.get("Tags", "unknown"),
+        "thread_safety": member.get("ThreadSafety", "unknown"),
+        "serialization": member.get("Serialization", "unknown"),
+        "simulation_access": member.get("SimulationAccess", "unknown"),
+        "runtime": {field: "unknown" for field in (
+            "edit_configuration", "runtime_assignment", "effective_when", "replication", "persistence")},
+        "behavior_routes": ["api_dump.py behavior " + row["id"] for row in behavior],
+    }
+    if detailed:
+        record["api_dump_member"] = member
+        record["documentation"] = description_evidence(declaring_class, yaml_members(class_yaml(declaring_class)).get(name))
+        record["behavior"] = behavior
+        metadata = record["documentation"]["metadata"]
+        record["metadata_differences"] = []
+        for doc_key, dump_key in (("security", "Security"), ("capabilities", "Capabilities"),
+                                  ("tags", "Tags"), ("thread_safety", "ThreadSafety")):
+            if doc_key not in metadata or dump_key not in member:
+                continue
+            dump_value, doc_value = member[dump_key], metadata[doc_key]
+            normalize = lambda value: {key.lower(): val for key, val in value.items()} if isinstance(value, dict) else value
+            if normalize(dump_value) != normalize(doc_value):
+                record["metadata_differences"].append({"field": doc_key,
+                    "api_dump": dump_value, "creator_docs": doc_value,
+                    "status": "different-representation" if type(dump_value) is not type(doc_value) else "conflict",
+                    "next": "compare source definitions per operation; do not choose permissive evidence"})
+    # Runtime observations are never inferred from permission, serialization or ReadSafe.
+    for row in behavior:
+        if row["evidence_status"] == "current" and row.get("status") == "documented":
+            record["runtime"].update(row.get("runtime", {}).get(key, {}))
+    return record
+
+
+def verb_access(spec, inventory=False):
+    need_dump()
+    match = re.fullmatch(r"([A-Za-z0-9_]+)(?:[.:]([A-Za-z0-9_]+))?", spec)
+    if not match or (inventory and match[2]):
+        evidence_json({"record": "miss", "query": spec, "next": "use access Class[.Member] or inventory Class"})
+        return
+    requested, wanted = match.groups()
+    by_name = classes_by_name()
+    if requested not in by_name:
+        evidence_json({"record": "miss", "query": spec, "next": "verify class spelling and corpus revision"})
+        return
+    provenance = corpus_provenance()
+    chain = [requested] + [name for name in ancestry(requested, by_name) if name in by_name]
+    contexts = [{"name": name, "tags": by_name[name].get("Tags", "unknown"),
+                 "security": by_name[name].get("Security", "unknown"),
+                 "capabilities": by_name[name].get("Capabilities", "unknown"),
+                 "documentation": description_evidence(name, class_yaml(name))} for name in chain]
+    evidence_json({"record": "class-context", "requested_class": requested,
+                   "classes": contexts, "sources": provenance,
+                   "assessment_scope": "game contexts mean ordinary game code without elevated identity; unknown requires caller capabilities, class restrictions, execution phase and behavior evidence"})
+    if not inventory and not wanted:
+        return
+    seen = set()
+    for name in chain:
+        for member in by_name[name].get("Members", []):
+            if member["Name"] in seen:
+                continue
+            seen.add(member["Name"])
+            if (inventory and member["MemberType"] == "Property") or member["Name"] == wanted:
+                evidence_json(access_member(requested, name, member, provenance, detailed=not inventory))
+                if not inventory:
+                    return
+    if wanted:
+        evidence_json({"record": "miss", "query": spec, "next": "verify member spelling and source revisions; no access claim"})
+
+
+def verb_behavior(query):
+    need_dump()
+    rows = behavior_records(query)
+    provenance = corpus_provenance()
+    if not rows:
+        evidence_json({"record": "miss", "query": query,
+                       "next": "use docs/find and full descriptions; research the exact context before a probe"})
+    for row in rows:
+        evidence_json({"record": "behavior", **behavior_evidence(row, provenance), "provenance": provenance})
 
 
 def verb_class(name, lift, inherited=False):
@@ -1159,7 +1405,8 @@ def sync():
         env_fail("corpus-malformed", asset_error)
     temporary = REFRESH_PATH + ".%d.tmp" % os.getpid()
     with open(temporary, "w", encoding="utf-8") as f:
-        json.dump({"refreshed_at": time.time()}, f, sort_keys=True)
+        json.dump({"refreshed_at": time.time(), "api_dump_sha256": file_sha256(DUMP_PATH),
+                   "creator_docs_revision": docs_revision()}, f, sort_keys=True)
         f.write("\n")
     os.replace(temporary, REFRESH_PATH)
     print("refresh|successful|%d" % int(time.time()))
@@ -1187,6 +1434,14 @@ def main(argv):
         emit_globals(updates)
     elif verb == "--check-overlay":
         check_overlay()
+    elif verb in ("access", "inventory", "behavior"):
+        if len(rest) != 1:
+            evidence_json({"record": "miss", "query": verb, "next": "supply one class, member or behavior topic"})
+            return 2
+        if verb == "behavior":
+            verb_behavior(rest[0])
+        else:
+            verb_access(rest[0], inventory=verb == "inventory")
     elif verb == "class":
         verb_class(rest[0], lift)
     elif verb == "instance":
