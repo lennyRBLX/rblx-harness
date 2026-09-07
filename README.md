@@ -5,7 +5,7 @@ optimization, and multi-place project scaffolding.
 
 ## Included surface
 
-- Skills: `rblx-new-game`, `rblx-writer`, `rblx-debug`, `rblx-optimize`.
+- Skills: `rblx-new-game`, `rblx-writer`, `rblx-gui`, `rblx-debug`, `rblx-optimize`.
 - Agents: `researcher`, `optimizer`, `reviewer`, `debugger`.
 - Tools: Roblox API and Creator Docs lookup, data and type writers, Git repair,
   MicroProfiler analysis, boilerplate generation, and style assessment.
@@ -28,7 +28,7 @@ repository skill links with:
 python3 setup_project.py --harness
 ```
 
-This installs all four harness skills for harness development. It does not
+This installs all five harness skills for harness development. It does not
 create `.roblox` or `.serena/`.
 
 ## Permissions
@@ -96,7 +96,7 @@ python3 rblx-harness/setup_project.py --project "$(pwd)" --from-state
 ```
 
 Setup recreates the ignored `.roblox` marker, `.codex/`, and the
-`.agents/skills/` links for `rblx-writer`, `rblx-debug`, and `rblx-optimize`.
+`.agents/skills/` links for `rblx-writer`, `rblx-gui`, `rblx-debug`, and `rblx-optimize`.
 Serena creates `.serena/` when it is initialized. All four paths are ignored
 and must not be committed. Project `HANDOFF.md` is not generated; every harness
 project uses `rblx-harness/shared/HANDOFF.md`.
@@ -109,7 +109,7 @@ Generated projects install only:
 - `SubagentStart` for the four allowed agent roles and rule context.
 - `SubagentStop` for compact, role-specific returns.
 
-These hooks do not gate the primary `rblx-writer`, `rblx-debug`,
+These hooks do not gate the primary `rblx-writer`, `rblx-gui`, `rblx-debug`,
 `rblx-optimize`, or `rblx-new-game` session flow.
 
 ## Relink and validate

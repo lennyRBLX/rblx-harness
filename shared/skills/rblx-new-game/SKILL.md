@@ -50,8 +50,10 @@ retain emitted files/state & retry only integration with the Relink command.
 Do not rerun the pinned submodule's scaffolder; interview-state versions may differ.
 
 Emission creates per-place Argon projects, shared/place source, confirmed
-boilerplate, AGENTS.md, README, Codex agents, three workflow skills & three hook
-events. Preserve existing README; new README includes gameplay & post-clone setup.
+boilerplate, AGENTS.md, README, Codex agents & three hook events. Harness setup
+automatically installs `rblx-gui`, `rblx-debug`, `rblx-writer` & `rblx-optimize`
+in the project's `.agents/skills/`. Preserve existing README; new README includes
+gameplay & post-clone setup.
 Detected Service/Controller bytes replace boilerplate at confirmed destinations,
 including original formatting. Setup links accepted harness assets on
 macOS/Linux/Windows. `plugins/` is optional: create only if accepted/already present;

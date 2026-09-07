@@ -140,13 +140,13 @@ def case(name):
 CASES = []
 
 
-@case("repository surface is four skills, four agents, and Codex only")
+@case("repository surface is five skills, four agents, and Codex only")
 def _():
     skills = sorted(
         name for name in os.listdir(os.path.join(ROOT, "shared", "skills"))
         if os.path.isfile(os.path.join(ROOT, "shared", "skills", name, "SKILL.md"))
     )
-    require(skills == ["rblx-debug", "rblx-new-game", "rblx-optimize", "rblx-writer"], skills)
+    require(skills == ["rblx-debug", "rblx-gui", "rblx-new-game", "rblx-optimize", "rblx-writer"], skills)
     agents = sorted(
         os.path.splitext(name)[0]
         for name in os.listdir(os.path.join(ROOT, "openai", "agents"))
@@ -189,7 +189,7 @@ def _():
         hooks = open(os.path.join(root, ".codex", "hooks.json"), encoding="utf-8").read()
         require("/rblx-harness/openai/" not in hooks, hooks)
         require("/openai/hooks/adapter.py" in hooks, hooks)
-        for skill in ("rblx-debug", "rblx-new-game", "rblx-optimize", "rblx-writer"):
+        for skill in ("rblx-debug", "rblx-gui", "rblx-new-game", "rblx-optimize", "rblx-writer"):
             require(os.path.islink(os.path.join(root, ".agents", "skills", skill)), skill)
         require(not os.path.exists(os.path.join(root, ".roblox")), "harness setup created .roblox")
         require(not os.path.exists(os.path.join(root, ".serena")), "harness setup created .serena")
@@ -429,7 +429,7 @@ def _():
         require("python3 rblx-harness/setup_project.py --project . --from-state" in readme, readme)
         require(len(readme.splitlines()) <= 10, "generated README is not minimal")
         require(sorted(os.path.splitext(name)[0] for name in os.listdir(os.path.join(root, ".codex", "agents"))) == ["debugger", "optimizer", "researcher", "reviewer"], "agent set")
-        for skill in ("rblx-writer", "rblx-debug", "rblx-optimize"):
+        for skill in ("rblx-writer", "rblx-gui", "rblx-debug", "rblx-optimize"):
             require(os.path.islink(os.path.join(root, ".agents", "skills", skill)), "%s is not linked" % skill)
         require(not os.path.lexists(os.path.join(root, ".agents", "skills", "rblx-new-game")), "rblx-new-game was installed in project")
         require_ignored_local_state(root)

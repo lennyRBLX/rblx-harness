@@ -1,10 +1,12 @@
 ---
 name: rblx-writer
-description: Write Roblox Luau features via research, optimization & review. Excludes bugs & MicroProfiler-led work.
+description: Write non-GUI Roblox Luau features via research, optimization & review. Excludes GUI writing, bugs & MicroProfiler-led work.
 ---
 
 Resolve `<HARNESS_ROOT>` from the project's `rblx-harness` submodule; read
 `<HARNESS_ROOT>/shared/CORE.md`.
+
+Route GUI writing to `rblx-gui`; in mixed features, apply it to the GUI portion.
 
 1. Send `researcher` the request, relevant paths & exact Roblox/project questions; await evidence.
 2. Write the feature. Use `apply_patch`; create Service/Controller frames with `tools/create_boilerplate/create_boilerplate.py`.

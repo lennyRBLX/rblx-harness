@@ -1,7 +1,7 @@
 Read `rblx-harness/shared/CORE.md` before Roblox work. Use
 `rblx-harness/shared/HANDOFF.md` for compaction; no project-local copy.
 
-Routes: features → `$rblx-writer`; bugs → `$rblx-debug`;
+Routes: GUI writing → `$rblx-gui`; other features → `$rblx-writer`; bugs → `$rblx-debug`;
 MicroProfiler → `$rblx-optimize`.
 
 Hooks enforce agent roles, nesting, tool use & rules, not session authorization.

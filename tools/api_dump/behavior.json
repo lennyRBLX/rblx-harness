@@ -1102,7 +1102,7 @@
         "assets"
       ],
       "status": "documented",
-      "confidence": "high for documented rule; exact numerical behavior pending probe",
+      "confidence": "High for source contract and scoped recorded tests; other cases remain untested",
       "creator_docs_revision": "d6c42cac06f61535fc5316e1287dbdacc8f2e403",
       "api_dump_sha256": "2598cf2eca58282370ab872ec6733202d42a6e7abeae31eec5b1c24735050d58",
       "recheck": "Recheck after engine/docs changes or changes to layout, constraints, scale, padding, nesting or selected automatic axes.",
@@ -1139,8 +1139,21 @@
         "mcp_executable_sha256": "8a0a1753f601d43adbd2956d0fd5f40948c07401a7c4f2b9c0393cccafd693e4",
         "context": "Client ScrollingFrame with child height 48 and fixed parent height 200; controlled viewport, CanvasSize, AutomaticSize and AutomaticCanvasSize.",
         "rule": "AutoCanvasY left viewport height 24 unchanged while canvas offsets 36/72 produced canvas heights 48/72. Viewport height 96 produced canvas height 96 with either offset; the offset-36 case also produced 96 with AutoCanvas=None. Canvas Scale 0.5 produced 100. AutoSizeY raised viewport 24 to 48 with either tested canvas automatic mode. AbsoluteWindowSize remained distinct from base size when scrollbar gutters applied.",
-        "limits": "A larger scrollable canvas is not an enlarged viewport. The observed viewport floor does not establish a universal componentwise formula, nesting rule or update order."
-      }
+        "limits": "A larger scrollable canvas is not an enlarged viewport. The observed viewport floor does not establish a universal componentwise formula, nesting rule or update order.",
+        "gui_research": {
+          "repro": "N-canvas-001 / N-canvas-endpoints-001",
+          "fixture": "gui-native-3",
+          "active_source_sha256": "ebf21edd521e7117e09fde01188f4c6025b2913e277456a92cb97af9b8a4c017",
+          "context": "240x120 ScrollingFrame, CanvasSize=0, AutomaticCanvasSize=Y;12 cells,2 columns, CellSize72x32, CellPadding6x6, ClipsDescendants=false; preview viewport1854x1304, endpoint1855x1304.",
+          "rule": "Top/bottom Scale0.05 padding gave canvas222/maxscroll102 and last-child bottom131.09998px, or127.09998px with MaxSize.Y24, outside120px viewport. Offset10 controls gave canvas242/maxscroll122 and last bottoms110/106px. Three endpoint samples agreed; all12prior CanvasPositions restored. Human confirmed two Scale failures and ten passing controls.",
+          "action": "Use the tested Offset path for this arrangement; recheck last-row reachability after changes.",
+          "limits": "No general canvas formula or Scale-padding prohibition.",
+          "studio_build": "0.737.0.7371584"
+        }
+      },
+      "research_ids": [
+        "A109"
+      ]
     },
     {
       "category": "knowledge",
@@ -1151,7 +1164,7 @@
         "assets"
       ],
       "status": "documented",
-      "confidence": "high for documented rule; exact numerical behavior pending probe",
+      "confidence": "High for source contract and scoped recorded tests; other cases remain untested",
       "creator_docs_revision": "d6c42cac06f61535fc5316e1287dbdacc8f2e403",
       "api_dump_sha256": "2598cf2eca58282370ab872ec6733202d42a6e7abeae31eec5b1c24735050d58",
       "recheck": "Recheck after engine/docs changes or changes to layout, constraints, scale, padding, nesting or selected automatic axes.",
@@ -1194,8 +1207,17 @@
         "mcp_executable_sha256": "8a0a1753f601d43adbd2956d0fd5f40948c07401a7c4f2b9c0393cccafd693e4",
         "context": "Client AutoY Frame controls with padding, UIListLayout, UISizeConstraint, child Scale feedback and UIScale.",
         "rule": "Automatic content height 80 exceeded MaxSize.Y 50 with either constraint creation order; the fixed-size control was capped at 50. Padding produced height 64, list spacing produced 48, and UIScale 1.5 produced 180x72. Do not assume the generic MaxSize description caps automatic content in this arrangement.",
-        "limits": "The child-Scale feedback value of 45 was only a bounded observation, not a convergence proof. Other modifier combinations and evaluation order remain unestablished."
-      }
+        "limits": "The child-Scale feedback value of 45 was only a bounded observation, not a convergence proof. Other modifier combinations and evaluation order remain unestablished.",
+        "gui_research": {
+          "repro": "N-modifiers-001",
+          "fixture": "gui-native-3",
+          "active_source_sha256": "1d62dcb0c791ecfc5237b03bbabbbddeaec5bb0ad19e6ac78c5d7aaaebecaf66",
+          "rule": "Child height80→112 left fixed parent80, or50 with MaxSize.Y50. AutoY parents ended112 with either constraint creation order; Offset10 top/bottom padding raised height132. Scale0.05 shifted child4px in fixed80 and5.6px in AutoY112, without parent growth. Human confirmed all ten final appearances.",
+          "limits": "Source value0.05; scale005 is a label. Other evaluation orders and padding formulas remain unestablished.",
+          "studio_build": "0.737.0.7371584"
+        }
+      },
+      "research_ids": []
     },
     {
       "id": "cframe-transform-versus-euler-sign",
@@ -1239,6 +1261,893 @@
         "context": "Ordinary server, independent single-axis half-turns; Angles, fromOrientation, exact matrices and full-component copies.",
         "rule": "Full CFrame.new(cf:GetComponents()) copies preserved every component exactly. Opposite-sign Euler half-turns differed by about 1.75e-7 within a 1e-6 tolerance. Euler extraction returned both signs; Part.Orientation used positive half-turn labels, including exact matrix controls. Preserve the transform without Euler reconstruction, and retain signed rotation or accumulated turns separately.",
         "limits": "Matrix construction does not preserve signed-angle history or guarantee a negative displayed angle. Mixed-axis paths, interpolation direction and editor formatting were not established."
+      }
+    },
+    {
+      "id": "gui-style-tree",
+      "topics": [
+        "gui-style"
+      ],
+      "apis": [
+        "StyleLink",
+        "StyleSheet",
+        "StyleDerive",
+        "StyleRule",
+        "StyleBase"
+      ],
+      "category": "knowledge",
+      "need": "conditional",
+      "limit_type": "none",
+      "context": "Styled GUI trees; ordinary client code after access checks",
+      "fact": "StyleLink applies a single StyleSheet to its parent tree; linked or derived sheets must be in DataModel. Higher StyleDerive priority takes precedence. Invalid StyleRule property names can silently fail.",
+      "action": "Resolve the linked sheet, inheritance priority and property owner before changing styled properties; check SelectorError, property types and affected instances.",
+      "sources": [
+        {
+          "path": "reference/engine/classes/StyleLink.yaml",
+          "url": "https://github.com/Roblox/creator-docs/blob/d6c42cac06f61535fc5316e1287dbdacc8f2e403/content/en-us/reference/engine/classes/StyleLink.yaml",
+          "sha256": "6c36b0ad97a9c94b69e4d8ce7ae3d9ac3bac7ae9c9a2416a6b27e4564a04597e"
+        },
+        {
+          "path": "reference/engine/classes/StyleSheet.yaml",
+          "url": "https://github.com/Roblox/creator-docs/blob/d6c42cac06f61535fc5316e1287dbdacc8f2e403/content/en-us/reference/engine/classes/StyleSheet.yaml",
+          "sha256": "f328028caa366209f1bf3d9a3cd3645eea28ca61f6a4fc0442922e102a5c4e3f"
+        },
+        {
+          "path": "reference/engine/classes/StyleDerive.yaml",
+          "url": "https://github.com/Roblox/creator-docs/blob/d6c42cac06f61535fc5316e1287dbdacc8f2e403/content/en-us/reference/engine/classes/StyleDerive.yaml",
+          "sha256": "27bf6c9fbc4485ec8f0696cc8f7ebde9f56b6aa8ec09dee0daf107cb53952575"
+        },
+        {
+          "path": "reference/engine/classes/StyleRule.yaml",
+          "url": "https://github.com/Roblox/creator-docs/blob/d6c42cac06f61535fc5316e1287dbdacc8f2e403/content/en-us/reference/engine/classes/StyleRule.yaml",
+          "sha256": "d344792bdc508bb370ac1cc1aea63c47ed0886ae3871c01ccb434eb7d22b29cc"
+        }
+      ],
+      "exceptions": "Editor override/save reports are separate from the documented runtime tree contract; no current-build reproduction is recorded.",
+      "status": "documented",
+      "confidence": "high for documented contract; runtime unrun",
+      "creator_docs_revision": "d6c42cac06f61535fc5316e1287dbdacc8f2e403",
+      "api_dump_sha256": "2598cf2eca58282370ab872ec6733202d42a6e7abeae31eec5b1c24735050d58",
+      "recheck": "Recheck docs/build or style-tree changes; test editor-specific workarounds separately.",
+      "research_ids": [
+        "A105",
+        "A106"
+      ]
+    },
+    {
+      "id": "gui-style-query-validation",
+      "topics": [
+        "gui-style"
+      ],
+      "apis": [
+        "StyleQuery",
+        "StyleQuery.SetConditions"
+      ],
+      "category": "knowledge",
+      "need": "conditional",
+      "limit_type": "none",
+      "context": "Conditional GUI styling",
+      "fact": "StyleQuery activates its named selector when its conditions hold. Invalid condition names and mismatched types can silently fail.",
+      "action": "Validate condition names/types, inspect GetConditions and IsActive, then test resizing across the actual thresholds.",
+      "sources": [
+        {
+          "path": "reference/engine/classes/StyleQuery.yaml",
+          "url": "https://github.com/Roblox/creator-docs/blob/d6c42cac06f61535fc5316e1287dbdacc8f2e403/content/en-us/reference/engine/classes/StyleQuery.yaml",
+          "sha256": "256431d737ec75e44cce3f0b9d3007c35a389381cc17d066d34957fb07523967"
+        }
+      ],
+      "exceptions": "Release notes warn that sizing the same object used by a size condition may flicker; this interaction needs a controlled visual check on the target build.",
+      "external_sources": [
+        {
+          "url": "https://devforum.roblox.com/t/full-release-stylequery-more-styling-features/4566519",
+          "retrieved": "2026-09-06",
+          "scope": "May 11 2026 release update; size-feedback release note"
+        }
+      ],
+      "status": "documented",
+      "confidence": "high for documented setters; feedback unrun",
+      "creator_docs_revision": "d6c42cac06f61535fc5316e1287dbdacc8f2e403",
+      "api_dump_sha256": "2598cf2eca58282370ab872ec6733202d42a6e7abeae31eec5b1c24735050d58",
+      "recheck": "Recheck docs/build, condition or style-owner changes.",
+      "research_ids": [
+        "A107"
+      ]
+    },
+    {
+      "id": "gui-layout-sibling-scope",
+      "topics": [
+        "gui-layout"
+      ],
+      "apis": [
+        "UIListLayout",
+        "UIGridLayout",
+        "UIPageLayout"
+      ],
+      "category": "knowledge",
+      "need": "conditional",
+      "limit_type": "none",
+      "context": "Ordinary client GUI after access checks; serial geometry reads",
+      "fact": "List, grid and page layouts arrange sibling GuiObjects. A Folder descendant is not a direct sibling; a sibling Frame wrapper is itself an item whose descendants have a separate layout scope.",
+      "action": "Keep managed items direct children of the layout parent, or give wrapper contents their own layout. A Folder test must retain direct sibling controls to distinguish excluded descendants from a failed whole layout.",
+      "sources": [
+        {
+          "path": "reference/engine/classes/UIListLayout.yaml",
+          "url": "https://github.com/Roblox/creator-docs/blob/d6c42cac06f61535fc5316e1287dbdacc8f2e403/content/en-us/reference/engine/classes/UIListLayout.yaml",
+          "sha256": "543da6746fae4c3ca04fc1c68619d91e01283566eb495dc62c29a09a7b36c8a0"
+        },
+        {
+          "path": "reference/engine/classes/UIGridLayout.yaml",
+          "url": "https://github.com/Roblox/creator-docs/blob/d6c42cac06f61535fc5316e1287dbdacc8f2e403/content/en-us/reference/engine/classes/UIGridLayout.yaml",
+          "sha256": "d9a9cd4816984fd82bac3c05f1daff9a5034e927b9b72f6a1abda52e2a36af0e"
+        },
+        {
+          "path": "reference/engine/classes/UIPageLayout.yaml",
+          "url": "https://github.com/Roblox/creator-docs/blob/d6c42cac06f61535fc5316e1287dbdacc8f2e403/content/en-us/reference/engine/classes/UIPageLayout.yaml",
+          "sha256": "e56a0c574c6c8519c3a8527ef8de18e5aef0c1224d6ea214ab0f63421f489034"
+        }
+      ],
+      "exceptions": "UITableLayout also manages cells within its sibling rows; it has a distinct contract.",
+      "status": "documented",
+      "confidence": "high for source contract; current-build visual tests pending",
+      "creator_docs_revision": "d6c42cac06f61535fc5316e1287dbdacc8f2e403",
+      "api_dump_sha256": "2598cf2eca58282370ab872ec6733202d42a6e7abeae31eec5b1c24735050d58",
+      "research_ids": [
+        "A002",
+        "A004",
+        "A012"
+      ],
+      "recheck": "Recheck after source/build, hierarchy, layout, constraints, scale or padding changes."
+    },
+    {
+      "id": "gui-layout-metric-read",
+      "topics": [
+        "gui-layout"
+      ],
+      "apis": [
+        "UIGridStyleLayout.AbsoluteContentSize",
+        "UIListLayout",
+        "UIGridLayout"
+      ],
+      "category": "knowledge",
+      "need": "conditional",
+      "limit_type": "none",
+      "context": "Ordinary client GUI after access checks; serial geometry reads",
+      "fact": "Reading AbsoluteContentSize refreshes the value; the reference schedules its Changed notification on the next render step. The property is readonly, nonreplicated and Unsafe.",
+      "action": "Read geometry in serial client code and record timing. A dirty read can include pending layout work; delaying the read does not establish lower total layout cost. Do not use deprecated ApplyLayout or SetCustomSortFunction to force a timing assumption.",
+      "sources": [
+        {
+          "path": "reference/engine/classes/UIGridStyleLayout.yaml",
+          "url": "https://github.com/Roblox/creator-docs/blob/d6c42cac06f61535fc5316e1287dbdacc8f2e403/content/en-us/reference/engine/classes/UIGridStyleLayout.yaml",
+          "sha256": "ddbf9e453f12aeecc622b1ecb28c34f4d2db281b1e7469d7aec3eb5ba0163443"
+        }
+      ],
+      "exceptions": "The reference does not establish convergence or a universal update order for nested automatic layouts; diagnostic reads can affect the observed update.",
+      "status": "documented",
+      "confidence": "high for source contract; scoped visual, notification and CPU capture observations verified",
+      "creator_docs_revision": "d6c42cac06f61535fc5316e1287dbdacc8f2e403",
+      "api_dump_sha256": "2598cf2eca58282370ab872ec6733202d42a6e7abeae31eec5b1c24735050d58",
+      "research_ids": [
+        "A005",
+        "A115"
+      ],
+      "recheck": "Recheck after source/build, hierarchy, layout, constraints, scale or padding changes.",
+      "tested_behavior": {
+        "repro_id": "P-measure",
+        "date": "2026-09-07",
+        "studio_build": "0.737.0.7371584",
+        "hardware": "Mac16,10 Apple M4;16GiB;viewport1818x1302;Studio client;desktop emulation off",
+        "fixture_sha256": "e24ec4cc351a3470adbcd4279e73061300211ee9cc041f694e8f839a49f3a7d0",
+        "context": "500 direct fixed360x18 rows in360x480 clippedFrame;verticalUIListLayout;no automatic sizing, flex or constraints. Eight Padding offset mutations across48RenderStepped workload steps. Metric never drives geometry. Every-step48 reads versus8immediate post-mutation reads versus8next-step reads. Reset/geometry reads outside capture.",
+        "human": "Baseline and eight held padding states matched;policy counts48/8/8;final AbsoluteContentSize360x9998.",
+        "capture": "3rotated trials/policy;9valid CPU snapshots;189complete global MPframes/run;1begin/1end/48Step/48ReadSlot/8Mutate;zero iteratorissues. Fourglobal MPframes per workloadstep observed;cause not established.",
+        "result": "Inclusive ReadSlot totals(ms):every15.62..17.91,immediate14.51..17.50,deferred0.056..0.060. UpdateUILayouts:every/immediate2.87..4.71,deferred17.77..21.67. Separate Layout totals14.93..18.71 and CPU p95~17.18..17.43 overlapped. Deferral moved pending work out of the read scope; no lower total layout/frame cost or resolved cost for40 extra clean reads established.",
+        "notification": "One separate bounded diagnostic/policy:8notifications each; every/immediate callbacks between before/after read logs; deferred callbacks while waiting after mutation and before next-step read. GetPropertyChangedSignal callback did not read metric. These are local instrumentation phases, not a universal order or a confirmed contradiction of the reference.",
+        "signal_setting": "Not human-recorded yet;Workspace.SignalBehavior is NotScriptable;do not infer configuration or Default mapping from observed dispatch.",
+        "limits": "Settled human geometry only;mutation-frame presentation untested. Inclusive timers overlap and include engine/editor work;do not sum. No FPS,critical-path,GPU,isolated heap/GC,nested automatic-layout or otherdevice/build claim.",
+        "raw_capture_manifest_sha256": "f136fef366bafae1398e61668eedf3d76f0fb5e99eff68eff005d4398cb8160a"
+      }
+    },
+    {
+      "id": "gui-grid-constraint-cells",
+      "topics": [
+        "gui-layout"
+      ],
+      "apis": [
+        "UIGridLayout",
+        "UIGridLayout.CellSize",
+        "UIAspectRatioConstraint"
+      ],
+      "category": "knowledge",
+      "need": "conditional",
+      "limit_type": "none",
+      "context": "Ordinary client GUI after access checks; serial geometry reads",
+      "fact": "Grid controls direct sibling cell size/position, but size/aspect constraints can override cells. A minimum constraint larger than CellSize can span multiple cells.",
+      "action": "Measure constrained cell bounds and final content/canvas separately before deriving a grid extent. Animate a separate child/wrapper property when layout owns item bounds.",
+      "sources": [
+        {
+          "path": "reference/engine/classes/UIGridLayout.yaml",
+          "url": "https://github.com/Roblox/creator-docs/blob/d6c42cac06f61535fc5316e1287dbdacc8f2e403/content/en-us/reference/engine/classes/UIGridLayout.yaml",
+          "sha256": "d9a9cd4816984fd82bac3c05f1daff9a5034e927b9b72f6a1abda52e2a36af0e"
+        },
+        {
+          "path": "reference/engine/classes/UIAspectRatioConstraint.yaml",
+          "url": "https://github.com/Roblox/creator-docs/blob/d6c42cac06f61535fc5316e1287dbdacc8f2e403/content/en-us/reference/engine/classes/UIAspectRatioConstraint.yaml",
+          "sha256": "f9da05c95d1c36e3a83afa238c0d8926e0941e3e0745a7982e14706c0231521a"
+        }
+      ],
+      "exceptions": "Automatic canvas, scaling, padding and aspect interactions require their actual tree; old forum workarounds are not universal.",
+      "status": "documented",
+      "confidence": "High for source contract and scoped recorded tests; other cases remain untested",
+      "creator_docs_revision": "d6c42cac06f61535fc5316e1287dbdacc8f2e403",
+      "api_dump_sha256": "2598cf2eca58282370ab872ec6733202d42a6e7abeae31eec5b1c24735050d58",
+      "research_ids": [
+        "A004"
+      ],
+      "recheck": "Recheck after source/build, hierarchy, layout, constraints, scale or padding changes.",
+      "tested_behavior": {
+        "repro": "N-grid-view-001",
+        "fixture": "gui-native-3",
+        "active_source_sha256": "fb3853f4520d1ca54f40be576e944ac1793d5c43b6f3642e477e1e4bd0cea536",
+        "context": "Frame/ScrollingFrame heights120/180, width240, ClipsDescendants=false, scroll0; five direct siblings.",
+        "rule": "Rows green/orange, orange/green, orange/empty fully visible in all four panels. Last child at(0,76), size72x32; content150x108.",
+        "limits": "Earlier missing-third-row report not reproduced. No height/clipping workaround or general constraint result.",
+        "studio_build": "0.737.0.7371584"
+      }
+    },
+    {
+      "id": "gui-flex-basis",
+      "topics": [
+        "gui-layout"
+      ],
+      "apis": [
+        "UIFlexItem",
+        "GuiObject.AutomaticSize",
+        "UIListLayout.HorizontalFlex",
+        "UIListLayout.VerticalFlex"
+      ],
+      "category": "knowledge",
+      "need": "conditional",
+      "limit_type": "none",
+      "context": "Ordinary client GUI after access checks; serial geometry reads",
+      "fact": "UIFlexItem defines per-item flex behavior. On a flex child, AutomaticSize in the flex axis provides automatic flex basis; in the cross axis it provides automatic cross size.",
+      "action": "Choose fixed, automatic and flex ownership per axis; test initial mount and resize with actual content. Enable flex only for needed behavior; profile its extra layout work if material.",
+      "sources": [
+        {
+          "path": "reference/engine/classes/UIListLayout.yaml",
+          "url": "https://github.com/Roblox/creator-docs/blob/d6c42cac06f61535fc5316e1287dbdacc8f2e403/content/en-us/reference/engine/classes/UIListLayout.yaml",
+          "sha256": "543da6746fae4c3ca04fc1c68619d91e01283566eb495dc62c29a09a7b36c8a0"
+        },
+        {
+          "path": "reference/engine/classes/UIFlexItem.yaml",
+          "url": "https://github.com/Roblox/creator-docs/blob/d6c42cac06f61535fc5316e1287dbdacc8f2e403/content/en-us/reference/engine/classes/UIFlexItem.yaml",
+          "sha256": "15e7e5dd97509e524b6bfded80d9d0777613b8e625756689eb956900483dcdd6"
+        }
+      ],
+      "exceptions": "Past beta initialization fixes do not prove present component behavior. Captures establish no FPS, critical-path or GPU gain; other flex modes and automatic sizing remain untested.",
+      "status": "documented",
+      "confidence": "high for source contract; scoped visual and CPU capture result verified",
+      "creator_docs_revision": "d6c42cac06f61535fc5316e1287dbdacc8f2e403",
+      "api_dump_sha256": "2598cf2eca58282370ab872ec6733202d42a6e7abeae31eec5b1c24735050d58",
+      "research_ids": [
+        "A010",
+        "A113"
+      ],
+      "recheck": "Recheck after source/build, hierarchy, layout, constraints, scale or padding changes.",
+      "tested_behavior": {
+        "repro_id": "P-layout-v2",
+        "date": "2026-09-07",
+        "studio_build": "0.737.0.7371584",
+        "hardware": "Apple M4; Mac16,10;16GiB;viewport1818x1302;Studio client",
+        "fixture_sha256": "516bad5feeab63f69c52120bf0fef27f07e00874484750eefe613fa399655d6a",
+        "context": "Vertical list;20/200/1000 opaque18px rows,2px gaps,Size.X.Scale=1;clipped480px Frame. OnlyHorizontalFlex None/Fill changes. Width360/520/400/480 and4reorders per48RenderStepped workload. No AutomaticSize/UIFlexItem.",
+        "human": "24paired states visually equal; eachrow relativeposition/size andlayoutcontent matched exactly. Offscreenrows intentionallyclipped.",
+        "capture": "3alternating pairs/count;18valid CPU snapshots;189MPframes/run;1begin/1end/4resize/4reorder;continuous completeframes,zero iteratorerrors. One truncated preflight excluded.",
+        "result": "Fill/None inclusive UpdateUILayouts totals ratios:200items1.362/1.464/1.540;1000items1.702/2.038/1.313. At20items ratios1.024/1.464/1.004 varied. CPUframep95 ranges overlapped (~17.17..17.41ms).",
+        "action": "For equivalent full-width rows under this resize/reorder workload, keep HorizontalFlex=None unless flex behavior is needed. Profile other workloads separately.",
+        "limits": "CPUinclusive timer mayincludeotherGUI;Studioeditorworkpresent. No FPS/criticalpath/GPU,staticlayout,otherflexmode,automatic-sizing,richcontentorotherdevice claim. Heapnotisolatedfromexport allocations.",
+        "raw_capture_manifest_sha256": "494fc620c109f482d3217dac78cb2041c87faec23f3019af44bae5edfd361606"
+      }
+    },
+    {
+      "id": "gui-text-scaled-constraint",
+      "topics": [
+        "gui-layout"
+      ],
+      "apis": [
+        "UITextSizeConstraint",
+        "TextLabel.TextScaled",
+        "TextButton.TextScaled",
+        "TextBox.TextScaled",
+        "GuiObject.AutomaticSize",
+        "TextLabel.TextWrapped"
+      ],
+      "category": "knowledge",
+      "need": "conditional",
+      "limit_type": "none",
+      "context": "Ordinary client GUI after access checks; serial geometry reads",
+      "fact": "UITextSizeConstraint limits the font range used with TextScaled. Bounds alone do not establish readability, glyph clipping, font readiness or behavior under a world-space root.",
+      "action": "Set an intentional range; compare fixed-width wrapped/automatic text with scaled text. Human checks long/localized/RichText content and each affected root.",
+      "sources": [
+        {
+          "path": "reference/engine/classes/UITextSizeConstraint.yaml",
+          "url": "https://github.com/Roblox/creator-docs/blob/d6c42cac06f61535fc5316e1287dbdacc8f2e403/content/en-us/reference/engine/classes/UITextSizeConstraint.yaml",
+          "sha256": "285c13a63e9783d8230debe1828d9c2fa9b3a70d9c39d986a899c2cdeeb5354a"
+        },
+        {
+          "path": "reference/engine/classes/TextLabel.yaml",
+          "url": "https://github.com/Roblox/creator-docs/blob/d6c42cac06f61535fc5316e1287dbdacc8f2e403/content/en-us/reference/engine/classes/TextLabel.yaml",
+          "sha256": "2591bdc586ffd70b3792fa6705e26b5a64867446d9a155fed0c4b8e78d468991"
+        }
+      ],
+      "exceptions": "BillboardGui constraint failures have reports in 2021 and 2026; current-build reproduction remains pending.",
+      "status": "documented",
+      "confidence": "High for source contract and scoped recorded tests; other cases remain untested",
+      "creator_docs_revision": "d6c42cac06f61535fc5316e1287dbdacc8f2e403",
+      "api_dump_sha256": "2598cf2eca58282370ab872ec6733202d42a6e7abeae31eec5b1c24735050d58",
+      "research_ids": [
+        "A008",
+        "A009",
+        "A110",
+        "A111"
+      ],
+      "recheck": "Recheck after source/build, hierarchy, layout, constraints, scale or padding changes.",
+      "tested_behavior": {
+        "repro": "N-text-bounds-001",
+        "fixture": "gui-native-4",
+        "active_source_sha256": "eb09ef2a64e78685a86c216f793bf145f36949a7bd4ccbfce54d39d7e9c8d5cf",
+        "context": "Default Legacy/LegacyArial, TextWrapped=true, width140, TextSize24, ClipsDescendants=false. Frame30 changed Short text to literal text below;90frames sampled,60stable after edit.",
+        "text": "Long localized content: Einstellungen / configuration / settings. Check wrapping and clipping at the fixed width.",
+        "rule": "Changing only parent height270→540 changed AutoY height252/TextFits=false to540/TextFits=true; human saw incomplete→complete. Separate140x100 TextScaled/MaxTextSize28 control: Min12 bounds117x90/TextFits=false; Min6 bounds136x84/TextFits=true but difficult to read.",
+        "action": "Check fitting and readability separately; Min6 is a diagnostic control, not a recommendation.",
+        "limits": "Parent-height dependence is scoped to this arrangement. Localization, RichText and font loading untested.",
+        "studio_build": "0.737.0.7371584"
+      }
+    },
+    {
+      "id": "gui-table-cell-ownership",
+      "topics": [
+        "gui-layout"
+      ],
+      "apis": [
+        "UITableLayout"
+      ],
+      "category": "knowledge",
+      "need": "conditional",
+      "limit_type": "none",
+      "context": "Ordinary client GUI after access checks; serial geometry reads",
+      "fact": "UITableLayout manages sibling rows and their child cells, controlling Size and Position. Cell UISizeConstraints remain influential; FillEmptySpace settings alter allotted dimensions.",
+      "action": "Configure row/cell layout and constraints explicitly; inspect resulting table extents instead of writing layout-owned cell Size/Position.",
+      "sources": [
+        {
+          "path": "reference/engine/classes/UITableLayout.yaml",
+          "url": "https://github.com/Roblox/creator-docs/blob/d6c42cac06f61535fc5316e1287dbdacc8f2e403/content/en-us/reference/engine/classes/UITableLayout.yaml",
+          "sha256": "52a023ee16ca818ca55bdc01bceb3bd91a6d56f29be7a46091e2aa206beb6681"
+        }
+      ],
+      "exceptions": "Rows/columns outside the parent may be documented sizing behavior; automatic sizing and clipping need separate checks.",
+      "status": "documented",
+      "confidence": "high for source contract; current-build visual tests pending",
+      "creator_docs_revision": "d6c42cac06f61535fc5316e1287dbdacc8f2e403",
+      "api_dump_sha256": "2598cf2eca58282370ab872ec6733202d42a6e7abeae31eec5b1c24735050d58",
+      "research_ids": [
+        "A011"
+      ],
+      "recheck": "Recheck after source/build, hierarchy, layout, constraints, scale or padding changes."
+    },
+    {
+      "id": "gui-screen-insets",
+      "topics": [
+        "gui-render"
+      ],
+      "apis": [
+        "ScreenGui.ScreenInsets",
+        "ScreenGui.ClipToDeviceSafeArea"
+      ],
+      "category": "knowledge",
+      "need": "conditional",
+      "limit_type": "none",
+      "context": "Ordinary client GUI after access checks; desktop tests scoped below",
+      "fact": "ScreenInsets controls safe area; None can overlap device/topbar; ClipToDeviceSafeArea is ignored with None.",
+      "action": "Check explicit inset choices on target devices.",
+      "sources": [
+        {
+          "path": "reference/engine/classes/ScreenGui.yaml",
+          "url": "https://github.com/Roblox/creator-docs/blob/d6c42cac06f61535fc5316e1287dbdacc8f2e403/content/en-us/reference/engine/classes/ScreenGui.yaml",
+          "sha256": "279147c10ee8dd6ecd533ff224844307b71e1999f79910d12fddde14535b985f"
+        }
+      ],
+      "reports": [
+        {
+          "url": "https://devforum.roblox.com/t/ignoreguiinset-coreuisafeinsets-does-not-get-ignored-in-absoluteposition/3771408",
+          "revision": "retrieved 2026-09-06",
+          "note": "2025 report unresolved"
+        }
+      ],
+      "exceptions": "AbsolutePosition reports need a current client check.",
+      "status": "documented",
+      "confidence": "High for source contract and scoped recorded tests; other cases remain untested",
+      "creator_docs_revision": "d6c42cac06f61535fc5316e1287dbdacc8f2e403",
+      "api_dump_sha256": "2598cf2eca58282370ab872ec6733202d42a6e7abeae31eec5b1c24735050d58",
+      "research_ids": [
+        "A051"
+      ],
+      "recheck": "Recheck source/build, feature settings, hierarchy, device and relevant property changes.",
+      "tested_behavior": {
+        "repro": "GUI-RENDER-A051 / N-insets-001",
+        "fixture": "gui-render-1",
+        "active_source_sha256": "0ebf0fb203c62faa234e183d7bb90a90a86ac2bd43469fbe9b9e15ebe2c012d1",
+        "context": "Desktop emulation off; viewport1854x1304.",
+        "rule": "Human saw CoreUISafeInsets tops below topbar/bottoms at screen edge; None all corners at edges. Post-human reads: CoreUISafeInsets size1854x1246/position(0,0); disabled None size1854x1304/position(0,-58).",
+        "limits": "Not simultaneous enabled-root reads. Initial disabled None800x600 not settled evidence. No universal inset height, mobile-cutout or rotation result.",
+        "studio_build": "0.737.0.7371584"
+      }
+    },
+    {
+      "id": "gui-world-input",
+      "topics": [
+        "gui-render"
+      ],
+      "apis": [
+        "SurfaceGui",
+        "SurfaceGui.Adornee",
+        "BillboardGui",
+        "BillboardGui.Size",
+        "GuiButton.Activated"
+      ],
+      "category": "knowledge",
+      "need": "conditional",
+      "limit_type": "none",
+      "context": "Ordinary client GUI after access checks; desktop tests scoped below",
+      "fact": "Interactive SurfaceGui requires PlayerGui, the correct Adornee and a queryable part in addition to active input. BillboardGui.Size Scale is studs; Offset is pixels; its offset properties use distinct coordinate spaces. BillboardGui input requires PlayerGui and Active. GuiButton.Activated is cross-platform client input; mouse-specific events are not equivalent.",
+      "action": "Verify ancestry/Adornee/CanQuery before attributing missing input to events. Retain unit/coordinate space, adornee readiness and client input context. Use correct client activation contract and verify target device.",
+      "sources": [
+        {
+          "path": "reference/engine/classes/SurfaceGuiBase.yaml",
+          "url": "https://github.com/Roblox/creator-docs/blob/d6c42cac06f61535fc5316e1287dbdacc8f2e403/content/en-us/reference/engine/classes/SurfaceGuiBase.yaml",
+          "sha256": "7c76b8ca6e4daf85d67a976643f27f56d887fd5e841fe99ed3eb947397438b90"
+        },
+        {
+          "path": "reference/engine/classes/SurfaceGui.yaml",
+          "url": "https://github.com/Roblox/creator-docs/blob/d6c42cac06f61535fc5316e1287dbdacc8f2e403/content/en-us/reference/engine/classes/SurfaceGui.yaml",
+          "sha256": "f81867f935a2f332b8688372ff6e6217ba85bd025c5b0868bd4072e7de2a7d6e"
+        },
+        {
+          "path": "reference/engine/classes/BillboardGui.yaml",
+          "url": "https://github.com/Roblox/creator-docs/blob/d6c42cac06f61535fc5316e1287dbdacc8f2e403/content/en-us/reference/engine/classes/BillboardGui.yaml",
+          "sha256": "290164a76e3434042cf921e23f1f54b7b0a82de4a085dee7734408e363e33d16"
+        },
+        {
+          "path": "reference/engine/classes/GuiButton.yaml",
+          "url": "https://github.com/Roblox/creator-docs/blob/d6c42cac06f61535fc5316e1287dbdacc8f2e403/content/en-us/reference/engine/classes/GuiButton.yaml",
+          "sha256": "1fae0c2cfe6022e3ee9481123ba03bc34f7136667f3b2a1890df7430deef89f7"
+        }
+      ],
+      "reports": [
+        {
+          "url": "https://devforum.roblox.com/t/surfacegui-not-accepting-any-input-already-in-playergui-and-activetrue/4319667/2",
+          "revision": "retrieved 2026-09-06",
+          "note": "2026 reply identifies CanQuery"
+        },
+        {
+          "url": "https://devforum.roblox.com/t/billboard-gui-is-not-visible-after-cloning/3800016",
+          "revision": "retrieved 2026-09-06",
+          "note": "2025 staff follow-up suggests parenting adornee first; current build unrun"
+        },
+        {
+          "url": "https://devforum.roblox.com/t/buttonactivated-not-working-in-mobile/3051288",
+          "revision": "retrieved 2026-09-06",
+          "note": "2024 report without authoritative fix"
+        }
+      ],
+      "exceptions": "Rendering visibility alone does not prove input eligibility or occlusion behavior.",
+      "status": "documented",
+      "confidence": "High for source contract and scoped recorded tests; other cases remain untested",
+      "creator_docs_revision": "d6c42cac06f61535fc5316e1287dbdacc8f2e403",
+      "api_dump_sha256": "2598cf2eca58282370ab872ec6733202d42a6e7abeae31eec5b1c24735050d58",
+      "research_ids": [
+        "A053",
+        "A055",
+        "A067"
+      ],
+      "recheck": "Recheck source/build, feature settings, hierarchy, device and relevant property changes.",
+      "tested_behavior": {
+        "repro": "GUI-RENDER-A053 / N-surface-002",
+        "fixture": "gui-render-2",
+        "active_source_sha256": "3f3a3dedb529bd3d0a6107b8b49d23020133628bcf285801210bbeee95a73bc3",
+        "context": "Ordinary desktop client, Mouse; two continuously visible active PlayerGui SurfaceGuis, Front adornees, 400x200 canvases, noncolliding6x3x0.2 parts; anchored character.",
+        "rule": "CanQuery=true/false yielded Activated5/0; swapping CanQuery yielded0/5. Human confirmed continuous visibility.",
+        "limits": "Other devices, occlusion and SurfaceGui sizing were not tested.",
+        "studio_build": "0.737.0.7371584"
+      }
+    },
+    {
+      "id": "gui-viewport-camera",
+      "topics": [
+        "gui-render"
+      ],
+      "apis": [
+        "ViewportFrame",
+        "ViewportFrame.CurrentCamera"
+      ],
+      "category": "knowledge",
+      "need": "conditional",
+      "limit_type": "none",
+      "context": "Ordinary client GUI after access checks; target-device visual tests pending",
+      "fact": "Client assigns CurrentCamera; renders 3D children with documented rendering limits, without normal shadows/postprocessing.",
+      "action": "Own camera/content lifetime; compare mount, nil-parent and reparent behavior on target.",
+      "sources": [
+        {
+          "path": "reference/engine/classes/ViewportFrame.yaml",
+          "url": "https://github.com/Roblox/creator-docs/blob/d6c42cac06f61535fc5316e1287dbdacc8f2e403/content/en-us/reference/engine/classes/ViewportFrame.yaml",
+          "sha256": "9fb0391e6720b9f1cfb0ee755f3f72f02d3d41418451d8e958f4f3a298148df4"
+        }
+      ],
+      "reports": [
+        {
+          "url": "https://devforum.roblox.com/t/viewportframe-completely-broken-after-parenting-to-nil/2645313",
+          "revision": "retrieved 2026-09-06",
+          "note": "2026-01 fixed reply; current build untested"
+        }
+      ],
+      "exceptions": "The old nil-parent defect has a January 2026 fixed reply; this research did not test the current build.",
+      "status": "documented",
+      "confidence": "source contract only; current client untested",
+      "creator_docs_revision": "d6c42cac06f61535fc5316e1287dbdacc8f2e403",
+      "api_dump_sha256": "2598cf2eca58282370ab872ec6733202d42a6e7abeae31eec5b1c24735050d58",
+      "research_ids": [
+        "A056"
+      ],
+      "recheck": "Recheck source/build, feature settings, hierarchy, device and relevant property changes."
+    },
+    {
+      "id": "gui-canvasgroup-texture",
+      "topics": [
+        "gui-render"
+      ],
+      "apis": [
+        "CanvasGroup",
+        "CanvasGroup.GroupTransparency",
+        "LayerCollector.ZIndexBehavior"
+      ],
+      "category": "knowledge",
+      "need": "conditional",
+      "limit_type": "none",
+      "context": "Ordinary client GUI after access checks; target-device visual tests pending",
+      "fact": "Flattens descendants into texture, always clips and needs Sibling ZIndexBehavior. Texture use depends on area/DPI and quality limits.",
+      "action": "Use for required group composition; profile area, resize and repeated groups on target hardware.",
+      "sources": [
+        {
+          "path": "reference/engine/classes/CanvasGroup.yaml",
+          "url": "https://github.com/Roblox/creator-docs/blob/d6c42cac06f61535fc5316e1287dbdacc8f2e403/content/en-us/reference/engine/classes/CanvasGroup.yaml",
+          "sha256": "177b6a3c0633f0be6091e0904c6e9cb5c9ba7873e388cac34002b36b7bb453e3"
+        }
+      ],
+      "reports": [
+        {
+          "url": "https://devforum.roblox.com/t/having-several-canvasgroup-objects-active-at-once-breaks-rendering-with-no-real-defined-limit/3930525",
+          "revision": "retrieved 2026-09-06",
+          "note": "Blank/blurry output report; device-dependent current status"
+        }
+      ],
+      "exceptions": "No universal safe group count or measured improvement is established; device limits and fallback output vary.",
+      "status": "documented",
+      "confidence": "source contract only; current client untested",
+      "creator_docs_revision": "d6c42cac06f61535fc5316e1287dbdacc8f2e403",
+      "api_dump_sha256": "2598cf2eca58282370ab872ec6733202d42a6e7abeae31eec5b1c24735050d58",
+      "research_ids": [
+        "A057"
+      ],
+      "recheck": "Recheck source/build, feature settings, hierarchy, device and relevant property changes."
+    },
+    {
+      "id": "gui-stroke-rendering",
+      "topics": [
+        "gui-render"
+      ],
+      "apis": [
+        "UIStroke",
+        "UIStroke.Thickness",
+        "UIStroke.ZIndex"
+      ],
+      "category": "knowledge",
+      "need": "conditional",
+      "limit_type": "none",
+      "context": "Ordinary client GUI after access checks; target-device visual tests pending",
+      "fact": "Strokes do not add layout size; equal-ZIndex order is undefined; text Thickness animation has glyph cost.",
+      "action": "Use distinct required order and profile animated text strokes; do not turn device guidance into a universal count cap.",
+      "sources": [
+        {
+          "path": "reference/engine/classes/UIStroke.yaml",
+          "url": "https://github.com/Roblox/creator-docs/blob/d6c42cac06f61535fc5316e1287dbdacc8f2e403/content/en-us/reference/engine/classes/UIStroke.yaml",
+          "sha256": "d005a1fe415e053d991d27e1034f4a31f9fe0f703434ba1c6bab775019c2856f"
+        }
+      ],
+      "reports": [
+        {
+          "url": "https://devforum.roblox.com/t/full-release-uistroke-improvements-scaling-offsets-and-more/3958036/1",
+          "revision": "retrieved 2026-09-06",
+          "note": "2025 full release; device-count advice is recommendation"
+        }
+      ],
+      "exceptions": "Device-count recommendations are not an engine-wide fixed cap.",
+      "status": "documented",
+      "confidence": "source contract only; current client untested",
+      "creator_docs_revision": "d6c42cac06f61535fc5316e1287dbdacc8f2e403",
+      "api_dump_sha256": "2598cf2eca58282370ab872ec6733202d42a6e7abeae31eec5b1c24735050d58",
+      "research_ids": [
+        "A061"
+      ],
+      "recheck": "Recheck source/build, feature settings, hierarchy, device and relevant property changes."
+    },
+    {
+      "id": "gui-corner-clipping",
+      "topics": [
+        "gui-render"
+      ],
+      "apis": [
+        "UICorner",
+        "UICorner.CornerRadius"
+      ],
+      "category": "knowledge",
+      "need": "conditional",
+      "limit_type": "none",
+      "context": "Ordinary client GUI after access checks; target-device visual tests pending",
+      "fact": "Rounds parent/input bounds; does not clip descendants or support ScrollingFrame scrollbars. Individual-corner release conflicts with old beta prose.",
+      "action": "Check used properties and current release; use actual descendant clipping controls.",
+      "sources": [
+        {
+          "path": "reference/engine/classes/UICorner.yaml",
+          "url": "https://github.com/Roblox/creator-docs/blob/d6c42cac06f61535fc5316e1287dbdacc8f2e403/content/en-us/reference/engine/classes/UICorner.yaml",
+          "sha256": "6307cd6b2c06c2e54e4b5306338d52e26d8bea3c4b6f7520e8a30625a4bdaa23"
+        }
+      ],
+      "reports": [
+        {
+          "url": "https://devforum.roblox.com/t/uicorner-ruins-scrollingframe-scroll-bar/3771697",
+          "revision": "retrieved 2026-09-06",
+          "note": "Duplicate report; 2026-06 release in A065 source"
+        },
+        {
+          "url": "https://devforum.roblox.com/t/full-release-new-ui-capabilities-shadows-individual-corners/4636263",
+          "revision": "retrieved 2026-09-06",
+          "note": "2026-06 release; no separate useful bug report found"
+        }
+      ],
+      "exceptions": "Pinned docs retain individual-corner beta prose; the June 2026 official release is newer. Release state is not inferred from cached wording.",
+      "status": "documented",
+      "confidence": "source contract only; current client untested",
+      "creator_docs_revision": "d6c42cac06f61535fc5316e1287dbdacc8f2e403",
+      "api_dump_sha256": "2598cf2eca58282370ab872ec6733202d42a6e7abeae31eec5b1c24735050d58",
+      "research_ids": [
+        "A062"
+      ],
+      "recheck": "Recheck source/build, feature settings, hierarchy, device and relevant property changes."
+    },
+    {
+      "id": "gui-gradient-updates",
+      "topics": [
+        "gui-render"
+      ],
+      "apis": [
+        "UIGradient",
+        "UIGradient.Color",
+        "UIGradient.Transparency",
+        "UIGradient.Offset",
+        "UIGradient.Rotation"
+      ],
+      "category": "knowledge",
+      "need": "conditional",
+      "limit_type": "none",
+      "context": "Ordinary client GUI after access checks; target-device visual tests pending",
+      "fact": "Applies to supported direct parent; rebuilding sequences differs in cost from Offset/Rotation updates.",
+      "action": "Keep Color/Transparency sequences stable where motion only needs Offset/Rotation.",
+      "sources": [
+        {
+          "path": "reference/engine/classes/UIGradient.yaml",
+          "url": "https://github.com/Roblox/creator-docs/blob/d6c42cac06f61535fc5316e1287dbdacc8f2e403/content/en-us/reference/engine/classes/UIGradient.yaml",
+          "sha256": "1ecf214011efdb21d9a4e0b80d515c52367b2b4b9e57f182c43a90e86cee3b5f"
+        }
+      ],
+      "reports": [
+        {
+          "url": "https://devforum.roblox.com/t/uigradient-not-rendering-diagonals-correctly/1337611",
+          "revision": "retrieved 2026-09-06",
+          "note": "2025-09 diagonal fix reverted; current status unresolved"
+        }
+      ],
+      "exceptions": "The diagonal-render report includes a reverted 2025 fix; this record does not claim the current build is fixed.",
+      "status": "documented",
+      "confidence": "source contract only; current client untested",
+      "creator_docs_revision": "d6c42cac06f61535fc5316e1287dbdacc8f2e403",
+      "api_dump_sha256": "2598cf2eca58282370ab872ec6733202d42a6e7abeae31eec5b1c24735050d58",
+      "research_ids": [
+        "A063"
+      ],
+      "recheck": "Recheck source/build, feature settings, hierarchy, device and relevant property changes."
+    },
+    {
+      "id": "gui-shadow-shape",
+      "topics": [
+        "gui-render"
+      ],
+      "apis": [
+        "UIShadow"
+      ],
+      "category": "knowledge",
+      "need": "conditional",
+      "limit_type": "none",
+      "context": "Ordinary client GUI after access checks; target-device visual tests pending",
+      "fact": "Bounds shadow only; glyph,inset,Path2D,texture,UIGradient forms unsupported. Negative blur clamps to0.",
+      "action": "Choose supported shadow shape; profile visible area/count.",
+      "sources": [
+        {
+          "path": "reference/engine/classes/UIShadow.yaml",
+          "url": "https://github.com/Roblox/creator-docs/blob/d6c42cac06f61535fc5316e1287dbdacc8f2e403/content/en-us/reference/engine/classes/UIShadow.yaml",
+          "sha256": "8c5ef07197696c1ac32cc9dc05e2a8f313229b84691fe96a8d8936bd4f0d3a9b"
+        }
+      ],
+      "reports": [
+        {
+          "url": "https://devforum.roblox.com/t/full-release-new-ui-capabilities-shadows-individual-corners/4636263",
+          "revision": "retrieved 2026-09-06",
+          "note": "2026-06 release; no separate useful bug report found"
+        }
+      ],
+      "exceptions": "No universal shadow-count cap or measured performance improvement is established.",
+      "status": "documented",
+      "confidence": "source contract only; current client untested",
+      "creator_docs_revision": "d6c42cac06f61535fc5316e1287dbdacc8f2e403",
+      "api_dump_sha256": "2598cf2eca58282370ab872ec6733202d42a6e7abeae31eec5b1c24735050d58",
+      "research_ids": [
+        "A065"
+      ],
+      "recheck": "Recheck source/build, feature settings, hierarchy, device and relevant property changes."
+    },
+    {
+      "id": "gui-drag-ownership",
+      "topics": [
+        "gui-render"
+      ],
+      "apis": [
+        "UIDragDetector",
+        "UIDragDetector.AddConstraintFunction"
+      ],
+      "category": "knowledge",
+      "need": "conditional",
+      "limit_type": "none",
+      "context": "Ordinary client GUI after access checks; target-device visual tests pending",
+      "fact": "Scriptable drag response is client code; AddConstraintFunction returns a connection requiring disposal.",
+      "action": "Own drag constraints/connections; check scroll and gamepad interactions.",
+      "sources": [
+        {
+          "path": "reference/engine/classes/UIDragDetector.yaml",
+          "url": "https://github.com/Roblox/creator-docs/blob/d6c42cac06f61535fc5316e1287dbdacc8f2e403/content/en-us/reference/engine/classes/UIDragDetector.yaml",
+          "sha256": "63e9ff0dff42c110460a744693e3a765a2956315b8516c0a27a701b90ea8ffa1"
+        }
+      ],
+      "reports": [
+        {
+          "url": "https://devforum.roblox.com/t/introducing-uidragdetectors-released/3109263",
+          "revision": "retrieved 2026-09-06",
+          "note": "Reports through 2026; no universal fix"
+        }
+      ],
+      "exceptions": "Reported input/scroll defects remain scoped test leads; no universal workaround is established.",
+      "status": "documented",
+      "confidence": "source contract only; current client untested",
+      "creator_docs_revision": "d6c42cac06f61535fc5316e1287dbdacc8f2e403",
+      "api_dump_sha256": "2598cf2eca58282370ab872ec6733202d42a6e7abeae31eec5b1c24735050d58",
+      "research_ids": [
+        "A064"
+      ],
+      "recheck": "Recheck source/build, feature settings, hierarchy, device and relevant property changes."
+    },
+    {
+      "id": "gui-rotated-clipping",
+      "topics": [
+        "gui-render"
+      ],
+      "apis": [
+        "GuiObject.ClipsDescendants",
+        "GuiObject.Rotation",
+        "StarterGui.ClipsDescendantsSupportsRotation"
+      ],
+      "category": "knowledge",
+      "need": "conditional",
+      "limit_type": "none",
+      "context": "Ordinary client GUI; manual Studio rollout setting; scoped desktop visual comparison",
+      "fact": "For the tested Frame with ClipsDescendants=true, Enabled clips rotated children under an upright parent; the rotated parent still allows protrusion. StarterGui.ClipsDescendantsSupportsRotation is NotScriptable.",
+      "action": "Record the editor rollout setting; test rotated children under an upright clipping parent and parent rotation separately. Use the Enabled comparison when relying on rotated-child clipping; do not access the rollout setting from ordinary scripts.",
+      "sources": [
+        {
+          "path": "reference/engine/classes/GuiObject.yaml",
+          "url": "https://github.com/Roblox/creator-docs/blob/d6c42cac06f61535fc5316e1287dbdacc8f2e403/content/en-us/reference/engine/classes/GuiObject.yaml",
+          "sha256": "5cd7d553c969b34e8add2f1b838b1008b697ebe33ada7c073f49d5835690ac87"
+        },
+        {
+          "path": "reference/engine/classes/StarterGui.yaml",
+          "url": "https://github.com/Roblox/creator-docs/blob/d6c42cac06f61535fc5316e1287dbdacc8f2e403/content/en-us/reference/engine/classes/StarterGui.yaml",
+          "sha256": "21082254a4f72f72e1265f076fe662177ed7b4823f7c4e2fc63878e913972a11"
+        }
+      ],
+      "reports": [
+        {
+          "url": "https://devforum.roblox.com/t/opt-in-phase-introducing-clipping-support-for-rotated-elements-path2d/4737864",
+          "revision": "retrieved 2026-09-06",
+          "note": "2026-07 opt-in; planned dates do not prove current rollout state"
+        }
+      ],
+      "exceptions": "Default mapping is not inferred from rollout dates or this result. CanvasGroup, rounded clipping, Path2D and other rotations/devices remain untested; generic Rotation prose conflicts with the specific ClipsDescendants contract.",
+      "status": "reproduced",
+      "confidence": "human-confirmed setting comparison for the recorded fixture; other combinations untested",
+      "creator_docs_revision": "d6c42cac06f61535fc5316e1287dbdacc8f2e403",
+      "api_dump_sha256": "2598cf2eca58282370ab872ec6733202d42a6e7abeae31eec5b1c24735050d58",
+      "research_ids": [
+        "A066",
+        "A112"
+      ],
+      "recheck": "Recheck source/build, feature settings, hierarchy, device and relevant property changes.",
+      "tested_behavior": {
+        "date": "2026-09-06",
+        "studio_build": "0.737.0.7371584",
+        "context": "Serial LocalScript creates ScreenGui in PlayerGui; desktop1854x1304, device emulationoff. Human changes only the editor setting between fresh Play runs; restores Default afterward.",
+        "fixture": "gui-render-1; source SHA256 a37095cf195cd6ddc628439e2aa2e6aeaa0558c208b7b00f37faffcc32a9e560; parentFrame200x140, ClipsDescendantstrue; childFrame140x80 at offset150,70; parent/child rotations0/0,0/45,30/0; no CanvasGroup.",
+        "observations": {
+          "Default": "Control0/0 clips; child45 andparent30 protrude.",
+          "Enabled": "Control0/0 andchild45 clip; parent30 protrudes."
+        },
+        "method": "Ordinary client sets GUI geometry; serial MCP reads geometry; human reports clipping separately. Initial reads throughframe30 and manual panel toggles; Enabled sampler crossed5s atframe30 with planned samples retained.",
+        "limits": "No screenshot; no exact rendered-pixel bounds, persistence, Default mapping, CanvasGroup or Path2D result. Editor setting is human-reported, not script-read."
+      }
+    },
+    {
+      "id": "gui-scrolling-item-lifetime",
+      "topics": [
+        "gui-performance"
+      ],
+      "apis": [
+        "ScrollingFrame",
+        "GuiObject.Visible"
+      ],
+      "category": "knowledge",
+      "need": "conditional",
+      "limit_type": "none",
+      "status": "reproduced",
+      "confidence": "scoped human and CPU comparison",
+      "context": "Ordinary client scrolling GUI; fixed-size absolute-positioned numeric labels",
+      "fact": "Visible=false suppresses rendering and excludes an item from managed layouts; it retains the object. Pooling can bound mounted item count, with recycling work and range correctness to verify.",
+      "action": "Compare clipped, hidden and pooled lifetimes with equal visible content and scroll endpoints. Measure update and layout/render scopes separately; hiding still retains objects. Size pools for all intersecting items, including partial rows.",
+      "sources": [
+        {
+          "path": "reference/engine/classes/ScrollingFrame.yaml",
+          "url": "https://github.com/Roblox/creator-docs/blob/d6c42cac06f61535fc5316e1287dbdacc8f2e403/content/en-us/reference/engine/classes/ScrollingFrame.yaml",
+          "sha256": "e08dcfb8d9de984ff41e7dca14e4972958cc9a3d48c04b3c3c8b75774b674e1a"
+        },
+        {
+          "path": "reference/engine/classes/GuiObject.yaml",
+          "url": "https://github.com/Roblox/creator-docs/blob/d6c42cac06f61535fc5316e1287dbdacc8f2e403/content/en-us/reference/engine/classes/GuiObject.yaml",
+          "sha256": "5cd7d553c969b34e8add2f1b838b1008b697ebe33ada7c073f49d5835690ac87"
+        }
+      ],
+      "exceptions": "Do not add nested inclusive timers or infer FPS/GPU/memory gains from host count. This test uses absolute placement, not UIListLayout/UIGridLayout.",
+      "creator_docs_revision": "d6c42cac06f61535fc5316e1287dbdacc8f2e403",
+      "api_dump_sha256": "2598cf2eca58282370ab872ec6733202d42a6e7abeae31eec5b1c24735050d58",
+      "research_ids": [
+        "A114"
+      ],
+      "recheck": "Changed build/device, content, scroll path, viewport, item dimensions or layout ownership.",
+      "tested_behavior": {
+        "repro_id": "P-virtualize",
+        "date": "2026-09-07",
+        "studio_build": "0.737.0.7371584",
+        "hardware": "Apple M4;Mac16,10;16GiB;viewport1818x1302;Studio client",
+        "fixture_sha256": "1114000db1a85d449666b0f8b5a6efee3e125ec672bd56341ced62b524ab0676",
+        "setup": "100/500/2000 TextLabels;360x480 window;list360x18/pitch20 orgrid88x78/pitch90x80/fourcolumns. Explicitcanvas,absoluteplacement;48row-aligned scrollsteps top/middle/end/middle/top. AllNclipped vsNwithonly24Visible vs24reusedhosts.",
+        "human": "30settledstates matchedindices,colors,geometry,clipping andendpoints; returntop restoreditem1. RuntimehostcountsN/N/24;VisibleflagsN/24/24.",
+        "capture": "54CPU snapshots:3Latin-rotatedrepeats/mode/config;189MPframes each;1begin/1end/48scrollmarkers;continuouscompleteframes,zero iteratorerrors.",
+        "result": "At2000items, medianper-trial UpdateUILayouts totals(ms),list/grid:all212.9/277.4,hidden66.2/39.7,pool12.3/20.4. Separate Scroll totals:all0.47/0.72,hidden155.5/145.0,pool9.0/15.7. CPU p95overlapped/drifted(~17.10..18.14ms);noFPSgainestablished.",
+        "limits": "InclusiveCPUtags mayincludeotherGUI/editorwork. NoGPU,criticalpath,memory/GC,arbitraryscroll,layout-managerorrich-contentclaim. Exactly24coversalignedstops;partialrows andnonmultiple4gridcounts were nottested.",
+        "raw_capture_manifest_sha256": "dc7a013cd995ae62c7dacbe14672059300749c3b756dacc287049fec9ad84d28"
       }
     }
   ]
