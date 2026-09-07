@@ -1,6 +1,6 @@
 ---
 name: rblx-gui
-description: Write Roblox GUI code, native or React Lua, with human visual tests, optimization & review. Excludes unexplained bugs & dump-led work.
+description: Write Roblox GUI code using Instances or React Luau, with human visual testing, optimization, and review.
 ---
 
 Resolve `<HARNESS_ROOT>` from the project's `rblx-harness` submodule; read
