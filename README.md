@@ -124,3 +124,13 @@ Validate this harness checkout with:
 ```bash
 python3 tools/tests/run_verify.py
 ```
+
+For focused feedback, list cases with `python3 tools/tests/run_verify.py --list`
+and select case-name substrings with `--case`, for example:
+
+```bash
+python3 tools/tests/run_verify.py --case "API access evidence"
+```
+
+Repeat `--case` to select multiple groups. Selected runs report `VERIFY|SELECTED`;
+run the full command above for completion validation.

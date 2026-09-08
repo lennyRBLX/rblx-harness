@@ -44,14 +44,18 @@ def has_link(root):
 
 
 def validate_local_state(root, errors):
+    tracked_rc, tracked, detail = gatelib.git(root, "ls-files", "-z", "--", *LOCAL_STATE)
+    tracked_paths = tracked.split("\0")
+    ignored_rc, ignored, _ = gatelib.git(root, "check-ignore", "--no-index", "--", *LOCAL_STATE.values())
+    # These four fixed probe paths contain no whitespace or quoting characters.
+    # A fatal batch failure must not accept any partial output as validation.
+    ignored_paths = set(ignored.splitlines()) if ignored_rc == 0 else set()
     for relative, probe in LOCAL_STATE.items():
-        rc, tracked, detail = gatelib.git(root, "ls-files", "--", relative)
-        if rc != 0:
+        if tracked_rc != 0:
             errors.append("local state: cannot inspect %s: %s" % (relative, detail))
-        elif tracked:
+        elif any(path == relative or path.startswith(relative + "/") for path in tracked_paths):
             errors.append("local state must not be tracked: %s" % relative)
-        rc, _, _ = gatelib.git(root, "check-ignore", "--no-index", "--quiet", "--", probe)
-        if rc != 0:
+        if probe not in ignored_paths:
             errors.append("local state is not ignored: %s" % relative)
 
 

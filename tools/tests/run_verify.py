@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Focused verification for the lean rblx-harness surface."""
 
+import argparse
 import json
 import os
 import shutil
@@ -624,9 +625,30 @@ def _():
     require(result.returncode == 0, result.stdout + result.stderr)
 
 
-def main():
+@case("project validation, boot output, and verification selection")
+def _():
+    result = run([PY, os.path.join(ROOT, "tools", "tests", "test_validation_flow.py")])
+    require(result.returncode == 0, result.stdout + result.stderr)
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--list", action="store_true", help="List case names without running them")
+    parser.add_argument("--case", action="append", default=[], metavar="MATCH",
+                        help="Select names containing MATCH, ignoring case; repeatable, each must match")
+    args = parser.parse_args(argv)
+    for pattern in args.case:
+        if not pattern.strip() or not any(pattern.casefold() in name.casefold() for name, _ in CASES):
+            parser.error("no cases match %r; use --list" % pattern)
+    selected = [(name, function) for name, function in CASES if not args.case or any(
+        pattern.casefold() in name.casefold() for pattern in args.case
+    )]
+    if args.list:
+        for name, _ in selected:
+            print(name)
+        return 0
     failures = []
-    for name, function in CASES:
+    for name, function in selected:
         try:
             function()
         except Exception as error:
@@ -634,10 +656,15 @@ def main():
             print("FAIL|%s|%s" % (name, error))
         else:
             print("PASS|%s" % name)
+    if args.case:
+        print("VERIFY|SELECTED|%s|%d/%d|failures=%d" % (
+            "FAILED" if failures else "READY", len(selected), len(CASES), len(failures),
+        ))
+        return 2 if failures else 0
     if failures:
-        print("VERIFY|FAILED|%d/%d" % (len(failures), len(CASES)))
+        print("VERIFY|FAILED|%d/%d" % (len(failures), len(selected)))
         return 2
-    print("VERIFY|READY|%d" % len(CASES))
+    print("VERIFY|READY|%d" % len(selected))
     return 0
 
 

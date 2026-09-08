@@ -5,8 +5,9 @@ Pipeline: argon sourcemap -> luau-lsp analyze -> StudioMCP start_stop_play ->
 console scrape. Studio-only by locked decision, no Open Cloud; the target
 place must already be open.
 
-Output: stage lines, then one final JSON verdict line:
+Output: one compact JSON verdict line, including stage diagnostics:
     {"sourcemap": {...}, "analyze": {...}, "play": {...}, "pass": bool}
+Environment failures add environment: {"cause": ..., "remedy": ...}.
 Exit 0 pass · 2 boot errors or analyze findings · 3 environment. done-gate
 blocks on 2 AND on 3 — an unreachable Studio is not waved through; the same
 precondition already blocks writes at write-gate under GATE4, so the two
@@ -198,30 +199,24 @@ def main(argv=None):
     verdict = {"sourcemap": None, "analyze": None, "play": None, "pass": False}
     try:
         verdict["sourcemap"], smap = stage_sourcemap(root, args.project)
-        print("sourcemap: %s" % ("OK" if verdict["sourcemap"]["pass"] else "FAILED"))
         if not verdict["sourcemap"]["pass"]:
-            print(json.dumps(verdict))
+            print(json.dumps(verdict, separators=(",", ":")))
             return 2
 
         verdict["analyze"] = stage_analyze(root, args.project, smap)
-        print("analyze: %d findings" % verdict["analyze"]["findings"])
 
         if args.console_log:
             verdict["play"] = stage_play_from_log(args.console_log)
         else:
             verdict["play"] = stage_play(args.mcp_cmd, root, args.play_seconds, args.session)
         play = verdict["play"]
-        print("play: %d new console lines, %d errors, %d warnings" % (play["new_lines"], len(play["errors"]), len(play["warnings"])))
-        for line in play["errors"]:
-            print("  error: %s" % line)
 
         verdict["pass"] = verdict["sourcemap"]["pass"] and verdict["analyze"]["pass"] and play["pass"]
-        print("boot_smoke: %s" % ("PASS" if verdict["pass"] else "FAIL"))
-        print(json.dumps(verdict))
+        print(json.dumps(verdict, separators=(",", ":")))
         return 0 if verdict["pass"] else 2
     except EnvError as e:
-        print("ENV|%s|%s" % (e.cause, e.remedy))
-        print(json.dumps(verdict))
+        verdict["environment"] = {"cause": e.cause, "remedy": e.remedy}
+        print(json.dumps(verdict, separators=(",", ":")))
         return 3
 
 
