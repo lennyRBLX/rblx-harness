@@ -48,6 +48,10 @@ def main(argv=None):
         payload = json.load(sys.stdin)
     except (TypeError, ValueError):
         return block("malformed hook payload")
+    return evaluate(payload, args.event)
+
+
+def evaluate(payload, event):
     if not isinstance(payload, dict):
         return block("hook payload is not an object")
     role = role_from(payload)
@@ -60,7 +64,7 @@ def main(argv=None):
         nested = False
     if nested:
         return block("agents cannot spawn agents [AGENT1]")
-    if args.event == "SubagentStart":
+    if event == "SubagentStart":
         rules = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "CORE.md")
         context = (
             "HARNESS|role=%s|read=%s|agents-do-not-spawn-agents|"

@@ -20,6 +20,8 @@ settings, progress, errors, or Undo must connect to the new implementation.
 Tool paths are relative to `<HARNESS_ROOT>`. Use `tools/data_write/data_write.py`
 or `tools/type_write/type_write.py` for TOOL1 changes. Ask only unresolved
 product choices. Bound agent prompts to affected paths & compact returned evidence.
+Batch known public API lookups in one `tools/type_lookup/type_lookup.py` call
+using repeated `--type`, `--service`, or `--controller` flags.
 
 Read only when relevant:
 

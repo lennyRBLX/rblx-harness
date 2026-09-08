@@ -32,6 +32,42 @@ def journal_path(root: str) -> str:
     return cache_path(root) + ".journal"
 
 
+def parser_revision() -> str:
+    with open(os.path.join(TOOLS, "type_core", "core.py"), "rb") as handle:
+        return hashlib.sha256(handle.read()).hexdigest()
+
+
+def read_parsed_sources(root: str, revision: str) -> dict:
+    """Optional derived data; old, damaged or mismatched entries are rebuilt."""
+    try:
+        with open(cache_path(root) + ".parsed", encoding="utf-8") as handle:
+            saved = json.load(handle)
+        if saved["schema"] != 1 or saved["parser"] != revision:
+            return {}
+        entries = saved["entries"]
+        digest = hashlib.sha256(cache_json(entries).encode("utf-8")).hexdigest()
+        if saved["sha256"] != digest or not isinstance(entries, dict):
+            return {}
+        for entry in entries.values():
+            if not isinstance(entry, dict) or set(entry) != {"key", "definitions", "accessors"}:
+                return {}
+            if not isinstance(entry["key"], str) or any(
+                not isinstance(entry[field], list) or any(not isinstance(row, dict) for row in entry[field])
+                for field in ("definitions", "accessors")
+            ):
+                return {}
+        return entries
+    except (OSError, ValueError, KeyError, TypeError):
+        return {}
+
+
+def write_parsed_sources(root: str, revision: str, entries: dict) -> None:
+    serialized = cache_json(entries)
+    saved = {"schema": 1, "parser": revision, "entries": entries,
+             "sha256": hashlib.sha256(serialized.encode("utf-8")).hexdigest()}
+    atomic_write(cache_path(root) + ".parsed", cache_json(saved))
+
+
 @contextmanager
 def project_lock(root: str, timeout: float = 5.0):
     path = cache_path(root) + ".lock"
@@ -81,7 +117,11 @@ def read(root: str) -> dict:
 
 
 def verify(root: str) -> tuple[str, dict, dict | None]:
-    current = build_index(root)
+    return _verify(root, read_parsed_sources(root, parser_revision()))
+
+
+def _verify(root: str, parsed_sources: dict) -> tuple[str, dict, dict | None]:
+    current = build_index(root, parsed_sources=parsed_sources)
     try:
         cached = read(root)
     except CacheError as error:
@@ -100,7 +140,12 @@ def write_index(root: str, index: dict) -> str:
 def ensure(root: str) -> tuple[str, dict]:
     with project_lock(root):
         recover(root)
-        status, current, _ = verify(root)
+        revision = parser_revision()
+        parsed_sources = read_parsed_sources(root, revision)
+        before = cache_json(parsed_sources)
+        status, current, _ = _verify(root, parsed_sources)
+        if cache_json(parsed_sources) != before:
+            write_parsed_sources(root, revision, parsed_sources)
         if status == "current":
             return "current", current
         write_index(root, current)
@@ -108,7 +153,7 @@ def ensure(root: str) -> tuple[str, dict]:
 
 
 def stage(root: str, overlay: dict[str, str | None]) -> tuple[str, dict]:
-    index = build_index(root, overlay)
+    index = build_index(root, overlay, parsed_sources=read_parsed_sources(root, parser_revision()))
     directory = os.path.dirname(cache_path(root))
     os.makedirs(directory, exist_ok=True)
     fd, path = tempfile.mkstemp(prefix=".type_cache_stage_", dir=directory)

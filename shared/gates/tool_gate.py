@@ -72,6 +72,10 @@ def main(argv=None):
         payload = json.load(sys.stdin)
     except (TypeError, ValueError):
         return block("malformed hook payload")
+    return evaluate(payload)
+
+
+def evaluate(payload):
     if not isinstance(payload, dict):
         return block("hook payload is not an object")
     tool = str(payload.get("tool_name") or "").casefold().replace("-", "_")

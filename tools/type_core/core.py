@@ -8,6 +8,7 @@ import os
 import re
 import glob
 import tempfile
+from copy import deepcopy
 from dataclasses import dataclass
 
 
@@ -359,12 +360,17 @@ def _project_map_fingerprint(root: str) -> str:
     return digest.hexdigest()
 
 
-def build_index(root: str, overlay: dict[str, str | None] | None = None) -> dict:
+def build_index(
+    root: str,
+    overlay: dict[str, str | None] | None = None,
+    parsed_sources: dict | None = None,
+) -> dict:
     root = os.path.realpath(root)
     overlay = {os.path.realpath(path): value for path, value in (overlay or {}).items()}
     definitions = []
     source_fingerprints = {}
     accessors = []
+    refreshed_sources = {}
     discovered = {os.path.realpath(os.path.join(root, item["path"])): item for item in discover_sources(root)}
     for path, content in overlay.items():
         if content is None:
@@ -386,27 +392,20 @@ def build_index(root: str, overlay: dict[str, str | None] | None = None) -> dict
             continue
         if source is None:
             continue
-        parsed = parse_declarations(source)
-        entries = [item.as_cache(metadata) for item in parsed]
+        # Hash actual content and discovery metadata, including overlays. Never
+        # use mtime as evidence that declarations or owner scope are unchanged.
+        key = sha256_text(json.dumps(metadata, sort_keys=True) + "\0" + source)
+        cached = (parsed_sources or {}).get(metadata["path"])
+        if cached is not None and cached["key"] == key:
+            entries = deepcopy(cached["definitions"])
+            accessor_entries = deepcopy(cached["accessors"])
+        else:
+            entries, accessor_entries = _index_source(source, metadata)
+        if parsed_sources is not None:
+            refreshed_sources[metadata["path"]] = {
+                "key": key, "definitions": deepcopy(entries), "accessors": deepcopy(accessor_entries),
+            }
         definitions.extend(entries)
-        accessor_entries = []
-        if metadata["kind"] == "data" and os.path.basename(path) == "Typed.luau":
-            for found in ACCESSOR.finditer(_masked_source(source)):
-                name = found.group(1)
-                signature = "%s(%s)%s" % (
-                    name,
-                    found.group(2).strip(),
-                    (": " + found.group(3).strip()) if found.group(3) else "",
-                )
-                accessor_entries.append(
-                    {
-                        "fingerprint": sha256_text(signature),
-                        "name": name,
-                        "path": metadata["path"],
-                        "place": metadata["place"],
-                        "signature": signature,
-                    }
-                )
         accessors.extend(accessor_entries)
         normalized = json.dumps(
             {
@@ -426,6 +425,9 @@ def build_index(root: str, overlay: dict[str, str | None] | None = None) -> dict
             item["qualified"] = "%s:%s" % (item["place"], item["qualified"])
     definitions.sort(key=lambda item: (item["place"], item["kind"], item["owner"], item["module"], item["name"], item["path"]))
     accessors.sort(key=lambda item: (item["place"], item["name"], item["path"]))
+    if parsed_sources is not None:
+        parsed_sources.clear()
+        parsed_sources.update(refreshed_sources)
     return {
         "accessors": accessors,
         "definitions": definitions,
@@ -433,6 +435,23 @@ def build_index(root: str, overlay: dict[str, str | None] | None = None) -> dict
         "source_map_fingerprint": _project_map_fingerprint(root),
         "sources": source_fingerprints,
     }
+
+
+def _index_source(source: str, metadata: dict) -> tuple[list[dict], list[dict]]:
+    entries = [item.as_cache(metadata) for item in parse_declarations(source)]
+    accessors = []
+    if metadata["kind"] == "data" and os.path.basename(metadata["path"]) == "Typed.luau":
+        for found in ACCESSOR.finditer(_masked_source(source)):
+            name = found.group(1)
+            signature = "%s(%s)%s" % (
+                name, found.group(2).strip(),
+                (": " + found.group(3).strip()) if found.group(3) else "",
+            )
+            accessors.append({
+                "fingerprint": sha256_text(signature), "name": name,
+                "path": metadata["path"], "place": metadata["place"], "signature": signature,
+            })
+    return entries, accessors
 
 
 def metadata_for_path(root: str, path: str) -> dict[str, str] | None:

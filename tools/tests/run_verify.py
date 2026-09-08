@@ -618,6 +618,12 @@ def _():
     require(result.returncode == 0, result.stdout + result.stderr)
 
 
+@case("batch evidence, hook dispatch, and type cache preserve validation")
+def _():
+    result = run([PY, os.path.join(ROOT, "tools", "tests", "test_harness_cost.py")])
+    require(result.returncode == 0, result.stdout + result.stderr)
+
+
 def main():
     failures = []
     for name, function in CASES:

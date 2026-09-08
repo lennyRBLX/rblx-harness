@@ -20,6 +20,9 @@ Additive evidence verbs emit JSON lines with schema roblox-evidence-v1:
   access Class[.Member]  Full restrictions, inherited owner and class prose.
   inventory Class       All inherited properties, including restricted ones.
   behavior TopicOrAPI   Sourced operational decisions and scoped unknowns.
+  batch VERB QUERY ...  Batch access/inventory/behavior pairs; shared evidence
+                        appears once in roblox-evidence-batch-v1. Resolve $ref
+                        through shared, then apply any sibling fields.
 These verbs do not change legacy records. Unknown is not permission. ReadSafe
 is parallel read safety, not write permission, replication, or startup timing.
 """
@@ -643,24 +646,24 @@ def access_member(requested_class, declaring_class, member, provenance, detailed
     return record
 
 
-def verb_access(spec, inventory=False):
+def verb_access(spec, inventory=False, *, emit=evidence_json, provenance=None):
     need_dump()
     match = re.fullmatch(r"([A-Za-z0-9_]+)(?:[.:]([A-Za-z0-9_]+))?", spec)
     if not match or (inventory and match[2]):
-        evidence_json({"record": "miss", "query": spec, "next": "use access Class[.Member] or inventory Class"})
+        emit({"record": "miss", "query": spec, "next": "use access Class[.Member] or inventory Class"})
         return
     requested, wanted = match.groups()
     by_name = classes_by_name()
     if requested not in by_name:
-        evidence_json({"record": "miss", "query": spec, "next": "verify class spelling and corpus revision"})
+        emit({"record": "miss", "query": spec, "next": "verify class spelling and corpus revision"})
         return
-    provenance = corpus_provenance()
+    provenance = corpus_provenance() if provenance is None else provenance
     chain = [requested] + [name for name in ancestry(requested, by_name) if name in by_name]
     contexts = [{"name": name, "tags": by_name[name].get("Tags", "unknown"),
                  "security": by_name[name].get("Security", "unknown"),
                  "capabilities": by_name[name].get("Capabilities", "unknown"),
                  "documentation": description_evidence(name, class_yaml(name))} for name in chain]
-    evidence_json({"record": "class-context", "requested_class": requested,
+    emit({"record": "class-context", "requested_class": requested,
                    "classes": contexts, "sources": provenance,
                    "assessment_scope": "game contexts mean ordinary game code without elevated identity; unknown requires caller capabilities, class restrictions, execution phase and behavior evidence"})
     if not inventory and not wanted:
@@ -672,22 +675,68 @@ def verb_access(spec, inventory=False):
                 continue
             seen.add(member["Name"])
             if (inventory and member["MemberType"] == "Property") or member["Name"] == wanted:
-                evidence_json(access_member(requested, name, member, provenance, detailed=not inventory))
+                emit(access_member(requested, name, member, provenance, detailed=not inventory))
                 if not inventory:
                     return
     if wanted:
-        evidence_json({"record": "miss", "query": spec, "next": "verify member spelling and source revisions; no access claim"})
+        emit({"record": "miss", "query": spec, "next": "verify member spelling and source revisions; no access claim"})
 
 
-def verb_behavior(query):
+def verb_behavior(query, *, emit=evidence_json, provenance=None):
     need_dump()
     rows = behavior_records(query)
-    provenance = corpus_provenance()
+    provenance = corpus_provenance() if provenance is None else provenance
     if not rows:
-        evidence_json({"record": "miss", "query": query,
+        emit({"record": "miss", "query": query,
                        "next": "use docs/find and full descriptions; research the exact context before a probe"})
     for row in rows:
-        evidence_json({"record": "behavior", **behavior_evidence(row, provenance), "provenance": provenance})
+        emit({"record": "behavior", **behavior_evidence(row, provenance), "provenance": provenance})
+
+
+def verb_batch(args):
+    """Lossless references share evidence only within this invocation."""
+    if not args or len(args) % 2 or any(
+        verb not in ("access", "inventory", "behavior") for verb in args[::2]
+    ):
+        evidence_json({"record": "miss", "query": "batch",
+                       "next": "supply access/inventory/behavior QUERY pairs"})
+        return 2
+    need_dump()
+    provenance = corpus_provenance()
+    shared, identifiers, results = {}, {}, []
+
+    def reference(kind, value):
+        key = (kind, json.dumps(value, ensure_ascii=False, sort_keys=True))
+        if key not in identifiers:
+            identifier = "%s-%d" % (kind, len(shared) + 1)
+            identifiers[key] = identifier
+            shared[identifier] = value
+        return {"$ref": identifiers[key]}
+
+    def emit(record):
+        record = {"schema": "roblox-evidence-v1", **record}
+        if record["record"] == "class-context":
+            record["sources"] = reference("provenance", record["sources"])
+            record["classes"] = [reference("class", row) for row in record["classes"]]
+            record = reference("context", record)
+        elif record["record"] == "behavior":
+            source = reference("provenance", record.pop("provenance"))
+            schema, kind = record.pop("schema"), record.pop("record")
+            record = {**reference("behavior", record), "schema": schema,
+                      "record": kind, "provenance": source}
+        elif record["record"] == "access" and "behavior" in record:
+            record["behavior"] = [reference("behavior", row) for row in record["behavior"]]
+        results[-1]["records"].append(record)
+
+    for verb, query in zip(args[::2], args[1::2]):
+        results.append({"verb": verb, "query": query, "records": []})
+        if verb == "behavior":
+            verb_behavior(query, emit=emit, provenance=provenance)
+        else:
+            verb_access(query, inventory=verb == "inventory", emit=emit, provenance=provenance)
+    print(json.dumps({"schema": "roblox-evidence-batch-v1", "shared": shared, "results": results},
+                     ensure_ascii=False, separators=(",", ":")))
+    return 0
 
 
 def verb_class(name, lift, inherited=False):
@@ -1426,6 +1475,8 @@ def main(argv):
     rest = args[1:]
     if verb == "--sync":
         return sync()
+    elif verb == "batch":
+        return verb_batch(rest)
     elif verb == "--emit-globals":
         updates = None
         if "--updates" in rest:

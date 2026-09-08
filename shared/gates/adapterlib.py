@@ -2,9 +2,10 @@
 
 import argparse
 import json
-import os
-import subprocess
 import sys
+
+import agent_gate
+import tool_gate
 
 
 EVENT_SCRIPTS = {
@@ -35,15 +36,6 @@ def main(host, argv=None):
         sys.stderr.write("hook-adapter: event does not match configured command\n")
         return 2
     payload["hook_event_name"] = args.event
-    gate = os.path.join(os.path.dirname(os.path.abspath(__file__)), EVENT_SCRIPTS[args.event])
-    result = subprocess.run(
-        [sys.executable, "-B", gate, "--event", args.event],
-        input=json.dumps(payload),
-        capture_output=True,
-        text=True,
-        env=dict(os.environ, PYTHONDONTWRITEBYTECODE="1"),
-    )
-    sys.stdout.write(result.stdout)
-    sys.stderr.write(result.stderr)
-    return result.returncode
-
+    if args.event == "PreToolUse":
+        return tool_gate.evaluate(payload)
+    return agent_gate.evaluate(payload, args.event)

@@ -16,6 +16,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -319,6 +320,55 @@ properties:
         self.assertEqual(records[0]["record"], "class-context")
         self.assertEqual(records[1]["record"], "access")
         return records[0], records[1]
+
+    @staticmethod
+    def expand_batch(batch):
+        def expand(value):
+            if isinstance(value, list):
+                return [expand(item) for item in value]
+            if isinstance(value, dict):
+                if "$ref" in value:
+                    value = {**batch["shared"][value["$ref"]],
+                             **{key: item for key, item in value.items() if key != "$ref"}}
+                return {key: expand(item) for key, item in value.items()}
+            return value
+        return expand(batch["results"])
+
+    def test_batch_preserves_complete_single_query_evidence(self):
+        queries = [("access", "World.Split"), ("access", "World.InheritedRestricted"),
+                   ("access", "Instance.InheritedRestricted"), ("inventory", "World"),
+                   ("behavior", "stale-split-behavior"), ("behavior", "source-freshness"),
+                   ("access", "World.Unknown"), ("behavior", "unknown-behavior")]
+        expected = [self.records(*query) for query in queries]
+        with mock.patch.object(api_dump, "corpus_provenance", wraps=api_dump.corpus_provenance) as provenance:
+            batch = self.records("batch", *(part for query in queries for part in query))[0]
+        self.assertEqual(provenance.call_count, 1)
+        self.assertEqual(batch["schema"], "roblox-evidence-batch-v1")
+        self.assertEqual([row["records"] for row in self.expand_batch(batch)], expected)
+        self.assertEqual([(row["verb"], row["query"]) for row in batch["results"]], queries)
+        self.assertEqual(sum(key.startswith("provenance-") for key in batch["shared"]), 1)
+        self.assertEqual(sum(key.startswith("class-") for key in batch["shared"]), 2)
+        shared_behaviors = [row for key, row in batch["shared"].items() if key.startswith("behavior-")]
+        self.assertEqual(sum(row["id"] == "stale-split-behavior" for row in shared_behaviors), 1)
+
+    def test_batch_rechecks_source_revisions_on_next_invocation(self):
+        first = self.records("batch", "access", "World.Split")[0]
+        self.docs_revision = "docs-updated"
+        second = self.records("batch", "access", "World.Split")[0]
+        first_source = self.expand_batch(first)[0]["records"][0]["sources"]
+        second_source = self.expand_batch(second)[0]["records"][0]["sources"]
+        self.assertEqual(first_source["creator_docs_revision"], "docs-current")
+        self.assertEqual(second_source["creator_docs_revision"], "docs-updated")
+
+    def test_batch_invalid_requests_fail_before_corpus_lookup(self):
+        for args in ([], ["access"], ["--sync", "World"], ["access", "World", "bad"]):
+            with self.subTest(args=args), mock.patch.object(api_dump, "corpus_provenance") as provenance:
+                stream = io.StringIO()
+                with contextlib.redirect_stdout(stream):
+                    result = api_dump.main(["batch", *args])
+                self.assertEqual(result, 2)
+                self.assertEqual(json.loads(stream.getvalue())["record"], "miss")
+                provenance.assert_not_called()
 
     def test_restricted_member_preserves_operations_inheritance_and_class_context(self):
         context, record = self.access("InheritedRestricted")

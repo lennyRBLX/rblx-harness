@@ -3,8 +3,8 @@
 Use before code, commands or tests depend on engine access, timing, replication,
 initialization or cleanup. CLI: `<HARNESS_ROOT>/tools/api_dump/api_dump.py`.
 
-- Query `access Class.Member`; `access Class` includes class restrictions. `inventory Workspace` includes inherited/restricted properties. Legacy lists, even `--all`, are discovery only.
-- Read returned `behavior` routes. For behavior queries use an exact API or topic: `workspace`, `signals`, `replication`, `physics`, `parallel`, `modules`, `persistence`, `assets`, `gui`, `environment`.
+- Query `access Class.Member`; `access Class` includes class restrictions. `inventory Workspace` includes inherited/restricted properties. Batch known questions: `batch access GuiObject.Size access GuiObject.AutomaticSize behavior gui`. Batch `$ref` values resolve through `shared`, then apply sibling fields; retain referenced evidence with results. Legacy lists, even `--all`, are discovery only.
+- Read embedded `behavior` evidence; retrieve returned routes only for evidence not already included at the same source revisions. For behavior queries use an exact API or topic: `workspace`, `signals`, `replication`, `physics`, `parallel`, `modules`, `persistence`, `assets`, `gui`, `environment`.
 - Canonical records contain scope, action, evidence, status, exceptions & recheck conditions. On a miss, search full Creator Docs & linked primary guides with the exact question. Retain unresolved questions & bounded next evidence actions; silence proves nothing.
 - Preserve caller/datamodel, operation, restrictions, source revisions, exceptions & scoped unknowns through review. Keep engine limits, tool limits & project rules distinct.
 
