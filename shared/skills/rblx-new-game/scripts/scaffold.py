@@ -549,7 +549,7 @@ def render_without_harness(root, state, places, assets):
         "\n".join("- " + place for place in places),
         ", ".join(assets) if assets else "none",
     )
-    write_text(os.path.join(root, "AGENTS.md"), text)
+    write_text(os.path.join(root, "AGENTS.md"), text, overwrite=False)
 
 
 def emit(root):

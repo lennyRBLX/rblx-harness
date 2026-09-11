@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Offline regressions for additive API evidence and retained agent records.
+"""Offline regressions for API evidence and restrictions.
 
 Run with: python3 tools/tests/test_api_evidence.py
 This fixture uses only temporary files and remains as a regression test; it
@@ -22,7 +22,6 @@ from unittest import mock
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
 GATES = os.path.join(ROOT, "shared", "gates")
-AGENT_GATE = os.path.join(GATES, "agent_gate.py")
 if GATES not in sys.path:
     sys.path.insert(0, GATES)
 
@@ -35,7 +34,6 @@ def load_module(name, path):
 
 
 api_dump = load_module("api_dump_evidence_test", os.path.join(ROOT, "tools", "api_dump", "api_dump.py"))
-token_shrink = load_module("token_shrink_evidence_test", os.path.join(GATES, "token_shrink.py"))
 
 
 def prop(name, security="absent", capabilities="absent", tags=None, thread_safety="ReadSafe"):
@@ -557,75 +555,6 @@ properties:
         self.assertEqual(split[5], "Split summary")
 
 
-class TokenShrinkEvidenceTest(unittest.TestCase):
-    def assert_gate_accepts(self, agent, message):
-        payload = json.dumps(
-            {
-                "agent_type": agent,
-                "agent_depth": 1,
-                "last_assistant_message": message,
-            }
-        )
-        result = subprocess.run(
-            [sys.executable, AGENT_GATE, "--event", "SubagentStop"],
-            input=payload,
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-
-    def test_researcher_record_preserves_decision_evidence_and_negation(self):
-        source = (
-            "researcher: FOUND\n"
-            "fact|api_dump.py access World.Split|context=game-server operation=write "
-            "security=PluginSecurity capability=PluginOrOpenCloud api_dump_revision=sha-a "
-            "creator_docs_revision=docs-a literal_error=\"The current identity (2) cannot set Split\" "
-            "runtime=unknown; next=run Studio; effect is not allowed to be inferred in order to continue\n"
-            "fact|api_dump.py behavior UnknownTopic|context=game-client operation=effect security=unknown "
-            "capability=unknown creator_docs_revision=unknown; next=research exact context; absence does not prove permission"
-        )
-        self.assert_gate_accepts("researcher", source)
-        actual = token_shrink.shrink_return("researcher", source)
-        for literal in (
-            "context=game-server",
-            "operation=write",
-            "security=PluginSecurity",
-            "capability=PluginOrOpenCloud",
-            "api_dump_revision=sha-a",
-            "creator_docs_revision=docs-a",
-            '\"The current identity (2) cannot set Split\"',
-            "runtime=unknown",
-            "next=run Studio",
-            "creator_docs_revision=unknown; next=research exact context",
-            "does not prove permission",
-        ):
-            self.assertIn(literal, actual)
-        self.assertIn("effect is not allowed to be inferred in order to continue", actual)
-
-    def test_reviewer_record_preserves_exact_error_unknown_and_next_action(self):
-        source = (
-            "reviewer: ISSUES\n"
-            "finding|tools/api_dump/api_dump.py:545|high|context=game-client operation=read security=None capability=PluginOrOpenCloud "
-            "api_dump_revision=sha-b creator_docs_revision=unknown literal_error=`CoreScript cannot access Source` "
-            "effect=unknown|review is not allowed to infer permission; next=compare each operation in order to continue"
-        )
-        self.assert_gate_accepts("reviewer", source)
-        actual = token_shrink.shrink_return("reviewer", source)
-        for literal in (
-            "context=game-client",
-            "operation=read",
-            "security=None",
-            "capability=PluginOrOpenCloud",
-            "api_dump_revision=sha-b",
-            "creator_docs_revision=unknown",
-            "`CoreScript cannot access Source`",
-            "effect=unknown",
-            "next=compare each operation",
-        ):
-            self.assertIn(literal, actual)
-        self.assertIn("review must not infer permission", actual)
-        self.assertIn("to continue", actual)
 
 
 if __name__ == "__main__":

@@ -26,7 +26,7 @@ from studio_rpc import EnvError, StudioRPC  # noqa: E402
 
 # Sentinels and a count make a truncated response fail closed: the tool takes
 # only the lines between the sentinels and asserts it received exactly n
-# records. Sets no Source and constructs no script, so GATE5 permits it.
+# records. Reads the universe without changing script source.
 UNIVERSE_LUAU = """
 local AssetService = game:GetService("AssetService")
 local pages = AssetService:GetGamePlacesAsync()
@@ -42,6 +42,21 @@ return "<<PLACES " .. #out .. "\\n" .. table.concat(out, "\\n") .. "\\nPLACES>>"
 """
 
 
+GUIDANCE_BEGIN = "<!-- BEGIN rblx-harness project guidance -->"
+GUIDANCE_END = "<!-- END rblx-harness project guidance -->"
+PLACES = re.compile(r"^## places\s*\n.*?(?=^##? |<!-- END|\Z)", re.MULTILINE | re.DOTALL)
+
+
+def guidance_span(text):
+    """Target managed guidance when present; leave the user's other sections alone."""
+    begin, end = text.find(GUIDANCE_BEGIN), text.find(GUIDANCE_END)
+    if begin < 0 and end < 0:
+        return 0, len(text)
+    if text.count(GUIDANCE_BEGIN) != 1 or text.count(GUIDANCE_END) != 1 or end < begin:
+        raise ValueError("AGENTS.md has malformed harness guidance markers")
+    return begin + len(GUIDANCE_BEGIN), end
+
+
 def read_places_block(agents_md):
     """Name -> PlaceId from the ## places block."""
     mapping = {}
@@ -49,10 +64,11 @@ def read_places_block(agents_md):
         return mapping
     with open(agents_md, encoding="utf-8") as f:
         text = f.read()
-    m = re.search(r"^## places\s*\n(.*?)(?=^## |\Z)", text, re.MULTILINE | re.DOTALL)
+    start, end = guidance_span(text)
+    m = PLACES.search(text[start:end])
     if not m:
         return mapping
-    for line in m.group(1).strip().split("\n"):
+    for line in m.group().splitlines()[1:]:
         parts = line.strip().split("|")
         if len(parts) == 2 and parts[1].isdigit():
             mapping[parts[0]] = int(parts[1])
@@ -65,10 +81,10 @@ def write_places_block(agents_md, mapping):
     if os.path.exists(agents_md):
         with open(agents_md, encoding="utf-8") as f:
             text = f.read()
-        if re.search(r"^## places\s*\n", text, re.MULTILINE):
-            text = re.sub(r"^## places\s*\n.*?(?=^## |\Z)", block, text, flags=re.MULTILINE | re.DOTALL)
-        else:
-            text = text.rstrip("\n") + "\n\n" + block
+        start, end = guidance_span(text)
+        guidance = text[start:end]
+        guidance = PLACES.sub(lambda _: block, guidance, count=1) if PLACES.search(guidance) else guidance.rstrip("\n") + "\n\n" + block
+        text = text[:start] + guidance + text[end:]
     else:
         text = block
     with open(agents_md, "w", encoding="utf-8") as f:

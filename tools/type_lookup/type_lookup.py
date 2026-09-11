@@ -14,22 +14,10 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 TOOLS = os.path.dirname(HERE)
 sys.path.insert(0, TOOLS)
 from type_cache.type_cache import CacheError, ensure  # noqa: E402
-from type_core import append_tool_record, sha256_text  # noqa: E402
 
 
 class QueryError(Exception):
     pass
-
-
-def _definition_record(item: dict, member: str | None = None) -> dict:
-    members = item.get("members", {})
-    selected = members if member is None else ({member: members[member]} if member in members else {})
-    return {
-        "definition": item["fingerprint"],
-        "members": {name: sha256_text(text) for name, text in selected.items()},
-        "path": item["path"],
-        "qualified": item["qualified"],
-    }
 
 
 def _matches(index: dict, query: dict) -> tuple[list[dict], str | None]:
@@ -181,11 +169,11 @@ def affected(root: str, base: str, additional_paths: list[str] | None = None) ->
 
 
 def execute(root: str, queries: list[dict], session_id: str = "", record: bool = True) -> list[str]:
+    # session_id and record remain accepted for older callers; hook receipts are retired.
     if not isinstance(queries, list) or not queries or any(not isinstance(query, dict) for query in queries):
         raise QueryError("queries must be a non-empty list of objects")
     _, index = ensure(root)
     outputs = []
-    gate_definitions = []
     for query in queries:
         if query.get("scope") == "affected":
             base = query.get("base")
@@ -196,9 +184,6 @@ def execute(root: str, queries: list[dict], session_id: str = "", record: bool =
         matches, member = _matches(index, query)
         grouped = query.get("scope") in ("service", "controller", "place", "project")
         outputs.append(_format(matches, member, grouped))
-        gate_definitions.extend(_definition_record(item, member) for item in matches)
-    if record and gate_definitions:
-        append_tool_record(root, "type-lookup", {"definitions": gate_definitions}, session_id)
     return outputs
 
 
@@ -231,7 +216,7 @@ def _queries_from_args(args) -> list[dict]:
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--root", default=os.getcwd())
-    parser.add_argument("--session", default=os.environ.get("CODEX_THREAD_ID", ""))
+    parser.add_argument("--session", default="", help=argparse.SUPPRESS)
     parser.add_argument("--request")
     parser.add_argument("--type", dest="type_name", action="append", default=[])
     parser.add_argument("--service", action="append", default=[])
@@ -241,7 +226,7 @@ def main(argv=None) -> int:
     parser.add_argument("--place", action="append", default=[])
     parser.add_argument("--project", action="store_true")
     parser.add_argument("--affected")
-    parser.add_argument("--gate", action="store_true")
+    parser.add_argument("--gate", action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args(argv)
     try:
         queries = _queries_from_args(args)

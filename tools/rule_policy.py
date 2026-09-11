@@ -1,7 +1,6 @@
 """Final blocking disposition for harness rule identifiers.
 
-Sections 17-23 of harness.plan.md are the authority. Callers may warn on an
-advisory rule, but only ``hard`` findings can deny the current operation.
+Callers may warn on an advisory rule, but only ``hard`` findings can deny the current operation.
 """
 
 HARD_RULE_IDS = frozenset(

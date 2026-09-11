@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 """perf_audit — OPT15, OPT18, OPT19, OPT20. Statically decidable and
-Studio-free, which is what lets it stay in done-gate's floor with Studio
-closed. Fails open, warns: performance findings are recoverable by revert and
-the thresholds are advisory — a false block here costs a correct write."""
+Studio-free. Performance thresholds are advisory; findings are warnings."""
 
 import os
 import sys

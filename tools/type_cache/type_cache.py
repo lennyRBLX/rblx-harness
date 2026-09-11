@@ -226,7 +226,7 @@ def recover(root: str) -> bool:
             else:
                 try:
                     os.remove(target)
-                except OSError:
+                except FileNotFoundError:
                     pass
         cache_backup = record.get("cache_backup")
         if cache_backup:
@@ -234,7 +234,7 @@ def recover(root: str) -> bool:
         else:
             try:
                 os.remove(cache_path(root))
-            except OSError:
+            except FileNotFoundError:
                 pass
     except (OSError, ValueError, KeyError, TypeError) as error:
         raise CacheError("recovery failed: %s" % error)

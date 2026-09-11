@@ -8,10 +8,8 @@ place must already be open.
 Output: one compact JSON verdict line, including stage diagnostics:
     {"sourcemap": {...}, "analyze": {...}, "play": {...}, "pass": bool}
 Environment failures add environment: {"cause": ..., "remedy": ...}.
-Exit 0 pass · 2 boot errors or analyze findings · 3 environment. done-gate
-blocks on 2 AND on 3 — an unreachable Studio is not waved through; the same
-precondition already blocks writes at write-gate under GATE4, so the two
-gates fail for one stated reason.
+Exit 0 pass · 2 boot errors or analyze findings · 3 environment unavailable.
+Callers must retain the failed or unrun status.
 
 Usage: boot_smoke.py [--root DIR] [--project FILE] [--play-seconds N]
                      [--mcp-cmd CMD] [--console-log FILE] [--session ID]

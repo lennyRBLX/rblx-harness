@@ -6,6 +6,7 @@ import os
 import re
 import subprocess
 import sys
+import tomllib
 
 
 HARNESS = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -49,25 +50,37 @@ def config_path():
 
 
 def profile_present(text):
-    return bool(re.search(r"(?m)^\s*\[permissions\.Roblox\]\s*$", text))
+    permissions = tomllib.loads(text).get("permissions", {})
+    return isinstance(permissions, dict) and isinstance(permissions.get("Roblox"), dict)
 
 
 def add_runtime_writes(text):
-    """Add runtime-directory grants to a legacy unmarked Roblox profile."""
-    header = re.search(r"(?m)^\s*" + re.escape(WORKSPACE_ROOTS_HEADER) + r"\s*$", text)
-    if not header:
-        return text, False
-    following = re.search(r"(?m)^\s*\[", text[header.end():])
-    end = header.end() + following.start() if following else len(text)
-    section = text[header.start():end]
-    missing = [
-        name for name in RUNTIME_WRITE_ENTRIES
-        if not re.search(r'(?m)^\s*"' + re.escape(name) + r'"\s*=', section)
-    ]
+    """Add absent grants while retaining explicit choices and multiline strings."""
+    profile = tomllib.loads(text)["permissions"]["Roblox"]
+    filesystem = profile.get("filesystem", {})
+    grants = filesystem.get(":workspace_roots", {})
+    missing = [name for name in RUNTIME_WRITE_ENTRIES if name not in grants]
     if not missing:
         return text, False
-    inserted = "".join('\n"%s" = "write"' % name for name in missing)
-    return text[:header.end()] + inserted + text[header.end():], True
+    additions = "".join('\n"%s" = "write"' % name for name in missing)
+    # A candidate heading inside an open multiline string has an invalid prefix.
+    # Parse headers independently so quoted/dotted TOML keys retain their meaning.
+    for header in re.finditer(r"(?m)^[ \t]*\[[^\r\n]+\][ \t]*(?:#[^\r\n]*)?$", text):
+        try:
+            tomllib.loads(text[:header.start()])
+            table = tomllib.loads(header.group())
+        except tomllib.TOMLDecodeError:
+            continue
+        if table == {"permissions": {"Roblox": {"filesystem": {":workspace_roots": {}}}}}:
+            updated = text[:header.end()] + additions + text[header.end():]
+            tomllib.loads(updated)
+            return updated, True
+    if ":workspace_roots" not in filesystem:
+        updated = text.rstrip() + "\n\n" + WORKSPACE_ROOTS_HEADER + additions + "\n"
+        tomllib.loads(updated)
+        return updated, True
+    # Inline and dotted definitions need no rewrite of user configuration.
+    return text, False
 
 
 def install_profile():
@@ -75,11 +88,9 @@ def install_profile():
     os.makedirs(os.path.dirname(path), exist_ok=True)
     try:
         current = open(path, encoding="utf-8").read()
-    except OSError:
+    except FileNotFoundError:
         current = ""
-    pattern = re.compile(re.escape(BEGIN) + r".*?" + re.escape(END) + r"\s*", re.DOTALL)
-    unmanaged = pattern.sub("", current).strip()
-    if profile_present(unmanaged):
+    if profile_present(current):
         updated, changed = add_runtime_writes(current)
         if changed:
             with open(path, "w", encoding="utf-8", newline="\n") as handle:
@@ -88,10 +99,11 @@ def install_profile():
         else:
             print("permissions-profile|PRESENT|optional; Full Access remains supported")
         return 0
-    rendered = "\n\n".join(part for part in (unmanaged, PROFILE.strip()) if part) + "\n"
+    rendered = current + ("\n\n" if current else "") + PROFILE
+    tomllib.loads(rendered)
     with open(path, "w", encoding="utf-8", newline="\n") as handle:
         handle.write(rendered)
-    print("permissions-profile|INSTALLED|optional; no profile selection or restart required")
+    print("permissions-profile|INSTALLED|optional; select the Roblox profile to use it")
     return 0
 
 
@@ -121,4 +133,8 @@ def main(argv=None):
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    try:
+        sys.exit(main())
+    except (OSError, ValueError, TypeError, AttributeError) as error:
+        sys.stderr.write("permissions-profile|ERROR|%s\n" % error)
+        sys.exit(2)

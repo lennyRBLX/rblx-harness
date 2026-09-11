@@ -158,7 +158,7 @@ def install_submodule(root):
 def setup(root, yes=False):
     if not yes:
         print(
-            "CONSENT_REQUIRED|rblx-harness adds Codex skills, four agents, lean hooks, "
+            "CONSENT_REQUIRED|rblx-harness adds Codex skills, four agents, "
             "rules, tools, templates, and selected shared assets."
         )
         return 3

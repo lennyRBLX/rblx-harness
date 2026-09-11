@@ -1,4 +1,4 @@
 interface:
   display_name: "Roblox GUI"
-  short_description: "Write native or React GUI with human visual checks"
+  short_description: "Build and connect native or React Roblox GUI"
   default_prompt: "Use $rblx-gui to implement this Roblox GUI."

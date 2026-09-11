@@ -1,155 +1,85 @@
 # rblx-harness
 
-`rblx-harness` supplies Codex workflows for Roblox code writing, debugging,
-optimization, and multi-place project scaffolding.
+Roblox workflows for Codex: six skills, four optional specialist agents, one
+command interface, project scaffolding, and reusable Luau packages.
 
-## Included surface
+## Setup
 
-- Skills: `rblx-new-game`, `rblx-writer`, `rblx-gui`, `rblx-debug`, `rblx-optimize`, `rblx-plan`.
-- Agents: `researcher`, `optimizer`, `reviewer`, `debugger`.
-- Tools: Roblox API and Creator Docs lookup, data and type writers, Git repair,
-  MicroProfiler analysis, boilerplate generation, and style assessment.
-- Rules: `shared/CORE.md`.
-- Codex support: reproducible project agent definitions, project skills, and
-  four lean hook events.
-- Templates: shared Packages, short project `README.md`, project `AGENTS.md`,
-  shared `shared/HANDOFF.md`, and shared `shared/PLAN.md`.
-- Token compression: bounded agent records and `token_shrink.py`.
-- Repeated work: `context_pack.py` source/review evidence, `studio_output.py`
-  console deltas, and `session_audit.py` session counts and cost estimates.
-  Routes and fallback rules: [shared/TOOLS.md](shared/TOOLS.md).
-- Plugin support: an optional project `plugins/` directory.
+For this checkout:
 
-Claude support is not included.
-
-## Set up a harness checkout
-
-After cloning `rblx-harness` itself, rebuild its ignored Codex support and
-repository skill links with:
-
-```bash
+```sh
 python3 setup_project.py --harness
 ```
 
-This installs all six harness skills for harness development. It does not
-create `.roblox` or `.serena/`.
+For an existing harness project:
 
-## Permissions
-
-The Roblox permission profile remains available, but it is optional. Full
-Access is also supported. No gate requires profile selection.
-
-Install the optional profile with:
-
-```bash
-python3 openai/setup/permissions_harness.py --install
-```
-
-The harness does not authorize sessions and does not force session restarts.
-
-## Install rblx-new-game locally
-
-Link the skill into the Codex skill directory. After explicit harness
-approval, the linked skill installs
-`https://github.com/lennyRBLX/rblx-harness.git` as the `rblx-harness` Git
-submodule.
-
-```bash
-python3 -c 'import os,pathlib; r=pathlib.Path.cwd(); d=pathlib.Path.home()/".agents/skills/rblx-new-game"; d.parent.mkdir(parents=True,exist_ok=True); d.unlink(missing_ok=True); os.symlink(r/"shared/skills/rblx-new-game",d,target_is_directory=True)'
-```
-
-Run `$rblx-new-game` from the target project directory.
-
-`rblx-new-game` is a bootstrap skill. It is not installed into the generated
-project's `.agents/skills/` directory.
-
-## rblx-new-game flow
-
-1. Inspect the current folder and identify existing places, Services,
-   Controllers, and shared or place-specific scope.
-2. Confirm the gameplay loop.
-3. Confirm the places. The layout always supports multiple places.
-4. Confirm shared and place-specific Services and Controllers.
-5. Select harness packages, Services, Controllers, and plugin support.
-6. Confirm whether the project uses rblx-harness.
-7. Scaffold the project.
-
-The scaffolder preserves an existing Git repository. Existing detected Service
-and Controller bytes replace generated boilerplate at their confirmed
-destination. Confirmed project information is stored in `manifest.json`. It
-creates and stages `.gitmodules` and the `rblx-harness` gitlink. Clone
-generated projects with `--recurse-submodules`, or initialize a normal clone
-with `git submodule update --init --recursive`.
-
-`setup_project.py` replaces the former Windows batch setup. It creates relative
-file symlinks for accepted harness Packages, Services, and Controllers on
-Windows, Linux, and macOS. Shared links are mounted by every generated place;
-place-specific source remains under `places/<Place>/`. The optional `plugins/`
-directory is created only when selected or already present.
-
-## Generated local state
-
-The submodule contains the tracked source for Codex support, but Codex discovers
-project configuration, agents, hooks, and repository skills only from the
-project root. Run setup after cloning:
-
-```bash
+```sh
 git submodule update --init --recursive
-python3 rblx-harness/setup_project.py --project "$(pwd)" --from-state
+python3 rblx-harness/setup_project.py --project . --from-state
 ```
 
-Setup recreates the ignored `.roblox` marker, `.codex/`, and the
-`.agents/skills/` links for `rblx-writer`, `rblx-gui`, `rblx-debug`, `rblx-optimize`, and `rblx-plan`.
-Serena creates `.serena/` when it is initialized. All four paths are ignored
-and must not be committed. Project `HANDOFF.md` is not generated; every harness
-project uses `rblx-harness/shared/HANDOFF.md`.
+Setup creates ignored `.agents/skills` links and `.codex/agents` definitions.
+Generated projects also receive `.roblox`, selected asset links, and project
+instructions. Serena manages its own `.serena` directory. Python 3.11+ is required;
+asset linking requires symlink support. The bundled toolchain downloader currently
+supports Apple Silicon macOS; other hosts must supply compatible tool binaries.
 
-## Hooks and gates
+For a new project, link `shared/skills/rblx-new-game` into
+`~/.agents/skills/rblx-new-game`, then invoke `$rblx-new-game` in that project.
+It records choices in `manifest.json` and installs the approved Git submodule from
+`https://github.com/lennyRBLX/rblx-harness.git`. Packages, Services, Controllers,
+and `plugins/` support are selectable. Existing detected module bytes are preserved.
 
-Generated projects install only:
+## Codex integration
 
-- `PreToolUse` for agent tool boundaries and mechanical rule checks.
-- `SubagentStart` for the four allowed agent roles and rule context.
-- `SubagentStop` for compact, role-specific returns.
-- `Stop` for plan response and file validation.
+| Concern | Implementation |
+|---|---|
+| Skill discovery | `.agents/skills/*/SKILL.md`, YAML name/description, optional `agents/openai.yaml` |
+| Project context | Root `AGENTS.md`; conditional knowledge in skill references |
+| Tools | Native search/edit/Git plus `tools/harness.py` for domain operations |
+| Agents | `.codex/agents/*.toml`; inherited model settings, role sandbox defaults, nested delegation disabled |
+| Validation | Checks inside transactional writers; explicitly selected source/project/harness checks |
+| Context size | Progressive disclosure, bounded artifacts, native compaction, 6,000-token tool-history default |
 
-`PreToolUse` snapshots project Markdown once per primary turn. `Stop` validates
-plans changed since that snapshot, including shell-written and newly committed
-files, plus response plans identified by their marker, title, Plan Mode numbered
-steps, or `<proposed_plan>` wrapper. Untouched plans keep their current format.
-File tracking uses the hook cwd, session ID and turn ID; direct file validation
-is also available through `shared/gates/plan_gate.py --root <project> --file <plan>`.
-The Git inventory covers tracked and unignored Markdown within the project,
-excluding dependency and generated configuration directories.
+These use official [skills](https://learn.chatgpt.com/docs/build-skills),
+[project instructions](https://learn.chatgpt.com/docs/agent-configuration/agents-md),
+[subagents](https://learn.chatgpt.com/docs/agent-configuration/subagents), and
+[configuration](https://learn.chatgpt.com/docs/config-file/config-reference).
+Descriptions and instructions express tool preferences. There is no Codex CLI
+`tool_choice` setting that forces every source edit through a script. Native
+[rules](https://learn.chatgpt.com/docs/agent-configuration/rules) govern command
+prefixes; [MCP allowlists](https://learn.chatgpt.com/docs/extend/mcp) limit tools on
+configured servers. Neither proves data semantics. Writer checks enforce their
+own invariants. Parent runtime permission overrides can supersede role defaults.
 
-The gate checks section/field order, milestone IDs, action numbering, Luau fences,
-affirmative command prefixes, and receipts for removed milestones. The skill
-handles source accuracy, context relevance, concision and completion evidence.
-A failed Stop requests one correction pass; repeated failure surfaces an unresolved
-validation message and stops automatic retries. These hooks do not authorize sessions.
+## Migration
 
-## Relink and validate
+Setup removes only recognized legacy harness hook handlers and updates its four
+agent files. It preserves unrelated agents, hooks, custom config values, and
+instructions outside its managed block. An exact legacy generated `AGENTS.md`
+is migrated; customized content is retained. Mapped place IDs survive relinking.
+`templates/AGENTS.legacy` is migration input, not active context.
 
-```bash
-python3 rblx-harness/setup_project.py --project "$(pwd)" --from-state
-python3 rblx-harness/tools/project_gate/project_gate.py --project-root "$(pwd)"
+No automatic harness hooks, format retries, mandatory agent chains, milestone
+receipts, or text-substitution compressor remain. The adapter is retained as a
+no-op for already running clients. Skills keep detailed references on demand;
+Codex manages compaction. An optional handoff template remains in `shared/HANDOFF.md`.
+Existing model and permission preferences remain in user/project configuration.
+The optional Roblox permission profile can be installed with
+`python3 openai/setup/permissions_harness.py --install`; setup does not select it.
+
+## Tools and checks
+
+```sh
+python3 tools/harness.py --help
+python3 tools/harness.py check harness
+python3 tools/harness.py check harness --case "native Codex"
 ```
 
-For changes that need full harness validation, run:
+For project commands, use `python3 rblx-harness/tools/harness.py` from the project
+root, or put `--root PROJECT` before the command family. See [tool details](shared/TOOLS.md).
+Single commands replace the dispatcher process. Batched checks deduplicate selected
+checkers and files. Required failures retain nonzero exit status. Studio execution
+is explicit. Existing backend scripts remain available for compatibility.
 
-```bash
-python3 tools/tests/run_verify.py
-```
-
-For focused feedback, list cases with `python3 tools/tests/run_verify.py --list`
-and select case-name substrings with `--case`, for example:
-
-```bash
-python3 tools/tests/run_verify.py --case "API access evidence"
-```
-
-Repeat `--case` to select multiple groups. Selected runs report `VERIFY|SELECTED`.
-Use the cases needed by the change; run the full suite for broad harness changes
-or an explicit full-validation requirement. Apply CORE TEST2–TEST3: reuse valid
-results and inspect simple rule/text edits directly. Completion alone does not
-require a new or broader run.
+For model selection, load the [evaluation guide](shared/skills/rblx-writer/references/models.md).

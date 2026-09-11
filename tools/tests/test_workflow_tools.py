@@ -16,8 +16,6 @@ import context_pack
 import session_audit
 import studio_output
 import studio_rpc
-import tool_gate
-import workflow_gate
 
 
 class ContextTests(unittest.TestCase):
@@ -180,32 +178,6 @@ class ConsoleTests(unittest.TestCase):
                 with rpc:
                     pass
             close.assert_called_once()
-
-
-class RoutingTests(unittest.TestCase):
-    def check(self, command, expected):
-        payload = {"tool_name": "exec_command", "tool_input": {"cmd": command}}
-        self.assertEqual(bool(workflow_gate.reason(payload)), expected, command)
-        normalized = {"tool_name": "Bash", "tool_input": {"command": command}}
-        self.assertEqual(bool(workflow_gate.reason(normalized)), expected, command)
-        wrapped = {"tool_name": "functions.exec", "tool_input": "text(await tools.exec_command({cmd:" + json.dumps(command) + "}));"}
-        self.assertEqual(bool(workflow_gate.reason(wrapped)), expected, command)
-
-    def test_direct_and_wrapped_routing(self):
-        for command in ("cat x.luau", "git diff -- shared", "git -C repo diff -- shared", "git diff -- --stat", "git diff --stat --patch", "python3 h/api_dump.py access X; python3 h/api_dump.py behavior gui"):
-            self.check(command, True)
-        for command in ("cat shared/CORE.md", "sed -n '1,30p' x.luau", "git diff --check", "git diff --stat=80", "git status -- diff", "git -C repo status -- diff", "python3 tools/context_pack.py read --file x.luau", "python3 api_dump.py batch access X behavior gui", "HARNESS_TOOL_REASON='need a specific missing mode' git diff -- shared"):
-            self.check(command, False)
-
-    def test_fallback_does_not_bypass_agent_or_data_rules(self):
-        payload = {"agent_type": "reviewer", "tool_name": "apply_patch", "tool_input": "anything", "harness_tool_reason": "user requested direct tool"}
-        with contextlib.redirect_stderr(io.StringIO()):
-            self.assertEqual(tool_gate.evaluate(payload), 2)
-        payload.update(agent_type="debugger", tool_input="*** Update File: /ReplicatedStorage/Data/Player.luau")
-        with contextlib.redirect_stderr(io.StringIO()):
-            self.assertEqual(tool_gate.evaluate(payload), 2)
-        payload.update(tool_name="exec_command", tool_input={"cmd": "python3 tools/context_pack.py --no-cache read --file /ReplicatedStorage/Data/Player.luau"})
-        self.assertEqual(tool_gate.evaluate(payload), 0)
 
 
 if __name__ == "__main__":

@@ -17,8 +17,6 @@ PY = sys.executable
 SCAFFOLD = os.path.join(ROOT, "shared", "skills", "rblx-new-game", "scripts", "scaffold.py")
 DEPENDENCY = os.path.join(ROOT, "shared", "skills", "rblx-new-game", "scripts", "dependency.py")
 PROJECT_GATE = os.path.join(ROOT, "tools", "project_gate", "project_gate.py")
-AGENT_GATE = os.path.join(ROOT, "shared", "gates", "agent_gate.py")
-TOOL_GATE = os.path.join(ROOT, "shared", "gates", "tool_gate.py")
 PERMISSIONS = os.path.join(ROOT, "openai", "setup", "permissions_harness.py")
 SUBMODULE_NAME = "rblx-harness"
 SUBMODULE_URL = "https://github.com/lennyRBLX/rblx-harness.git"
@@ -62,6 +60,7 @@ def harness_fixture(directory):
         "templates",
         "tools/api_dump",
         "tools/context_pack.py",
+        "tools/harness.py",
         "tools/session_audit.py",
         "tools/studio_output.py",
         "tools/studio_rpc.py",
@@ -176,27 +175,13 @@ def _():
         require(os.path.isfile(os.path.join(ROOT, "shared", "skills", skill, "agents", "openai.yaml")), skill)
 
 
-@case("hooks support only agents, tools, and rules")
-def _():
-    for relative in ("openai/hooks/project.json",):
-        document = json.load(open(os.path.join(ROOT, relative), encoding="utf-8"))
-        require(set(document["hooks"]) == {"PreToolUse", "SubagentStart", "SubagentStop", "Stop"}, relative)
-        serialized = json.dumps(document)
-        require("SessionStart" not in serialized and "UserPromptSubmit" not in serialized, relative)
-    contract = json.load(open(os.path.join(ROOT, "openai", "hooks", "contract.json"), encoding="utf-8"))
-    require(contract["session_authorization"] is False, contract)
-    require(contract["restart_required"] is False, contract)
-
-
 @case("harness setup rebuilds ignored Codex support and all source skills")
 def _():
     with tempfile.TemporaryDirectory() as directory:
         root = harness_fixture(directory)
         result = run([PY, os.path.join(root, "setup_project.py"), "--harness"], cwd=root)
         require(result.returncode == 0, result.stdout + result.stderr)
-        hooks = open(os.path.join(root, ".codex", "hooks.json"), encoding="utf-8").read()
-        require("/rblx-harness/openai/" not in hooks, hooks)
-        require("/openai/hooks/adapter.py" in hooks, hooks)
+        require(not os.path.exists(os.path.join(root, ".codex", "hooks.json")), "setup installed hooks")
         for skill in ("rblx-debug", "rblx-gui", "rblx-new-game", "rblx-optimize", "rblx-plan", "rblx-writer"):
             require(os.path.islink(os.path.join(root, ".agents", "skills", skill)), skill)
         require(not os.path.exists(os.path.join(root, ".roblox")), "harness setup created .roblox")
@@ -253,7 +238,7 @@ def _():
     merged = gatelib.merge_project_codex_config(existing, canonical)
     parsed = tomllib.loads(merged)
     require(parsed["custom"]["value"] == 7, merged)
-    require(parsed["features"]["multi_agent"] is True, merged)
+    require(parsed["tool_output_token_limit"] == 6000, merged)
     repeated = gatelib.merge_project_codex_config(merged, canonical)
     require(repeated == merged, "Codex config merge is not byte-stable")
 
@@ -470,7 +455,7 @@ def _():
         )
         require(restored.returncode == 0, restored.stdout + restored.stderr)
         require(os.path.isfile(os.path.join(root, ".roblox")), "setup did not recreate .roblox")
-        require(os.path.isfile(os.path.join(root, ".codex", "hooks.json")), "setup did not recreate .codex")
+        require(os.path.isfile(os.path.join(root, ".codex", "config.toml")), "setup did not recreate .codex")
         require(not os.path.lexists(os.path.join(root, ".agents", "skills", "rblx-new-game")), "setup retained rblx-new-game")
         require(open(readme_path, encoding="utf-8").read() == custom_readme, "setup replaced an existing README")
         os.makedirs(os.path.join(root, ".serena"))
@@ -497,6 +482,7 @@ def _():
     with tempfile.TemporaryDirectory() as directory:
         root = os.path.join(directory, "game")
         os.makedirs(os.path.join(root, "plugin"))
+        write(os.path.join(root, "AGENTS.md"), "# Custom project instructions\n")
         answers = (
             ("gameplay", "Players build and publish a plugin"),
             ("places", "Workshop"),
@@ -516,85 +502,7 @@ def _():
         require(not os.path.exists(os.path.join(root, "HANDOFF.md")), "project handoff was emitted")
         require(not os.path.exists(os.path.join(root, "README.md")), "README was emitted without harness use")
         require(not os.path.exists(os.path.join(root, SUBMODULE_NAME)), "harness was installed")
-
-
-@case("agent gate allows only four compact role returns")
-def _():
-    start_payload = json.dumps({"agent_type": "researcher", "hook_event_name": "SubagentStart"})
-    started = run([PY, AGENT_GATE, "--event", "SubagentStart"], input_text=start_payload)
-    require(started.returncode == 0 and "additionalContext" in started.stdout, started.stdout + started.stderr)
-    rejected = run(
-        [PY, AGENT_GATE, "--event", "SubagentStart"],
-        input_text=json.dumps({"agent_type": "maintainer"}),
-    )
-    require(rejected.returncode == 2, rejected.stdout + rejected.stderr)
-    stopped = run(
-        [PY, AGENT_GATE, "--event", "SubagentStop"],
-        input_text=json.dumps({"agent_type": "reviewer", "last_assistant_message": "reviewer: CLEAN"}),
-    )
-    require(stopped.returncode == 0, stopped.stdout + stopped.stderr)
-
-
-@case("tool gate enforces agent data tools without gating primary sessions")
-def _():
-    direct = {
-        "agent_type": "debugger",
-        "tool_name": "apply_patch",
-        "tool_input": "*** Update File: shared/src/ReplicatedStorage/Data/Player.luau",
-    }
-    blocked = run([PY, TOOL_GATE, "--event", "PreToolUse"], input_text=json.dumps(direct))
-    require(blocked.returncode == 2 and "TOOL1" in blocked.stderr, blocked.stdout + blocked.stderr)
-    primary = dict(direct)
-    primary.pop("agent_type")
-    allowed = run([PY, TOOL_GATE, "--event", "PreToolUse"], input_text=json.dumps(primary))
-    require(allowed.returncode == 0, allowed.stdout + allowed.stderr)
-    approved = {
-        "agent_type": "debugger",
-        "tool_name": "exec_command",
-        "tool_input": {"cmd": "python3 rblx-harness/tools/type_write/type_write.py --request '{}'"},
-    }
-    result = run([PY, TOOL_GATE, "--event", "PreToolUse"], input_text=json.dumps(approved))
-    require(result.returncode == 0, result.stdout + result.stderr)
-    shell_write = {
-        "agent_type": "debugger",
-        "tool_name": "exec_command",
-        "tool_input": {"cmd": "sed -i '' shared/src/ReplicatedStorage/Data/Player.luau"},
-    }
-    result = run([PY, TOOL_GATE, "--event", "PreToolUse"], input_text=json.dumps(shell_write))
-    require(result.returncode == 2 and "TOOL1" in result.stderr, result.stdout + result.stderr)
-    hidden_shell_write = {
-        "agent_type": "debugger",
-        "tool_name": "exec_command",
-        "tool_input": {"cmd": "python3 -c 'open(\"shared/src/ReplicatedStorage/Data/Player.luau\", \"w\")'"},
-    }
-    result = run([PY, TOOL_GATE, "--event", "PreToolUse"], input_text=json.dumps(hidden_shell_write))
-    require(result.returncode == 2 and "TOOL1" in result.stderr, result.stdout + result.stderr)
-    data_read = {
-        "agent_type": "debugger",
-        "tool_name": "exec_command",
-        "tool_input": {"cmd": "sed -n '1,80p' shared/src/ReplicatedStorage/Data/Player.luau"},
-    }
-    result = run([PY, TOOL_GATE, "--event", "PreToolUse"], input_text=json.dumps(data_read))
-    require(result.returncode == 0, result.stdout + result.stderr)
-    nested = {
-        "agent_type": "debugger",
-        "tool_name": "spawn_agent",
-        "tool_input": {"agent_type": "researcher"},
-    }
-    result = run([PY, TOOL_GATE, "--event", "PreToolUse"], input_text=json.dumps(nested))
-    require(result.returncode == 2 and "AGENT1" in result.stderr, result.stdout + result.stderr)
-    invalid_dispatch = {
-        "tool_name": "Agent",
-        "tool_input": {"agent_type": "worker"},
-    }
-    result = run([PY, TOOL_GATE, "--event", "PreToolUse"], input_text=json.dumps(invalid_dispatch))
-    require(result.returncode == 2 and "AGENT1" in result.stderr, result.stdout + result.stderr)
-    valid_dispatch = {
-        "tool_name": "Agent",
-        "tool_input": {"agent_type": "researcher"},
-    }
-    result = run([PY, TOOL_GATE, "--event", "PreToolUse"], input_text=json.dumps(valid_dispatch))
-    require(result.returncode == 0, result.stdout + result.stderr)
+        require(open(os.path.join(root, "AGENTS.md"), encoding="utf-8").read() == "# Custom project instructions\n", "custom instructions were replaced")
 
 
 @case("data tools require no human schema review")
@@ -610,23 +518,13 @@ def _():
         require(blocker not in text, "stale data review blocker: %s" % blocker)
 
 
-@case("token compression supports only the four retained agents")
-def _():
-    tool = os.path.join(ROOT, "shared", "gates", "token_shrink.py")
-    source = "researcher: FOUND\n\nfact|docs|worker is required to preserve input in order to continue"
-    result = run([PY, tool, "--agent", "researcher"], input_text=source)
-    require(result.returncode == 0 and "must preserve input to continue" in result.stdout, result.stdout + result.stderr)
-    removed = run([PY, tool, "--agent", "maintainer"], input_text="maintainer: READY")
-    require(removed.returncode != 0, removed.stdout + removed.stderr)
-
-
-@case("API access evidence and agent compaction preserve restrictions")
+@case("API access evidence preserves restrictions")
 def _():
     result = run([PY, os.path.join(ROOT, "tools", "tests", "test_api_evidence.py")])
     require(result.returncode == 0, result.stdout + result.stderr)
 
 
-@case("batch evidence, hook dispatch, and type cache preserve validation")
+@case("type cache preserves validation")
 def _():
     result = run([PY, os.path.join(ROOT, "tools", "tests", "test_harness_cost.py")])
     require(result.returncode == 0, result.stdout + result.stderr)
@@ -638,15 +536,15 @@ def _():
     require(result.returncode == 0, result.stdout + result.stderr)
 
 
-@case("plan format, turn edits, receipts and bounded Stop corrections")
+@case("session audit, bounded context and console deltas")
 def _():
-    result = run([PY, os.path.join(ROOT, "tools", "tests", "test_plan_gate.py")])
+    result = run([PY, os.path.join(ROOT, "tools", "tests", "test_workflow_tools.py")])
     require(result.returncode == 0, result.stdout + result.stderr)
 
 
-@case("session audit, bounded context, console deltas and workflow routing")
+@case("native Codex migration and consolidated commands")
 def _():
-    result = run([PY, os.path.join(ROOT, "tools", "tests", "test_workflow_tools.py")])
+    result = run([PY, os.path.join(ROOT, "tools", "tests", "test_native_codex.py")])
     require(result.returncode == 0, result.stdout + result.stderr)
 
 

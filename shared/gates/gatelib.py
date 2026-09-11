@@ -1,11 +1,9 @@
 """Small shared helpers for rblx-harness tools and Codex gates."""
 
-import hashlib
 import json
 import os
 import re
 import subprocess
-import sys
 import time
 
 try:
@@ -23,8 +21,6 @@ PROJECT_HARNESS_DIR = "rblx-harness"
 PROJECT_HARNESS_URL = "https://github.com/lennyRBLX/rblx-harness.git"
 REQUIRED_CODEX_AGENTS = ("researcher", "optimizer", "reviewer", "debugger")
 REQUIRED_SKILLS = ("rblx-writer", "rblx-gui", "rblx-debug", "rblx-optimize", "rblx-plan")
-HOOK_EVENTS = ("PreToolUse", "SubagentStart", "SubagentStop", "Stop")
-SHARED_HANDOFF = os.path.join(HARNESS, "shared", "HANDOFF.md")
 
 
 def bundled_tool_path(name, windows=None):
@@ -52,18 +48,6 @@ def which(name, path=None, pathext=None, windows=None):
             if os.path.isfile(candidate) and (windows or os.access(candidate, os.X_OK)):
                 return candidate
     return None
-
-
-def read_payload():
-    try:
-        payload = json.load(sys.stdin)
-    except (TypeError, ValueError):
-        return None
-    return payload if isinstance(payload, dict) else None
-
-
-def emit_json(value):
-    sys.stdout.write(json.dumps(value, separators=(",", ":")) + "\n")
 
 
 def git(cwd, *args):
@@ -142,7 +126,7 @@ def is_harness(cwd):
     root = os.path.realpath(cwd)
     return all(
         os.path.isfile(os.path.join(root, relative))
-        for relative in ("shared/CORE.md", "setup_project.py", "openai/hooks/project.json")
+        for relative in ("shared/CORE.md", "setup_project.py", "openai/config/project.toml")
     )
 
 
@@ -182,97 +166,28 @@ def project_uses_harness(cwd, harness=None):
     return harness is None or candidate == os.path.realpath(harness)
 
 
-MANAGED_BEGIN = "# BEGIN rblx-harness managed Codex config"
-MANAGED_END = "# END rblx-harness managed Codex config"
-
-
-def _toml_table_name(line):
-    match = re.match(r"^\s*\[([^\[\]]+)\]\s*(?:#.*)?$", line)
-    return match.group(1).strip() if match else None
-
-
-def _toml_assignment_key(line):
-    match = re.match(r"^\s*([A-Za-z0-9_-]+)\s*=", line)
-    return match.group(1) if match else None
-
-
-def _toml_sections(text):
-    sections = [("", [])]
-    for line in text.splitlines(keepends=True):
-        table = _toml_table_name(line)
-        if table is not None:
-            sections.append((table, [line]))
-        else:
-            sections[-1][1].append(line)
-    return sections
-
-
 def merge_project_codex_config(existing, canonical):
+    """Insert missing scalar defaults without rewriting user TOML or preferences."""
     if tomllib is None:
         raise ValueError("Python tomllib is unavailable")
-    existing = (existing or "").replace(MANAGED_BEGIN, "").replace(MANAGED_END, "")
-    canonical = canonical.replace(MANAGED_BEGIN, "").replace(MANAGED_END, "")
+    existing = existing or ""
     try:
-        if existing.strip():
-            tomllib.loads(existing)
-        tomllib.loads(canonical)
+        configured = tomllib.loads(existing)
+        defaults = tomllib.loads(canonical)
     except tomllib.TOMLDecodeError as error:
-        raise ValueError("project Codex config is malformed: %s" % str(error)[:160])
-
-    canonical_sections = _toml_sections(canonical)
-    managed = {
-        name: {
-            key for key in (
-                _toml_assignment_key(line)
-                for line in (lines[1:] if name else lines)
-            ) if key
-        }
-        for name, lines in canonical_sections
-    }
-    assignments = {
-        name: {
-            _toml_assignment_key(line): line
-            for line in (lines[1:] if name else lines)
-            if _toml_assignment_key(line) in keys
-        }
-        for (name, lines), keys in zip(canonical_sections, managed.values())
-    }
-    output = []
-    seen = set()
-    for name, lines in _toml_sections(existing):
-        if name not in managed:
-            output.extend(lines)
-            continue
-        seen.add(name)
-        header = lines[:1] if name else []
-        body = lines[1:] if name else lines
-        retained = []
-        replaced = set()
-        for line in body:
-            key = _toml_assignment_key(line)
-            if key not in managed[name]:
-                retained.append(line)
-            elif key not in replaced:
-                retained.append(assignments[name][key])
-                replaced.add(key)
-        missing = [line for key, line in assignments[name].items() if key not in replaced]
-        insertion = len(retained)
-        while insertion and not retained[insertion - 1].strip():
-            insertion -= 1
-        retained[insertion:insertion] = missing
-        output.extend(header)
-        output.extend(retained)
-    for name, lines in canonical_sections:
-        if name in seen:
-            continue
-        if output and output[-1].strip():
-            output.append("\n")
-        output.extend(lines)
-    merged = "".join(output).strip() + "\n"
-    try:
-        tomllib.loads(merged)
-    except tomllib.TOMLDecodeError as error:
-        raise ValueError("project Codex config is malformed: %s" % str(error)[:160])
+        raise ValueError("project Codex config is malformed: %s" % str(error)[:160]) from error
+    additions = []
+    for key, value in defaults.items():
+        if not re.fullmatch(r"[A-Za-z0-9_-]+", key) or type(value) not in (str, int, bool):
+            raise ValueError("harness defaults must use scalar top-level TOML keys")
+        if key not in configured:
+            additions.append("%s = %s" % (key, json.dumps(value, ensure_ascii=False)))
+    if not additions:
+        return existing
+    # Prepending keeps new root keys out of the user's final table and never
+    # interprets headings or assignments inside multiline TOML strings.
+    merged = "\n".join(additions) + "\n\n" + existing
+    tomllib.loads(merged)
     return merged
 
 
@@ -285,8 +200,8 @@ def required_codex_agents_status(root):
         for name in os.listdir(agents_dir)
         if name.endswith(".toml")
     ) if os.path.isdir(agents_dir) else []
-    if present != sorted(REQUIRED_CODEX_AGENTS):
-        return False, "Codex agents must be exactly: %s" % ", ".join(REQUIRED_CODEX_AGENTS)
+    if not set(REQUIRED_CODEX_AGENTS).issubset(present):
+        return False, "Codex agents must include: %s" % ", ".join(REQUIRED_CODEX_AGENTS)
     for name in REQUIRED_CODEX_AGENTS:
         path = os.path.join(agents_dir, name + ".toml")
         try:
@@ -294,42 +209,11 @@ def required_codex_agents_status(root):
                 definition = tomllib.load(handle)
         except (OSError, tomllib.TOMLDecodeError) as error:
             return False, "%s is invalid: %s" % (path, error)
-        if definition.get("name") != name or not definition.get("developer_instructions"):
+        if definition.get("name") != name or not definition.get("description") or not definition.get("developer_instructions"):
             return False, "%s has an invalid agent definition" % path
+        if definition.get("agents", {}).get("enabled") is not False:
+            return False, "%s must disable nested delegation" % path
     return True, ""
-
-
-def hook_handler_text(handler):
-    if not isinstance(handler, dict):
-        return ""
-    values = [handler.get("command", ""), handler.get("commandWindows", "")]
-    return " ".join(str(value) for value in values if value)
-
-
-def hook_definition_status(cwd, scope="project", host="codex"):
-    if scope != "project" or host != "codex":
-        return False, "only project Codex hooks are supported", None
-    path = os.path.join(os.path.realpath(cwd), ".codex", "hooks.json")
-    try:
-        raw = open(path, "rb").read()
-        document = json.loads(raw)
-    except (OSError, ValueError) as error:
-        return False, "hook file is absent or malformed: %s" % error, None
-    hooks = document.get("hooks") if isinstance(document, dict) else None
-    if not isinstance(hooks, dict) or set(hooks) != set(HOOK_EVENTS):
-        return False, "hooks must contain only %s" % ", ".join(HOOK_EVENTS), None
-    for event in HOOK_EVENTS:
-        entries = hooks.get(event)
-        if not isinstance(entries, list) or not entries:
-            return False, "%s hook is absent" % event, None
-        commands = [
-            hook_handler_text(handler)
-            for entry in entries if isinstance(entry, dict)
-            for handler in entry.get("hooks", []) if isinstance(handler, dict)
-        ]
-        if not any("openai/hooks/adapter.py" in command.replace("\\", "/") and "--event %s" % event in command for command in commands):
-            return False, "%s hook does not use the harness adapter" % event, None
-    return True, "", hashlib.sha256(raw).hexdigest()
 
 
 def corpus_assets_error():

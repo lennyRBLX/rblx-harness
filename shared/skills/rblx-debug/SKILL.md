@@ -1,28 +1,24 @@
 ---
 name: rblx-debug
-description: Diagnose/fix Roblox bugs from evidence, use focused tests when needed, then optimize, review & clean up. Use for unexplained bugs or fixes.
+description: Diagnose and fix Roblox bugs from source, logs, or reproduction evidence. Use for unexplained failures and regressions.
 ---
 
-Resolve `<HARNESS_ROOT>` from the project's `rblx-harness` submodule; read
-`<HARNESS_ROOT>/shared/CORE.md`.
+# Roblox debugging
 
-Use [tool routes](../../TOOLS.md) for source/review packs, API batches and
-console deltas. Reuse evidence already in context at unchanged revisions.
+Follow project `AGENTS.md`; read [CORE.md](../../CORE.md) only if its Roblox
+guidance is absent. Resolve the harness containing this skill as `H`.
+Use `python3 H/tools/harness.py --help` for domain commands.
 
-1. Run `researcher` for missing relevant Roblox docs & project facts; pass existing evidence.
-2. Use `debugger` to resolve the cause. When supplied output/source establishes it, proceed to the fix. Otherwise select the smallest diagnostic that separates remaining causes (TEST2).
-3. For a necessary runtime diagnostic, use the selected environment and execution authority (TEST1); obtain the result before making a dependent decision.
-4. Write the fix from evidence. Run `optimizer`; apply its issues. Run `reviewer`; apply its issues.
-5. Check the settled fix against the reported failure when TEST2 requires it. Reuse an earlier valid result; recheck after review only when an applied change affects that result (TEST3). Stop when required acceptance is met.
-6. Remove this session's temporary tests & diagnostics; preserve pre-existing ones.
+1. Inspect the failure and affected callers. Supplied source or output may establish
+   the cause; otherwise choose one diagnostic that separates the remaining causes.
+2. For engine questions, load [engine evidence](../rblx-writer/references/engine.md).
+   Read [probes.md](references/probes.md) only for an unresolved runtime question.
+   Obtain the selected environment's result before a dependent decision.
+3. Fix the established cause. Use `types write` for data or public declarations.
+   Review correctness, lifecycle, and affected performance. Check the reported
+   failure when existing evidence does not resolve acceptance.
+4. Remove this task's temporary diagnostics; preserve pre-existing and useful
+   regression tests. Report the cause, change, evidence, and remaining limits.
 
-Keep diagnostics disabled by default & scoped to the selected place. Use
-`tools/data_write/data_write.py`/`tools/type_write/type_write.py` under
-`<HARNESS_ROOT>` for TOOL1 changes.
-
-For engine access, timing, modules or lifecycle questions, read
-[engine evidence](../rblx-writer/references/engine.md) before selecting probes.
-Classify gaps: missing source, lost output, retrieval failure or ambiguous
-behavior. Prefer engine docs, engineer-confirmed fixes or reproduction;
-community reports are leads. Test only unresolved questions using
-[probes.md](references/probes.md).
+Use `debugger` or another bounded role when delegation is requested. Do not require
+a research, optimization, and review agent sequence for every fix.

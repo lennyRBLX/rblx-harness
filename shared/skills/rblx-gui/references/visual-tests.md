@@ -1,6 +1,6 @@
 # Visual checks
 
-Apply TEST2–TEST3 before staging a run. Use this list to select a necessary
+Use existing conclusive evidence before staging a run. Select a necessary
 case, not as a mandatory matrix. Skip fixtures, captures and test cards for
 simple reversible edits whose acceptance is resolved by direct inspection.
 For each selected case, record the unresolved question, setup, action,
@@ -24,7 +24,7 @@ For fractional geometry at different screen origins, compare numeric deltas
 with an explicit subpixel tolerance; exact serialized equality can fail from
 coordinate precision. Keep assigned properties and host counts exact. Record
 the maximum delta and failing item/sample; reject nonfinite values and verify
-that a displacement above the tolerance fails. Use TEST1 for required visual
+that a displacement above the tolerance fails. Use the user-selected environment and execution authorization for visual
 acceptance. P-react on Studio 0.737.0.7371584 used 0.001 px; its observed
 origin-dependent error reached 0.0000763 px. Recheck the bound only when the
 task depends on a scale outside that evidence.

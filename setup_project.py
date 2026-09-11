@@ -4,6 +4,7 @@
 import argparse
 import json
 import os
+import re
 import shutil
 import sys
 
@@ -25,6 +26,8 @@ LOCAL_IGNORE_ENTRIES = (
     ".DS_Store",
 )
 ASSET_ORDER = ("packages", "services", "controllers", "plugins")
+GUIDANCE_BEGIN = "<!-- BEGIN rblx-harness project guidance -->"
+GUIDANCE_END = "<!-- END rblx-harness project guidance -->"
 
 
 def fail(message):
@@ -190,47 +193,66 @@ def link_tree(source_root, destination_root, replace_regular=False):
     return results
 
 
-def harness_hook_text():
-    document = read_json(os.path.join(HARNESS, "openai", "hooks", "project.json"))
+def remove_legacy_hooks(project):
+    """Remove only retired harness handlers; retain other hook sources and entries."""
+    path = os.path.join(project, ".codex", "hooks.json")
+    if not os.path.exists(path):
+        return
+    document = read_json(path)
     hooks = document.get("hooks")
     if not isinstance(hooks, dict):
-        fail("project hook source is malformed")
-    for entries in hooks.values():
+        fail("project hooks must contain a hooks object")
+    changed = False
+    for event, entries in list(hooks.items()):
         if not isinstance(entries, list):
-            continue
+            fail("project hook entries must be arrays")
+        retained = []
         for entry in entries:
-            for handler in entry.get("hooks", []) if isinstance(entry, dict) else []:
-                if not isinstance(handler, dict):
-                    continue
-                command = handler.get("command")
-                if isinstance(command, str):
-                    handler["command"] = command.replace("/rblx-harness/openai/", "/openai/")
-                command_windows = handler.get("commandWindows")
-                if isinstance(command_windows, str):
-                    handler["commandWindows"] = command_windows.replace(
-                        "rblx-harness\\openai\\",
-                        "openai\\",
-                    )
-    return json.dumps(document, indent=2) + "\n"
+            if not isinstance(entry, dict) or not isinstance(entry.get("hooks"), list):
+                fail("project hook entry must contain a hooks array")
+            handlers = []
+            for handler in entry["hooks"]:
+                if legacy_hook_handler(handler, event):
+                    changed = True
+                else:
+                    handlers.append(handler)
+            if handlers:
+                retained.append(dict(entry, hooks=handlers))
+        if retained:
+            hooks[event] = retained
+        else:
+            del hooks[event]
+    if changed:
+        if hooks or set(document) != {"hooks"}:
+            write_json(path, document)
+        else:
+            os.unlink(path)
+
+
+def legacy_hook_handler(handler, event):
+    """Match installed command bytes, not arbitrary commands mentioning a path."""
+    if not isinstance(handler, dict) or handler.get("type") != "command":
+        return False
+    suffix = "--host codex --event %s --hook-scope project" % event
+    known = set()
+    for prefix in ("", "rblx-harness/"):
+        known.add('PYTHONDONTWRITEBYTECODE=1 python3 "$(git rev-parse --show-toplevel)/%sopenai/hooks/adapter.py" %s' % (prefix, suffix))
+        windows = (prefix + "openai/hooks/adapter.py").replace("/", "\\")
+        known.add('powershell.exe -NoProfile -Command "$root = git rev-parse --show-toplevel; & py -3 -B (Join-Path $root \'%s\') %s"' % (windows, suffix))
+    commands = [handler[key] for key in ("command", "commandWindows", "command_windows") if key in handler]
+    return bool(commands) and all(isinstance(command, str) and command in known for command in commands)
 
 
 def copy_codex_support(project, harness_checkout=False):
     codex = os.path.join(project, ".codex")
     agents = os.path.join(codex, "agents")
     os.makedirs(agents, exist_ok=True)
-    for filename in os.listdir(agents):
-        if filename.endswith(".toml") and os.path.splitext(filename)[0] not in AGENTS:
-            os.unlink(os.path.join(agents, filename))
     for name in AGENTS:
         shutil.copy2(
             os.path.join(HARNESS, "openai", "agents", name + ".toml"),
             os.path.join(agents, name + ".toml"),
         )
-    hooks_path = os.path.join(codex, "hooks.json")
-    if harness_checkout:
-        write_text(hooks_path, harness_hook_text())
-    else:
-        shutil.copy2(os.path.join(HARNESS, "openai", "hooks", "project.json"), hooks_path)
+    remove_legacy_hooks(project)
     sys.path.insert(0, os.path.join(HARNESS, "shared", "gates"))
     import gatelib
 
@@ -280,12 +302,45 @@ def render_templates(project, manifest):
     )
     with open(os.path.join(HARNESS, "templates", "AGENTS.md"), encoding="utf-8") as handle:
         template = handle.read()
+    with open(os.path.join(HARNESS, "shared", "CORE.md"), encoding="utf-8") as handle:
+        rules = handle.read().strip()
+    guidance_path = os.path.join(project, "AGENTS.md")
+    try:
+        with open(guidance_path, encoding="utf-8") as handle:
+            existing = handle.read()
+    except FileNotFoundError:
+        existing = ""
+    pattern = re.compile(re.escape(GUIDANCE_BEGIN) + r".*?" + re.escape(GUIDANCE_END), re.DOTALL)
+    block = pattern.search(existing)
+    previous = block.group(0) if block else existing
+    place_block = re.search(r"^## places\s*\n(.*?)(?=^## |<!-- END|\Z)", previous, re.MULTILINE | re.DOTALL)
+    mappings = {}
+    if place_block:
+        for line in place_block[1].splitlines():
+            name, separator, place_id = line.strip().partition("|")
+            if separator and place_id.isdigit() and int(place_id) > 0:
+                mappings[name] = place_id
+    place_lines = "\n".join(place + "|" + mappings[place] if place in mappings else "- " + place for place in places)
     rendered = (
-        template.replace("{{SUMMARY}}", summary)
-        .replace("{{PLACES}}", "\n".join("- " + place for place in places))
+        template.replace("{{RULES}}", rules).replace("{{SUMMARY}}", summary)
+        .replace("{{PLACES}}", place_lines)
         .replace("{{ASSETS}}", ", ".join(assets) if assets else "none")
     )
-    write_text(os.path.join(project, "AGENTS.md"), rendered)
+    if GUIDANCE_BEGIN in existing or GUIDANCE_END in existing:
+        if existing.count(GUIDANCE_BEGIN) != 1 or existing.count(GUIDANCE_END) != 1 or not pattern.search(existing):
+            fail("AGENTS.md has malformed harness guidance markers")
+        guidance = pattern.sub(lambda _: rendered.strip(), existing)
+    else:
+        # Older setup owned the entire generated document. Migrate exact known
+        # bytes only; customized documents are retained outside the managed block.
+        legacy_path = os.path.join(HARNESS, "templates", "AGENTS.legacy")
+        with open(legacy_path, encoding="utf-8") as handle:
+            legacy = handle.read().replace("{{SUMMARY}}", summary).replace(
+                "{{PLACES}}", place_lines
+            ).replace("{{ASSETS}}", ", ".join(assets) if assets else "none")
+        retained = existing[len(legacy):] if existing.startswith(legacy) else existing
+        guidance = "\n\n".join(part for part in (rendered.strip(), retained.strip()) if part) + "\n"
+    write_text(guidance_path, guidance)
     readme_path = os.path.join(project, "README.md")
     if not os.path.exists(readme_path):
         with open(os.path.join(HARNESS, "templates", "README.md"), encoding="utf-8") as handle:

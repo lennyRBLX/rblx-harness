@@ -310,18 +310,6 @@ def main(argv):
         if cname in counters:
             print("counter|%s|%s|session-scoped, never per-frame" % (cname, counters[cname]))
 
-    # the stamp done-gate's OPT1 check reads: this stem was analyzed
-    try:
-        import time
-
-        cache = os.path.expanduser("~/.cache/harness")
-        os.makedirs(cache, exist_ok=True)
-        stem = os.path.basename(csv_path)[: -len(".csv")]
-        with open(os.path.join(cache, "frame_census.last"), "a", encoding="utf-8") as f:
-            f.write("%s|%f\n" % (stem, time.time()))
-    except OSError:
-        pass
-
     return 0
 
 

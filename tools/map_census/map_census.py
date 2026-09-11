@@ -2,8 +2,8 @@
 """map_census — the only tool that reasons about instances rather than source.
 OPT21 against the six static properties; OPT23 at each :Destroy()/:Clone()
 site whose target resolves to a census entry with parts > 1000. Both live
-here because both need the same instance census, and keeping perf_audit
-Studio-free is what lets done-gate's floor run with Studio closed.
+here because both need the same instance census. Static performance checks
+remain available without Studio.
 
   map_census [--root DIR] [--mcp-cmd CMD] [--session ID] [file...]
 

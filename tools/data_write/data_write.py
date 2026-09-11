@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""data_write — atomic paired write to both data modules. Separate --default
+"""data_write — validated writes with rollback across all data modules. Separate --default
 and --dev, dev required: shape pairs and values never do, so supplying one
 would mean inventing the other. No --owner: DATA1 mandates the same-named
 key, so ownership is derivable.
@@ -13,9 +13,10 @@ Process — refuse first, write last:
   4  data_shape_diff — refuse configured hard boundaries and report schema
      compatibility notes without requiring human approval
   5  generate the export type in Default.luau from the validated shape
-  6  only then write: both temps, verify parse, rename Default then
-     Development; if the second rename fails, restore the first; if the
-     restore also fails, exit 2 naming both files and the key.
+  6  stage on the destination filesystem and retain all originals; restore
+     every changed file on replacement failure. Retain backups if recovery fails.
+
+Prefer tools/harness.py types write for journaled batch transactions and recovery.
 """
 
 import os
@@ -36,6 +37,49 @@ import houseout  # noqa: E402
 LUTE = gatelib.bundled_tool_path("lute")
 CORE = os.path.join(HERE, "data_write_core.luau")
 SHAPE_DIFF = os.path.join(TOOLS, "data_shape_diff", "data_shape_diff.luau")
+
+
+class ReplacementError(Exception):
+    pass
+
+
+def replace_files(replacements):
+    """Recover a failed multi-file replacement; this is not a filesystem transaction."""
+    directory = tempfile.mkdtemp(prefix=".data_write_", dir=os.path.dirname(replacements[0][1]))
+    retain = False
+    changed = []
+    prepared = []
+    try:
+        for index, (source, destination) in enumerate(replacements):
+            staged = os.path.join(directory, "%d.new" % index)
+            backup = os.path.join(directory, "%d.original" % index) if os.path.lexists(destination) else None
+            shutil.copy2(source, staged)
+            if backup is not None:
+                shutil.copy2(destination, backup, follow_symlinks=False)
+            prepared.append((staged, destination, backup))
+        try:
+            for staged, destination, backup in prepared:
+                os.replace(staged, destination)
+                changed.append((destination, backup))
+        except OSError as error:
+            failed = []
+            for destination, backup in reversed(changed):
+                try:
+                    if backup is None:
+                        os.unlink(destination)
+                    else:
+                        os.replace(backup, destination)
+                except OSError:
+                    failed.append(destination)
+            if failed:
+                retain = True
+                raise ReplacementError("recovery failed for %s; retained backups: %s" % (
+                    ", ".join(failed), directory,
+                )) from error
+            raise ReplacementError("replacement failed; original files restored: %s" % error) from error
+    finally:
+        if not retain:
+            shutil.rmtree(directory, ignore_errors=True)
 
 
 def main(argv):
@@ -126,35 +170,17 @@ def main(argv):
                     print("0|0|%s|%s|see data_shape_diff" % (rule, line.replace("|", "/")))
                 return 2
 
-        # the rename dance: POSIX offers no way to commit both or neither
         typed_tmp = out_default[: -len("Default.luau")] + "Typed.luau"
         typed_path = os.path.join(pd_dir, "Typed.luau")
-        retained = None
-        if os.path.exists(default_path):
-            retained = default_path + ".orig"
-            shutil.copy2(default_path, retained)
+        replacements = [(out_default, default_path)]
+        if os.path.exists(typed_tmp):
+            replacements.append((typed_tmp, typed_path))
+        replacements.append((out_dev, dev_path))
         try:
-            os.replace(out_default, default_path)
-            if os.path.exists(typed_tmp):
-                os.replace(typed_tmp, typed_path)
-            try:
-                os.replace(out_dev, dev_path)
-            except OSError as e:
-                if retained is not None:
-                    try:
-                        os.replace(retained, default_path)
-                        retained = None
-                    except OSError:
-                        print(
-                            "data_write: FAILED\n\n0|0|GATE3|%s and %s disagree on %s|reconcile by hand - the pair is split"
-                            % (default_path, dev_path, keypath)
-                        )
-                        return 2
-                print("data_write: REFUSED\n\n0|0|GATE3|%s|second rename failed: %s - Default restored" % (keypath, e))
-                return 2
-        finally:
-            if retained is not None and os.path.exists(retained):
-                os.remove(retained)
+            replace_files(replacements)
+        except ReplacementError as error:
+            print("data_write: FAILED\n\n0|0|GATE3|%s|%s" % (keypath, error))
+            return 2
 
         print("data_write: WRITTEN\n")
         print(houseout.elide(default_path, root) + ":")
@@ -175,5 +201,5 @@ if __name__ == "__main__":
     except SystemExit:
         raise
     except Exception as e:
-        sys.stderr.write("data_write: CRASH %s: %s - nothing was written\n" % (type(e).__name__, e))
+        sys.stderr.write("data_write: CRASH %s: %s\n" % (type(e).__name__, e))
         sys.exit(2)

@@ -16,52 +16,8 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "shared/gates"))
 sys.path.insert(0, str(ROOT / "tools"))
 
-import adapterlib
 from type_cache import type_cache
 from type_core import core
-
-
-class HookDispatchTest(unittest.TestCase):
-    def invoke(self, event, raw):
-        output, errors = io.StringIO(), io.StringIO()
-        with mock.patch("sys.stdin", io.StringIO(raw)), contextlib.redirect_stdout(output), contextlib.redirect_stderr(errors):
-            result = adapterlib.main("codex", ["--event", event])
-        return result, output.getvalue(), errors.getvalue()
-
-    def test_dispatch_matches_standalone_gates_without_subprocesses(self):
-        cases = [
-            ("PreToolUse", {"tool_name": "exec_command", "tool_input": {"cmd": "rg Name"}}),
-            ("PreToolUse", {"tool_name": "spawn_agent", "tool_input": {"agent_type": "reviewer"}}),
-            ("PreToolUse", {"tool_name": "spawn_agent", "tool_input": {"agent_type": "worker"}}),
-            ("PreToolUse", {"agent_type": "researcher", "tool_name": "apply_patch", "tool_input": "source"}),
-            ("PreToolUse", {"agent_type": "debugger", "tool_name": "apply_patch", "tool_input": "/Default.luau"}),
-            ("PreToolUse", {"agent_type": "debugger", "tool_name": "apply_patch", "tool_input": "loadstring(x)"}),
-            ("SubagentStart", {"agent_type": "reviewer"}),
-            ("SubagentStart", {"agent_type": "reviewer", "depth": 2}),
-            ("SubagentStart", {"agent_type": "worker"}),
-            ("SubagentStop", {"agent_type": "reviewer", "last_assistant_message": "reviewer: CLEAN"}),
-            ("SubagentStop", {"agent_type": "reviewer", "last_assistant_message": "invalid"}),
-            ("SubagentStop", {"agent_type": "reviewer", "last_assistant_message": "x" * 8193}),
-        ]
-        for event, payload in cases:
-            with self.subTest(event=event, payload=payload):
-                raw = json.dumps(payload)
-                gate = ROOT / "shared/gates" / adapterlib.EVENT_SCRIPTS[event]
-                expected = subprocess.run([sys.executable, "-B", str(gate), "--event", event],
-                                          input=raw, capture_output=True, text=True)
-                with mock.patch("subprocess.run", side_effect=AssertionError("gate spawned a process")):
-                    actual = self.invoke(event, raw)
-                self.assertEqual(actual, (expected.returncode, expected.stdout, expected.stderr))
-
-    def test_adapter_rejects_invalid_envelopes_before_dispatch(self):
-        for raw, reason in (("{", "malformed JSON"), ("[]", "not an object"),
-                            ('{"hook_event_name":"SubagentStop"}', "event does not match")):
-            with self.subTest(raw=raw), mock.patch.object(adapterlib.tool_gate, "evaluate") as dispatch:
-                status, output, error = self.invoke("PreToolUse", raw)
-                self.assertEqual(status, 2)
-                self.assertEqual(output, "")
-                self.assertIn(reason, error)
-                dispatch.assert_not_called()
 
 
 class ParsedTypeCacheTest(unittest.TestCase):

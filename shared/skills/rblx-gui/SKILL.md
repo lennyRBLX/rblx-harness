@@ -1,26 +1,25 @@
 ---
 name: rblx-gui
-description: Create, modify, or connect Roblox GUI behavior using Instances or React Luau, including Studio plugins and existing interfaces. Use alongside rblx-writer when a feature includes GUI and non-GUI work. Includes scoped visual checks, optimization, and review.
+description: Create or connect Roblox GUI behavior with Instances or React Luau, including Studio plugin interfaces. Use rblx-writer for accompanying non-GUI code.
 ---
 
-Resolve `<HARNESS_ROOT>` from the project's `rblx-harness` submodule; read
-`<HARNESS_ROOT>/shared/CORE.md`. Paths are harness-relative.
+# Roblox GUI
 
-Use [tool routes](../../TOOLS.md) for source/review packs, API batches and
-console deltas. Reuse evidence already in context at unchanged revisions.
+Follow project `AGENTS.md`; read [CORE.md](../../CORE.md) only if its Roblox
+guidance is absent. Resolve the harness containing this skill as `H`.
+Use `python3 H/tools/harness.py --help` for domain commands.
 
-Route by required behavior, including work specified in linked plans.
-Connecting controls, settings, progress, errors, or Undo to new logic is
-GUI work even when the existing layout and React stack are retained.
-Load `rblx-writer` for accompanying non-GUI feature code. A backend-only
-change that leaves GUI code and behavior unchanged does not require this skill.
+1. Identify GUI owners, stack, devices, and behavior. Preserve project choices.
+   Connecting existing controls or Undo to new logic counts as GUI work.
+2. Load [engine evidence](../rblx-writer/references/engine.md) for affected engine
+   contracts; query `api behavior gui` for sizing. For React, read
+   [react.md](references/react.md). Load `rblx-writer` for non-GUI feature code.
+3. Implement with native editing tools; use `scaffold module gui` for new modules.
+   Give each animated or layout property one owner and clean up at owner teardown.
+4. Review behavior and lifecycle. Select [visual checks](references/visual-tests.md)
+   for unresolved appearance or interaction risks; inspect simple text or spacing
+   edits directly. Logs alone do not establish visual acceptance.
 
-1. Resolve GUI roots/owners, stack/packages, devices & behavior; preserve user/project choices. Route unexplained bugs to `rblx-debug`, MicroProfiler-led work to `rblx-optimize`.
-2. Run `researcher` on affected classes, host APIs & behavior gaps. Read [engine evidence](../rblx-writer/references/engine.md); query `tools/api_dump/api_dump.py behavior` by exact API/record, plus `gui` for sizing. Check primary DevForum reports/follow-ups; reported defects remain test leads. React: read [react.md](references/react.md).
-3. Write with `apply_patch`; create GUI modules with `tools/create_boilerplate/create_boilerplate.py gui`. Give each animated/layout property one owner; scope resources to GUI lifetime.
-4. Select [visual checks](references/visual-tests.md) only for unresolved appearance, interaction or layout risks worth checking (TEST2). Direct inspection can complete simple spacing/text edits. Required unrun/inconclusive acceptance checks stay open; skipped low-need checks do not.
-5. Run `optimizer` → apply issues → `reviewer` → apply issues. Then run necessary checks on the settled output under TEST1; reuse valid earlier results under TEST3. Claim gains only from comparable captures.
-6. Distill useful new findings and limits into durable knowledge or constraints; delete owned temporary research, tests and files. Preserve pre-existing files. Report evidence limits.
-
-Bound agent prompts to affected paths, source/repro IDs & unresolved decisions.
-For inventory coverage or untested boundaries, read [coverage.md](references/coverage.md).
+Use bounded agents when delegation is requested. For research coverage or an
+untested class boundary, read [coverage.md](references/coverage.md). Preserve
+source and runtime evidence limits; remove only owned temporary files.

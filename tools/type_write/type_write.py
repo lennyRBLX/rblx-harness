@@ -30,7 +30,6 @@ from type_cache.type_cache import (  # noqa: E402
     write_journal,
 )
 from type_core import (  # noqa: E402
-    append_tool_record,
     atomic_write,
     cache_json,
     metadata_for_path,
@@ -470,7 +469,6 @@ def execute(root: str, operations: list[dict], session_id: str = "", parent: str
     )
     outcomes.sort(key=lambda item: item["number"])
     staged_path, resulting_index = stage(root, overlay)
-    definitions = []
     for outcome in outcomes:
         indexed = _definition_state(resulting_index, root, outcome["path"], outcome["type_name"], outcome["declaration"])
         if outcome["declaration"] is not None:
@@ -481,10 +479,9 @@ def execute(root: str, operations: list[dict], session_id: str = "", parent: str
                     except OSError:
                         pass
                     raise WriteError("TYPE1", "%s is not a complete Luau declaration" % outcome["name"])
-                definitions.append(_unindexed_definition(root, outcome))
+                _unindexed_definition(root, outcome)
             else:
                 outcome["name"] = indexed["qualified"]
-                definitions.append(indexed)
         else:
             previous = _definition_state(base_index, root, outcome["path"], outcome["type_name"])
             if previous:
@@ -506,7 +503,7 @@ def execute(root: str, operations: list[dict], session_id: str = "", parent: str
                 try:
                     with open(path, encoding="utf-8") as handle:
                         prior[path] = handle.read()
-                except OSError:
+                except FileNotFoundError:
                     prior[path] = None
             write_journal(root, prior)
             try:
@@ -514,7 +511,7 @@ def execute(root: str, operations: list[dict], session_id: str = "", parent: str
                     if source is None:
                         try:
                             os.remove(path)
-                        except OSError:
+                        except FileNotFoundError:
                             pass
                     else:
                         atomic_write(path, source)
@@ -530,26 +527,6 @@ def execute(root: str, operations: list[dict], session_id: str = "", parent: str
         except OSError:
             pass
         raise
-    append_tool_record(
-        root,
-        "type-write",
-        {
-            "cache": sha256_text(cache_json(resulting_index)),
-            "definitions": definitions,
-            "operations": [
-                {
-                    "name": item["name"],
-                    "outcome": item["outcome"],
-                    "path": os.path.relpath(item["path"], root).replace(os.sep, "/"),
-                    "source": item.get("source"),
-                    "source_path": item.get("source_path"),
-                    "type_name": item["type_name"],
-                }
-                for item in outcomes
-            ],
-        },
-        session_id,
-    )
     return outcomes
 
 
@@ -573,13 +550,19 @@ def main(argv=None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--root", default=os.getcwd())
     parser.add_argument("--parent", help="force named type destinations into this project directory")
-    parser.add_argument("--session", default=os.environ.get("CODEX_THREAD_ID", ""))
-    parser.add_argument("--request")
-    parser.add_argument("--operation", action="append", default=[])
+    parser.add_argument("--session", default="", help=argparse.SUPPRESS)
+    requests = parser.add_mutually_exclusive_group(required=True)
+    requests.add_argument("--request", help="JSON request, or - to read stdin")
+    requests.add_argument("--request-file", help="UTF-8 JSON request file")
+    requests.add_argument("--operation", action="append", default=[])
     args = parser.parse_args(argv)
     try:
-        if args.request:
-            request = json.loads(args.request)
+        if args.request is not None or args.request_file is not None:
+            if args.request_file is not None:
+                with open(args.request_file, encoding="utf-8") as stream:
+                    request = json.load(stream)
+            else:
+                request = json.load(sys.stdin) if args.request == "-" else json.loads(args.request)
             operations = request.get("operations", request) if isinstance(request, dict) else request
         else:
             operations = [json.loads(value) for value in args.operation]
@@ -588,6 +571,9 @@ def main(argv=None) -> int:
         outcomes = execute(args.root, operations, args.session, args.parent)
         _print(outcomes)
         return 0
+    except (json.JSONDecodeError, UnicodeError) as error:
+        print("BLOCKED|TYPE8|invalid JSON request: %s" % error)
+        return 2
     except WriteError as error:
         operation = "|operation %d" % error.operation if error.operation else ""
         print("BLOCKED|%s%s|%s" % (error.rule, operation, error))

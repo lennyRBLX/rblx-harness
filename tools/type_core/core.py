@@ -6,7 +6,6 @@ import hashlib
 import json
 import os
 import re
-import glob
 import tempfile
 from copy import deepcopy
 from dataclasses import dataclass
@@ -519,70 +518,3 @@ def atomic_write(path: str, content: str) -> None:
             os.remove(temporary)
         except OSError:
             pass
-
-
-def gate_key(value: str) -> str:
-    return hashlib.sha256(str(value).encode("utf-8")).hexdigest()[:20]
-
-
-def current_turn(root: str, session_id: str = "") -> dict | None:
-    gates = os.path.join(root, "gates")
-    if session_id:
-        candidates = [os.path.join(gates, ".turn-s%s" % gate_key(session_id))]
-    else:
-        candidates = glob.glob(os.path.join(gates, ".turn-s*"))
-        candidates.sort(key=lambda path: os.path.getmtime(path), reverse=True)
-    for path in candidates:
-        try:
-            with open(path, encoding="utf-8") as handle:
-                parts = handle.read().strip().split("|")
-        except OSError:
-            continue
-        if len(parts) == 4 and parts[0] == "v1" and parts[1]:
-            session_key = os.path.basename(path).split(".turn-s", 1)[1]
-            return {"session_key": session_key, "turn_id": parts[1], "turn_key": gate_key(parts[1])}
-    return None
-
-
-def tool_record_path(root: str, tool: str, turn: dict) -> str:
-    return os.path.join(
-        root,
-        "gates",
-        ".%s-s%s-t%s.jsonl" % (tool, turn["session_key"], turn["turn_key"]),
-    )
-
-
-def append_tool_record(root: str, tool: str, record: dict, session_id: str = "") -> str | None:
-    turn = current_turn(root, session_id)
-    if turn is None:
-        return None
-    path = tool_record_path(root, tool, turn)
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    line = json.dumps(record, sort_keys=True, separators=(",", ":")) + "\n"
-    descriptor = os.open(path, os.O_APPEND | os.O_CREAT | os.O_WRONLY, 0o600)
-    try:
-        os.write(descriptor, line.encode("utf-8"))
-    finally:
-        os.close(descriptor)
-    return path
-
-
-def read_tool_records(root: str, tool: str, session_id: str = "") -> list[dict]:
-    turn = current_turn(root, session_id)
-    if turn is None:
-        return []
-    path = tool_record_path(root, tool, turn)
-    records = []
-    try:
-        with open(path, encoding="utf-8") as handle:
-            lines = handle.readlines()
-    except OSError:
-        return []
-    for line in lines:
-        try:
-            value = json.loads(line)
-        except ValueError:
-            continue
-        if isinstance(value, dict):
-            records.append(value)
-    return records

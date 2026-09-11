@@ -1,32 +1,23 @@
 ---
 name: rblx-writer
-description: Implement non-GUI Roblox Luau features, including Studio plugin logic, through research, optimization, and review. For mixed features, use alongside rblx-gui. Route GUI-only work, bugs, and MicroProfiler-led work to their dedicated skills.
+description: Implement non-GUI Roblox Luau features and Studio plugin logic. Use rblx-gui as well when connecting or changing GUI behavior.
 ---
 
-Resolve `<HARNESS_ROOT>` from the project's `rblx-harness` submodule; read
-`<HARNESS_ROOT>/shared/CORE.md`.
+# Roblox features
 
-Use [tool routes](../../TOOLS.md) for source/review packs, API batches and
-console deltas. Reuse evidence already in context at unchanged revisions.
+Resolve the harness containing this skill as `H`. Follow project `AGENTS.md`;
+if its Roblox guidance is absent, read [CORE.md](../../CORE.md) once.
+Run domain commands through `python3 H/tools/harness.py`; use `--help` for the
+needed family. Use native search and editing for ordinary code work.
 
-Before research or implementation, inspect the request and linked plans
-for GUI integration. If the feature creates, modifies, or connects GUI
-behavior, load `rblx-gui` and apply both skills to their respective portions.
-Retaining an existing GUI does not exclude GUI work when its controls,
-settings, progress, errors, or Undo must connect to the new implementation.
+1. Inspect affected owners and callers. Resolve missing project contracts with
+   `types read`; verify engine questions through [engine.md](references/engine.md).
+   Load `rblx-gui` when controls, settings, progress, errors, or Undo need GUI changes.
+2. Implement the feature. Use `scaffold module` for new module frames and
+   `types write` for related data and public type changes.
+3. Review correctness, authority, lifecycle, and relevant performance risks.
+   Use the smallest decisive check on settled changes; reuse valid evidence.
 
-1. Send `researcher` the request, relevant paths & exact Roblox/project questions; await evidence.
-2. Write the feature. Use `apply_patch`; create Service/Controller frames with `tools/create_boilerplate/create_boilerplate.py`.
-3. Run `optimizer` on the complete output; apply every relevant issue.
-4. Run `reviewer` on the updated output; apply every issue.
-
-Tool paths are relative to `<HARNESS_ROOT>`. Use `tools/data_write/data_write.py`
-or `tools/type_write/type_write.py` for TOOL1 changes. Ask only unresolved
-product choices. Bound agent prompts to affected paths & compact returned evidence.
-Batch known public API lookups in one `tools/type_lookup/type_lookup.py` call
-using repeated `--type`, `--service`, or `--controller` flags.
-
-Read only when relevant:
-
-- Engine access/behavior: [engine.md](references/engine.md), before code, commands or tests depend on it.
-- Agent role/model changes or evaluation: [models.md](references/models.md).
+Delegate a bounded independent research or review question only when the user or
+active project instructions request delegation. Pass affected paths, known results,
+and unresolved questions. Keep straightforward work in the primary agent.

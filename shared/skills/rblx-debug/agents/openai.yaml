@@ -1,4 +1,4 @@
 interface:
   display_name: "Roblox Debug"
-  short_description: "Diagnose and fix a Roblox bug with human test gates"
+  short_description: "Diagnose and fix Roblox failures from evidence"
   default_prompt: "Use $rblx-debug to diagnose and fix this Roblox bug."

@@ -5,6 +5,7 @@ import argparse
 import json
 import os
 import sys
+import tomllib
 
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -91,20 +92,17 @@ def validate(root):
     for name in ("AGENTS.md", "README.md"):
         if not os.path.isfile(os.path.join(root, name)):
             errors.append("template output is absent: %s" % name)
-    if not os.path.isfile(gatelib.SHARED_HANDOFF):
-        errors.append("shared compaction handoff is absent: rblx-harness/shared/HANDOFF.md")
-    if not os.path.isfile(os.path.join(dependency, "shared", "PLAN.md")):
-        errors.append("shared plan format is absent: rblx-harness/shared/PLAN.md")
-    if os.path.exists(os.path.join(root, ".claude")) or os.path.exists(os.path.join(root, "CLAUDE.md")):
-        errors.append("Claude support must be absent")
     validate_local_state(root, errors)
+
+    try:
+        with open(os.path.join(root, ".codex", "config.toml"), "rb") as handle:
+            tomllib.load(handle)
+    except (OSError, tomllib.TOMLDecodeError) as error:
+        errors.append("Codex config: %s" % error)
 
     agents_ok, detail = gatelib.required_codex_agents_status(root)
     if not agents_ok:
         errors.append("agents: %s" % detail)
-    hooks_ok, detail, _ = gatelib.hook_definition_status(root)
-    if not hooks_ok:
-        errors.append("hooks: %s" % detail)
     for skill in gatelib.REQUIRED_SKILLS:
         path = os.path.join(root, ".agents", "skills", skill)
         if not os.path.isdir(path) or not os.path.isfile(os.path.join(path, "SKILL.md")):
@@ -146,7 +144,7 @@ def validate(root):
                     errors.append("dead symlink: %s" % os.path.relpath(path, root))
     for relative in (
         "shared/TOOLS.md",
-        "shared/gates/workflow_gate.py",
+        "tools/harness.py",
         "tools/context_pack.py",
         "tools/session_audit.py",
         "tools/studio_output.py",

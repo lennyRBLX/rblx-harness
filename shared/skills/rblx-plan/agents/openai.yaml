@@ -1,2 +1,6 @@
+interface:
+  display_name: "Roblox Plan"
+  short_description: "Plan Roblox owners, contracts, and acceptance"
+  default_prompt: "Use $rblx-plan to plan this Roblox change."
 policy:
   allow_implicit_invocation: true

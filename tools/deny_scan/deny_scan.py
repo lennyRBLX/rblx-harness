@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """deny_scan — a CLI over eight lint rules, one per rule id, sharing one entry
-table. Content-level absolutes, blocked at write-gate with a deny's finality.
+table. Returns blocking source findings to the caller.
 
   deny_scan [--root DIR] <file...>
     -> lute lint --no-default-lints --rules <deny_rules/> -j <files>
@@ -9,7 +9,7 @@ table. Content-level absolutes, blocked at write-gate with a deny's finality.
     -> exit 0 clean, silent
 
 --no-default-lints is load-bearing: without it lute's built-ins run alongside
-and unused_variable starts blocking writes under deny_scan's exit 2.
+and unused_variable changes the selected check scope.
 """
 
 import json

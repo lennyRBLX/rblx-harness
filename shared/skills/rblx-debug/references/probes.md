@@ -2,13 +2,13 @@
 
 Use only for development-relevant engine questions left unresolved by
 [engine evidence](../../rblx-writer/references/engine.md).
-Apply TEST2–TEST3: name the unresolved question and result that would change
+Name the unresolved question and result that would change
 the fix. Retrieve existing output first. Do not rerun an established failure
 for confirmation or repair an optional probe unless its answer is still needed.
 
 ## Setup & records
 
-- Use a disposable place and the selected environment/execution authority (TEST1). Stage disabled fixtures with `tools/create_boilerplate/create_boilerplate.py --test`; author source in stopped Edit. Assign exact paths & cleanup ownership; preserve other edits.
+- Use a disposable place and the user-selected environment and execution authorization. Stage disabled fixtures with `python3 H/tools/harness.py scaffold module --test`; author source in stopped Edit. Assign exact paths & cleanup ownership; preserve other edits.
 - Discover studios/datamodels; supply `studio_id` & `datamodel_type` on every MCP execution. Serialize writes per datamodel.
 - Record Studio build, MCP version/executable identity, source revisions, place settings, RunContext/location, caller & serial/parallel phase. Unavailable values stay unknown.
 - Each case: operation, before, requested value, after, exact error, effect, other-process observation, restart need, restoration & human report. Separate assignment, effect, persistence & replication; unrun cases never pass.

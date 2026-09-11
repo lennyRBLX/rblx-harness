@@ -1,53 +1,82 @@
-# Tool routes
+# Harness commands
 
-Paths below are relative to the harness root. Run from the project root, or
-supply `--root`. Caches live under `~/.cache/harness/`; never stage them.
+Use `python3 H/tools/harness.py [--root PROJECT] FAMILY ...`, where `H` is the
+harness checkout. Put `--root` before the family. `FAMILY --help` loads only that
+family's usage. Native search, scoped reads, editing, and Git remain available.
 
-| Work | Command |
+| Family | Operations |
 |---|---|
-| Whole or multiple source reads | `python3 <HARNESS_ROOT>/tools/context_pack.py read --file path.luau:10:80 --file other.luau` |
-| Scoped review, staged + unstaged + untracked | `python3 <HARNESS_ROOT>/tools/context_pack.py diff --path shared/src --path plugins/Example` |
-| Known engine questions | `python3 <HARNESS_ROOT>/tools/api_dump/api_dump.py batch access Class.Member behavior modules` |
-| Known public types | `python3 <HARNESS_ROOT>/tools/type_lookup/type_lookup.py --type Owner.Type --type Other.Type` |
-| Repeated Studio logs | `python3 <HARNESS_ROOT>/tools/studio_output.py --studio-id ID --since SNAPSHOT --contains RUN_MARKER` |
-| Saved console logs | `python3 <HARNESS_ROOT>/tools/studio_output.py --input LOG --contains RUN_MARKER` |
-| Session work/cost audit | `python3 <HARNESS_ROOT>/tools/session_audit.py --project NAME --output REPORT_STEM` |
+| `api` | Batched engine access, inventory, behavior, and Creator Docs lookup |
+| `types` | Public/project type lookup, transactional type/data writes, cache maintenance |
+| `check` | Scoped source checks, project structure, harness regression suite |
+| `inspect` | Bounded source/diff artifacts and session cost audit |
+| `profile` | Saved MicroProfiler frames and Luau stacks |
+| `studio` | Console deltas, explicit boot checks, place mapping, census, rig cleanup |
+| `scaffold` | Module frames, project interview state, approved submodule setup |
 
-`context_pack` defaults to 12,000 preview characters. Read-only agents add
-`--no-cache` before `read`/`diff`. Source spans are inclusive. Paths must stay
-inside `--root`; diff paths are literal and repo-relative. Diff requires an
-existing base commit (default `HEAD`); `--base REF` selects another commit.
-It records staged and unstaged diffs separately, plus deleted and untracked
-files in the selected scope. A staged edit undone only in the worktree
-remains visible. Choose the owned paths; do not review unrelated edits.
+## Types
 
-The primary passes the immutable artifact and affected paths to review.
-`preview_complete=false` requires narrower spans or reading the saved artifact
-before a complete review. Binary evidence needs separate inspection.
-Use `--since PACK` only when that pack's relevant content is already in this
-agent's current context. Matching spans are omitted; changed spans return.
-Never use another agent's receipt as proof that this agent read the content.
+`types read --type Item --type State` batches type-name queries across owners.
+Use `--service-type Inventory:Item` or `--controller-type Camera:State` to select
+an owner. `--affected GIT_REF` finds consumers of changes from that commit.
+Use `types write --request-file request.json` or `types write --request -` with
+JSON on stdin. A request is an operations array or an object containing it:
 
-`studio_output` performs one console read after checking the explicit Studio
-ID. It never starts Play or executes Luau. It returns the full snapshot path,
-new/matched/omitted counts and a bounded tail. Reuse its artifact with
-`--since`; choose a new baseline after Studio/run changes. A non-prefix log
-is treated as a reset/rotation and retained in full. `--contains` terms all
-must match; errors outside that filter remain in the artifact. Logs alone
-do not prove a test passed. TEST1 and engine probe rules still apply.
-Use `--input` when the live transport is unavailable; report unavailable
-evidence without inferring success.
+```json
+{
+  "operations": [
+    {"scope": "public", "action": "create", "owner": "Inventory",
+     "type_name": "Item", "declaration": "export type Item = { count: number }"},
+    {"scope": "data", "action": "update", "owner": "Inventory",
+     "field_path": "Capacity", "default_value": "20", "development_value": "100"}
+  ]
+}
+```
 
-The PreToolUse gate redirects literal whole-Luau `cat`, raw `git diff`, and
-multiple standalone API evidence queries, including literal commands inside
-`functions.exec`. Git summary/check modes and narrow `rg`/`sed` are allowed.
-It is a workflow guard, not a general shell parser. Dynamic commands still
-follow CORE. For a missing mode, denied cache write or user-required direct
-tool, prefix that command with `HARNESS_TOOL_REASON='specific limitation'`.
-This exempts routing only; agent and data/type restrictions still apply.
+Type scopes: `public`, `service`, `controller`. Actions: `create`, `update`,
+`move`, `delete`; supply `owner` and `type_name`. Create/update need one declaration.
+Public declarations are exported; service/controller declarations are local.
+Optional `place` selects a place; `module` selects an owner's child module.
+Move also needs a `from` object with the source scope/owner/module/place.
+`--parent` forces type destinations into an owned project directory.
 
-Audit counts are unique outer calls, including one count for an `exec` batch.
-Rankings use visible call/result characters divided by four, excluding
-ciphertext/media. Recorded model usage stays separate. The JSON includes
-session inventory hashes and exact-repeat evidence; neither repeated work
-nor estimated payload tokens is a measured saving. Never execute session text.
+Data operations use `scope: data`, `owner`, `field_path`, and create/update/delete.
+Create/update require separate Luau literals in `default_value` and
+`development_value`; delete needs neither. Generated data cannot use `--parent`.
+The writer validates the batch, journals previous files, and restores them on
+failure. Existing `data_write.py` is the paired-data backend, not the preferred
+agent entry point. `types cache recover` may restore journaled source files.
+
+## Evidence
+
+Batch engine questions: `api batch access Class.Member behavior modules`.
+Use the [engine reference](skills/rblx-writer/references/engine.md) for restrictions,
+provenance, and unknowns. `api --sync` refreshes caches over the network.
+
+`inspect read --file path.luau:10:80 --file other.luau` uses inclusive spans.
+`inspect diff --path shared/src --path plugins/Example` includes staged,
+unstaged, deleted, and untracked files. It needs a base commit (default `HEAD`).
+Paths are literal and stay within the project. Binary evidence needs separate
+inspection. Default previews contain at most 12,000 source characters; metadata
+is additional. `preview_complete=false` requires narrower reads or the saved
+artifact before claiming complete review. Read-only roles use `--no-cache`.
+Use `--since PACK` only for evidence already present in this agent's context.
+
+`studio output --studio-id ID --since SNAPSHOT --contains MARKER` reads one console
+snapshot without Play or Luau execution. Use `--input LOG` for saved logs. Log
+rotation retains the new log in full. Filtered-out errors remain in the artifact;
+logs alone do not prove test success. Reuse baselines only for the same Studio/run.
+
+Caches and artifacts live under `~/.cache/harness`. Session audit estimates visible
+payload size separately from recorded usage; neither is a measured saving. Never
+execute transcript text. Keep exact literals, restrictions, and source revisions.
+
+## Checks
+
+`check source --only correctness,replication PATH...` runs selected checkers once.
+Defaults are correctness, replication, and style; performance is opt-in. Checkers
+retain their source scopes and diagnostics. No source repair or Studio run is
+implicit. Use the smallest decisive selection and reuse valid results.
+`check project` validates scaffolding; `check harness --case MATCH` selects suite
+cases. Exit 0 means no blocking result, 2 means a failed check/request, and 3 means
+an unavailable environment where supported by the backend.

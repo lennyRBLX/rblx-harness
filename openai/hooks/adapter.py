@@ -1,15 +1,7 @@
 #!/usr/bin/env python3
-"""OpenAI Codex hook adapter."""
+"""Compatibility entry point for clients that still hold retired hook commands.
 
-import os
-import sys
-
-HARNESS = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-sys.path.insert(0, os.path.join(HARNESS, "shared", "gates"))
-from adapterlib import main  # noqa: E402
-
-if __name__ == "__main__":
-    if sys.argv[1:3] != ["--host", "codex"]:
-        sys.stderr.write("hook-adapter: explicit --host codex is required\n")
-        sys.exit(2)
-    sys.exit(main("codex", sys.argv[3:]))
+New setup removes the harness handlers. Keep this no-op file while older clients
+can retain them; deleting it makes both tool use and Stop fail before migration.
+Codex's native permissions and user-owned hooks continue to apply.
+"""

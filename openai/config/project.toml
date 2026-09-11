@@ -1,13 +1,3 @@
 # BEGIN rblx-harness managed Codex config
-service_tier = "fast"
-
-[features]
-fast_mode = true
-multi_agent = true
-
-[agents]
-enabled = true
-
-[shell_environment_policy]
-inherit = "core"
+tool_output_token_limit = 6000
 # END rblx-harness managed Codex config

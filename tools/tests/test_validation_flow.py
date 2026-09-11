@@ -24,7 +24,6 @@ def load_module(name, relative):
 project_gate = load_module("project_validation_test", "tools/project_gate/project_gate.py")
 boot_smoke = load_module("boot_output_test", "tools/boot_smoke/boot_smoke.py")
 runner = load_module("verification_selection_test", "tools/tests/run_verify.py")
-finalize = load_module("completion_validation_test", "shared/gates/finalize.py")
 
 
 class ProjectValidationTest(unittest.TestCase):
@@ -181,13 +180,6 @@ class VerificationSelectionTest(unittest.TestCase):
                 self.assertIn("FAIL|API failure|retained failure detail", output)
                 self.assertEqual(len(self.calls), 2 if args else 3)
                 self.assertIn("VERIFY|SELECTED|FAILED|3/4|failures=1" if args else "VERIFY|FAILED|1/4", output)
-
-    def test_completion_still_invokes_unfiltered_full_suite(self):
-        with mock.patch.object(finalize.subprocess, "run", return_value=subprocess.CompletedProcess([], 0)) as run, \
-                contextlib.redirect_stdout(io.StringIO()):
-            status = finalize.main(["--root", str(ROOT), "--session", "validation-test"])
-        self.assertEqual(status, 0)
-        self.assertEqual(run.call_args.args[0], [finalize.sys.executable, str(ROOT / "tools/tests/run_verify.py")])
 
 
 if __name__ == "__main__":
