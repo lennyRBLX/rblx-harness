@@ -1,7 +1,11 @@
 # Visual checks
 
-Stage cards before a human run: ID, hypothesis, setup, action, expected
-distinction, result & capture. Select only affected cases:
+Apply TEST2–TEST3 before staging a run. Use this list to select a necessary
+case, not as a mandatory matrix. Skip fixtures, captures and test cards for
+simple reversible edits whose acceptance is resolved by direct inspection.
+For each selected case, record the unresolved question, setup, action,
+expected distinction & result; capture only evidence needed for that decision.
+Batch related checks on settled output:
 
 - Hierarchy/layout: direct children vs Folder/wrapper; retain sibling controls. Check padding, constraints, empty/one/many items, add/remove/hide/reorder, resize & scroll end.
 - Text: fix width for Y wrapping; check long/localized/RichText content, font limits, clipping & readability.
@@ -20,6 +24,7 @@ For fractional geometry at different screen origins, compare numeric deltas
 with an explicit subpixel tolerance; exact serialized equality can fail from
 coordinate precision. Keep assigned properties and host counts exact. Record
 the maximum delta and failing item/sample; reject nonfinite values and verify
-that a displacement above the tolerance fails. Human appearance still needs
-confirmation. P-react on Studio 0.737.0.7371584 used 0.001 px; its observed
-origin-dependent error reached 0.0000763 px. Recheck the bound for other scales.
+that a displacement above the tolerance fails. Use TEST1 for required visual
+acceptance. P-react on Studio 0.737.0.7371584 used 0.001 px; its observed
+origin-dependent error reached 0.0000763 px. Recheck the bound only when the
+task depends on a scale outside that evidence.

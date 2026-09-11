@@ -1,4 +1,4 @@
-"""Run the three supported Codex project gates."""
+"""Dispatch Codex project tool, agent and plan hooks."""
 
 import argparse
 import json
@@ -6,12 +6,14 @@ import sys
 
 import agent_gate
 import tool_gate
+import plan_gate
 
 
 EVENT_SCRIPTS = {
     "PreToolUse": "tool_gate.py",
     "SubagentStart": "agent_gate.py",
     "SubagentStop": "agent_gate.py",
+    "Stop": "plan_gate.py",
 }
 
 
@@ -37,5 +39,8 @@ def main(host, argv=None):
         return 2
     payload["hook_event_name"] = args.event
     if args.event == "PreToolUse":
-        return tool_gate.evaluate(payload)
+        result = tool_gate.evaluate(payload)
+        return result or plan_gate.observe(payload)
+    if args.event == "Stop":
+        return plan_gate.evaluate(payload)
     return agent_gate.evaluate(payload, args.event)

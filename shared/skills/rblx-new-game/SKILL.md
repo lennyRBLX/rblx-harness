@@ -50,8 +50,8 @@ retain emitted files/state & retry only integration with the Relink command.
 Do not rerun the pinned submodule's scaffolder; interview-state versions may differ.
 
 Emission creates per-place Argon projects, shared/place source, confirmed
-boilerplate, AGENTS.md, README, Codex agents & three hook events. Harness setup
-automatically installs `rblx-gui`, `rblx-debug`, `rblx-writer` & `rblx-optimize`
+boilerplate, AGENTS.md, README, Codex agents & four hook events. Harness setup
+automatically installs `rblx-gui`, `rblx-debug`, `rblx-writer`, `rblx-optimize` & `rblx-plan`
 in the project's `.agents/skills/`. Preserve existing README; new README includes
 gameplay & post-clone setup.
 Detected Service/Controller bytes replace boilerplate at confirmed destinations,
@@ -61,7 +61,8 @@ absence must pass validation.
 
 Keep `.agents/`, `.codex/`, `.roblox` & Serena-owned `.serena/` ignored. Root
 `.codex/` is required for discovery; Serena alone initializes `.serena/`.
-Use shared `rblx-harness/shared/HANDOFF.md`. Bootstrap `rblx-new-game` stays outside
+Use shared `rblx-harness/shared/HANDOFF.md` for compaction and
+`rblx-harness/shared/PLAN.md` through `$rblx-plan` for plans. Bootstrap `rblx-new-game` stays outside
 generated project skills. No session restart; report emitted places & preserved modules.
 
 ## Relink

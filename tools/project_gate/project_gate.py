@@ -93,6 +93,8 @@ def validate(root):
             errors.append("template output is absent: %s" % name)
     if not os.path.isfile(gatelib.SHARED_HANDOFF):
         errors.append("shared compaction handoff is absent: rblx-harness/shared/HANDOFF.md")
+    if not os.path.isfile(os.path.join(dependency, "shared", "PLAN.md")):
+        errors.append("shared plan format is absent: rblx-harness/shared/PLAN.md")
     if os.path.exists(os.path.join(root, ".claude")) or os.path.exists(os.path.join(root, "CLAUDE.md")):
         errors.append("Claude support must be absent")
     validate_local_state(root, errors)
@@ -143,6 +145,13 @@ def validate(root):
                 if os.path.islink(path) and not os.path.exists(path):
                     errors.append("dead symlink: %s" % os.path.relpath(path, root))
     for relative in (
+        "shared/TOOLS.md",
+        "shared/gates/workflow_gate.py",
+        "tools/context_pack.py",
+        "tools/session_audit.py",
+        "tools/studio_output.py",
+        "tools/studio_rpc.py",
+        "tools/studio_mcp_launcher.py",
         "tools/data_write/data_write.py",
         "tools/type_write/type_write.py",
         "tools/api_dump/api_dump.py",

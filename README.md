@@ -5,16 +5,19 @@ optimization, and multi-place project scaffolding.
 
 ## Included surface
 
-- Skills: `rblx-new-game`, `rblx-writer`, `rblx-gui`, `rblx-debug`, `rblx-optimize`.
+- Skills: `rblx-new-game`, `rblx-writer`, `rblx-gui`, `rblx-debug`, `rblx-optimize`, `rblx-plan`.
 - Agents: `researcher`, `optimizer`, `reviewer`, `debugger`.
 - Tools: Roblox API and Creator Docs lookup, data and type writers, Git repair,
   MicroProfiler analysis, boilerplate generation, and style assessment.
 - Rules: `shared/CORE.md`.
 - Codex support: reproducible project agent definitions, project skills, and
-  three lean hook events.
+  four lean hook events.
 - Templates: shared Packages, short project `README.md`, project `AGENTS.md`,
-  and one shared `shared/HANDOFF.md`.
+  shared `shared/HANDOFF.md`, and shared `shared/PLAN.md`.
 - Token compression: bounded agent records and `token_shrink.py`.
+- Repeated work: `context_pack.py` source/review evidence, `studio_output.py`
+  console deltas, and `session_audit.py` session counts and cost estimates.
+  Routes and fallback rules: [shared/TOOLS.md](shared/TOOLS.md).
 - Plugin support: an optional project `plugins/` directory.
 
 Claude support is not included.
@@ -28,7 +31,7 @@ repository skill links with:
 python3 setup_project.py --harness
 ```
 
-This installs all five harness skills for harness development. It does not
+This installs all six harness skills for harness development. It does not
 create `.roblox` or `.serena/`.
 
 ## Permissions
@@ -96,7 +99,7 @@ python3 rblx-harness/setup_project.py --project "$(pwd)" --from-state
 ```
 
 Setup recreates the ignored `.roblox` marker, `.codex/`, and the
-`.agents/skills/` links for `rblx-writer`, `rblx-gui`, `rblx-debug`, and `rblx-optimize`.
+`.agents/skills/` links for `rblx-writer`, `rblx-gui`, `rblx-debug`, `rblx-optimize`, and `rblx-plan`.
 Serena creates `.serena/` when it is initialized. All four paths are ignored
 and must not be committed. Project `HANDOFF.md` is not generated; every harness
 project uses `rblx-harness/shared/HANDOFF.md`.
@@ -108,9 +111,22 @@ Generated projects install only:
 - `PreToolUse` for agent tool boundaries and mechanical rule checks.
 - `SubagentStart` for the four allowed agent roles and rule context.
 - `SubagentStop` for compact, role-specific returns.
+- `Stop` for plan response and file validation.
 
-These hooks do not gate the primary `rblx-writer`, `rblx-gui`, `rblx-debug`,
-`rblx-optimize`, or `rblx-new-game` session flow.
+`PreToolUse` snapshots project Markdown once per primary turn. `Stop` validates
+plans changed since that snapshot, including shell-written and newly committed
+files, plus response plans identified by their marker, title, Plan Mode numbered
+steps, or `<proposed_plan>` wrapper. Untouched plans keep their current format.
+File tracking uses the hook cwd, session ID and turn ID; direct file validation
+is also available through `shared/gates/plan_gate.py --root <project> --file <plan>`.
+The Git inventory covers tracked and unignored Markdown within the project,
+excluding dependency and generated configuration directories.
+
+The gate checks section/field order, milestone IDs, action numbering, Luau fences,
+affirmative command prefixes, and receipts for removed milestones. The skill
+handles source accuracy, context relevance, concision and completion evidence.
+A failed Stop requests one correction pass; repeated failure surfaces an unresolved
+validation message and stops automatic retries. These hooks do not authorize sessions.
 
 ## Relink and validate
 
@@ -119,7 +135,7 @@ python3 rblx-harness/setup_project.py --project "$(pwd)" --from-state
 python3 rblx-harness/tools/project_gate/project_gate.py --project-root "$(pwd)"
 ```
 
-Validate this harness checkout with:
+For changes that need full harness validation, run:
 
 ```bash
 python3 tools/tests/run_verify.py
@@ -132,5 +148,8 @@ and select case-name substrings with `--case`, for example:
 python3 tools/tests/run_verify.py --case "API access evidence"
 ```
 
-Repeat `--case` to select multiple groups. Selected runs report `VERIFY|SELECTED`;
-run the full command above for completion validation.
+Repeat `--case` to select multiple groups. Selected runs report `VERIFY|SELECTED`.
+Use the cases needed by the change; run the full suite for broad harness changes
+or an explicit full-validation requirement. Apply CORE TEST2–TEST3: reuse valid
+results and inspect simple rule/text edits directly. Completion alone does not
+require a new or broader run.

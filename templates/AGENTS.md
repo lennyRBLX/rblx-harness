@@ -3,8 +3,12 @@ Read `rblx-harness/shared/CORE.md` before Roblox work. Use
 
 Routes: GUI writing → `$rblx-gui`; other features → `$rblx-writer`; bugs → `$rblx-debug`;
 MicroProfiler → `$rblx-optimize`.
+Create and update plans with `$rblx-plan` and `rblx-harness/shared/PLAN.md`.
 
-Hooks enforce agent roles, nesting, tool use & rules, not session authorization.
+Hooks enforce agent roles, nesting, tool use, rules & plan format.
+Use `rblx-harness/shared/TOOLS.md` for bounded source/diff packs, batched API
+evidence and console deltas. Reuse evidence at unchanged revisions (TOK2).
+Select necessary checks and reuse valid results under CORE TEST2–TEST3.
 No restart required. Roblox permission profile, Full Access & absent `plugins/`
 are valid.
 

@@ -54,11 +54,18 @@ def harness_fixture(directory):
         "openai",
         "packages",
         "shared/CORE.md",
+        "shared/TOOLS.md",
         "shared/HANDOFF.md",
+        "shared/PLAN.md",
         "shared/gates",
         "shared/skills",
         "templates",
         "tools/api_dump",
+        "tools/context_pack.py",
+        "tools/session_audit.py",
+        "tools/studio_output.py",
+        "tools/studio_rpc.py",
+        "tools/studio_mcp_launcher.py",
         "tools/create_boilerplate",
         "tools/data_write",
         "tools/frame_census",
@@ -141,13 +148,13 @@ def case(name):
 CASES = []
 
 
-@case("repository surface is five skills, four agents, and Codex only")
+@case("repository surface is six skills, four agents, and Codex only")
 def _():
     skills = sorted(
         name for name in os.listdir(os.path.join(ROOT, "shared", "skills"))
         if os.path.isfile(os.path.join(ROOT, "shared", "skills", name, "SKILL.md"))
     )
-    require(skills == ["rblx-debug", "rblx-gui", "rblx-new-game", "rblx-optimize", "rblx-writer"], skills)
+    require(skills == ["rblx-debug", "rblx-gui", "rblx-new-game", "rblx-optimize", "rblx-plan", "rblx-writer"], skills)
     agents = sorted(
         os.path.splitext(name)[0]
         for name in os.listdir(os.path.join(ROOT, "openai", "agents"))
@@ -173,7 +180,7 @@ def _():
 def _():
     for relative in ("openai/hooks/project.json",):
         document = json.load(open(os.path.join(ROOT, relative), encoding="utf-8"))
-        require(set(document["hooks"]) == {"PreToolUse", "SubagentStart", "SubagentStop"}, relative)
+        require(set(document["hooks"]) == {"PreToolUse", "SubagentStart", "SubagentStop", "Stop"}, relative)
         serialized = json.dumps(document)
         require("SessionStart" not in serialized and "UserPromptSubmit" not in serialized, relative)
     contract = json.load(open(os.path.join(ROOT, "openai", "hooks", "contract.json"), encoding="utf-8"))
@@ -190,7 +197,7 @@ def _():
         hooks = open(os.path.join(root, ".codex", "hooks.json"), encoding="utf-8").read()
         require("/rblx-harness/openai/" not in hooks, hooks)
         require("/openai/hooks/adapter.py" in hooks, hooks)
-        for skill in ("rblx-debug", "rblx-gui", "rblx-new-game", "rblx-optimize", "rblx-writer"):
+        for skill in ("rblx-debug", "rblx-gui", "rblx-new-game", "rblx-optimize", "rblx-plan", "rblx-writer"):
             require(os.path.islink(os.path.join(root, ".agents", "skills", skill)), skill)
         require(not os.path.exists(os.path.join(root, ".roblox")), "harness setup created .roblox")
         require(not os.path.exists(os.path.join(root, ".serena")), "harness setup created .serena")
@@ -430,7 +437,7 @@ def _():
         require("python3 rblx-harness/setup_project.py --project . --from-state" in readme, readme)
         require(len(readme.splitlines()) <= 10, "generated README is not minimal")
         require(sorted(os.path.splitext(name)[0] for name in os.listdir(os.path.join(root, ".codex", "agents"))) == ["debugger", "optimizer", "researcher", "reviewer"], "agent set")
-        for skill in ("rblx-writer", "rblx-gui", "rblx-debug", "rblx-optimize"):
+        for skill in ("rblx-writer", "rblx-gui", "rblx-debug", "rblx-optimize", "rblx-plan"):
             require(os.path.islink(os.path.join(root, ".agents", "skills", skill)), "%s is not linked" % skill)
         require(not os.path.lexists(os.path.join(root, ".agents", "skills", "rblx-new-game")), "rblx-new-game was installed in project")
         require_ignored_local_state(root)
@@ -628,6 +635,18 @@ def _():
 @case("project validation, boot output, and verification selection")
 def _():
     result = run([PY, os.path.join(ROOT, "tools", "tests", "test_validation_flow.py")])
+    require(result.returncode == 0, result.stdout + result.stderr)
+
+
+@case("plan format, turn edits, receipts and bounded Stop corrections")
+def _():
+    result = run([PY, os.path.join(ROOT, "tools", "tests", "test_plan_gate.py")])
+    require(result.returncode == 0, result.stdout + result.stderr)
+
+
+@case("session audit, bounded context, console deltas and workflow routing")
+def _():
+    result = run([PY, os.path.join(ROOT, "tools", "tests", "test_workflow_tools.py")])
     require(result.returncode == 0, result.stdout + result.stderr)
 
 

@@ -6,6 +6,8 @@ import json
 import re
 import sys
 
+import workflow_gate
+
 
 ROLES = ("researcher", "optimizer", "reviewer", "debugger")
 READ_ONLY = ("researcher", "optimizer", "reviewer")
@@ -22,6 +24,7 @@ SHELL_MUTATION = re.compile(
 )
 DATA_TOOLS = ("tools/data_write/data_write.py", "tools/type_write/type_write.py")
 READ_DATA_TOOLS = (
+    "tools/context_pack.py",
     "tools/data_check/data_check.luau",
     "tools/data_shape_diff/data_shape_diff.luau",
     "tools/type_lookup/type_lookup.py",
@@ -87,6 +90,9 @@ def evaluate(payload):
         if not requested_role(tool_input):
             return block("dispatch one of: researcher, optimizer, reviewer, debugger [AGENT1]")
         return 0
+    routing = workflow_gate.reason(payload)
+    if routing:
+        return block(routing)
     if not role:
         return 0
     raw = text_input(tool_input)

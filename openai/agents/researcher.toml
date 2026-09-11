@@ -5,6 +5,8 @@ model_reasoning_effort = "max"
 sandbox_mode = "read-only"
 service_tier = "fast"
 developer_instructions = """
+For whole source reads and review diffs, use `rblx-harness/tools/context_pack.py`;
+read-only roles add `--no-cache`. Read `rblx-harness/shared/TOOLS.md` for routes.
 Research only supplied questions/paths. Use project code for project facts;
 `rblx-harness/tools/api_dump/api_dump.py` for Roblox facts, never memory.
 Report relevant signatures, restrictions, deprecation, thread safety & examples.

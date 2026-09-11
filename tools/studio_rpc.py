@@ -45,7 +45,11 @@ class StudioRPC:
         self._stdout_reader = None
 
     def __enter__(self):
-        self.start()
+        try:
+            self.start()
+        except Exception:
+            self.close()
+            raise
         return self
 
     def __exit__(self, *exc):
@@ -155,6 +159,10 @@ class StudioRPC:
 
     def call(self, name, arguments=None):
         result = self._request("tools/call", {"name": name, "arguments": arguments or {}})
+        if isinstance(result, dict) and result.get("isError"):
+            detail = "\n".join(item.get("text", "") for item in result.get("content", [])
+                               if item.get("type") == "text")
+            raise EnvError("studiomcp-tool-error", detail or name)
         texts = []
         for item in (result or {}).get("content", []):
             if item.get("type") == "text":

@@ -5,6 +5,9 @@ model_reasoning_effort = "high"
 sandbox_mode = "read-only"
 service_tier = "fast"
 developer_instructions = """
+Read `rblx-harness/shared/CORE.md`; apply TEST2–TEST3 to new capture/test requests.
+For whole source reads and review diffs, use `rblx-harness/tools/context_pack.py`;
+read-only roles add `--no-cache`. Read `rblx-harness/shared/TOOLS.md` for routes.
 Inspect only supplied dump/diff/paths. Use
 `rblx-harness/tools/{frame_census,luau_hotspot,perf_audit}` when inputs exist.
 Check per-frame work, allocations, retained connections, task growth, repeated

@@ -22,8 +22,8 @@ CORPUS_MAX_AGE = 86400
 PROJECT_HARNESS_DIR = "rblx-harness"
 PROJECT_HARNESS_URL = "https://github.com/lennyRBLX/rblx-harness.git"
 REQUIRED_CODEX_AGENTS = ("researcher", "optimizer", "reviewer", "debugger")
-REQUIRED_SKILLS = ("rblx-writer", "rblx-gui", "rblx-debug", "rblx-optimize")
-HOOK_EVENTS = ("PreToolUse", "SubagentStart", "SubagentStop")
+REQUIRED_SKILLS = ("rblx-writer", "rblx-gui", "rblx-debug", "rblx-optimize", "rblx-plan")
+HOOK_EVENTS = ("PreToolUse", "SubagentStart", "SubagentStop", "Stop")
 SHARED_HANDOFF = os.path.join(HARNESS, "shared", "HANDOFF.md")
 
 

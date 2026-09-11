@@ -1,4 +1,4 @@
 goal:
 changed:
-evidence:
+evidence: applicable check/result, source/input/environment scope & reference
 open:

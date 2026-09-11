@@ -10,7 +10,7 @@ import sys
 
 HARNESS = os.path.dirname(os.path.abspath(__file__))
 AGENTS = ("researcher", "optimizer", "reviewer", "debugger")
-PROJECT_SKILLS = ("rblx-writer", "rblx-gui", "rblx-debug", "rblx-optimize")
+PROJECT_SKILLS = ("rblx-writer", "rblx-gui", "rblx-debug", "rblx-optimize", "rblx-plan")
 HARNESS_SKILLS = PROJECT_SKILLS + ("rblx-new-game",)
 MANIFEST = "manifest.json"
 IGNORE_BEGIN = "# BEGIN rblx-harness links"

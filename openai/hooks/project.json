@@ -36,6 +36,18 @@
           }
         ]
       }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "PYTHONDONTWRITEBYTECODE=1 python3 \"$(git rev-parse --show-toplevel)/rblx-harness/openai/hooks/adapter.py\" --host codex --event Stop --hook-scope project",
+            "commandWindows": "powershell.exe -NoProfile -Command \"$root = git rev-parse --show-toplevel; & py -3 -B (Join-Path $root 'rblx-harness\\openai\\hooks\\adapter.py') --host codex --event Stop --hook-scope project\"",
+            "timeout": 30
+          }
+        ]
+      }
     ]
   }
 }

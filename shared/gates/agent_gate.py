@@ -68,7 +68,9 @@ def evaluate(payload, event):
         rules = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "CORE.md")
         context = (
             "HARNESS|role=%s|read=%s|agents-do-not-spawn-agents|"
-            "use data_write/type_write for data or public types|return compact evidence"
+            "use data_write/type_write for data or public types|"
+            "source/review: context_pack (read-only: --no-cache); routes=shared/TOOLS.md|"
+            "return compact evidence"
         ) % (role, rules)
         sys.stdout.write(json.dumps({
             "hookSpecificOutput": {

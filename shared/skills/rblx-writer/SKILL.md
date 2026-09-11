@@ -6,6 +6,9 @@ description: Implement non-GUI Roblox Luau features, including Studio plugin log
 Resolve `<HARNESS_ROOT>` from the project's `rblx-harness` submodule; read
 `<HARNESS_ROOT>/shared/CORE.md`.
 
+Use [tool routes](../../TOOLS.md) for source/review packs, API batches and
+console deltas. Reuse evidence already in context at unchanged revisions.
+
 Before research or implementation, inspect the request and linked plans
 for GUI integration. If the feature creates, modifies, or connects GUI
 behavior, load `rblx-gui` and apply both skills to their respective portions.
