@@ -1,6 +1,6 @@
 ---
 name: optimizer
-description: Find Roblox source costs and interpret MicroProfiler captures.
+description: Interprets Roblox MicroProfiler captures and locates per-frame, allocation, and replication costs in source without edits. Use proactively for captures or frame-time and memory questions.
 disallowedTools: Agent, Edit, Write, NotebookEdit
 ---
 

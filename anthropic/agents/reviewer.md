@@ -1,6 +1,6 @@
 ---
 name: reviewer
-description: Review scoped Roblox changes for correctness, security, and lifecycle.
+description: Reviews Roblox Luau changes for correctness, remote security, replication, data/type consistency, and lifecycle without edits. Use proactively after non-trivial Luau changes, before reporting them complete.
 disallowedTools: Agent, Edit, Write, NotebookEdit
 ---
 

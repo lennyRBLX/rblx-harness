@@ -32,6 +32,7 @@ GUIDANCE_BEGIN = "<!-- BEGIN rblx-harness project guidance -->"
 GUIDANCE_END = "<!-- END rblx-harness project guidance -->"
 CLAUDE_BEGIN = "<!-- BEGIN rblx-harness Claude Code import -->"
 CLAUDE_END = "<!-- END rblx-harness Claude Code import -->"
+CLAUDE_RULE = "rblx-harness-delegation.md"
 
 
 def fail(message):
@@ -343,6 +344,14 @@ def copy_claude_support(project, harness_checkout=False):
             os.path.join(HARNESS, "anthropic", "agents", name + ".md"),
             os.path.join(agents, name + ".md"),
         )
+    # Shared skills delegate only when project instructions request it; this
+    # Claude-only rule makes that request without changing Codex guidance.
+    rules = os.path.join(claude, "rules")
+    os.makedirs(rules, exist_ok=True)
+    shutil.copy2(
+        os.path.join(HARNESS, "anthropic", "rules", "delegation.md"),
+        os.path.join(rules, CLAUDE_RULE),
+    )
     sys.path.insert(0, os.path.join(HARNESS, "shared", "gates"))
     import gatelib
 
@@ -381,7 +390,7 @@ def render_claude_import(project):
 def install_harness_support():
     copy_codex_support(HARNESS, harness_checkout=True)
     copy_claude_support(HARNESS, harness_checkout=True)
-    print("setup-harness|READY|agents=%s|skills=%s" % (
+    print("setup-harness|READY|hosts=codex,claude|agents=%s|skills=%s" % (
         ",".join(AGENTS),
         ",".join(HARNESS_SKILLS),
     ))

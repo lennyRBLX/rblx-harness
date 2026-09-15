@@ -1,6 +1,6 @@
 ---
 name: debugger
-description: Diagnose a Roblox failure and prepare scoped fixes or diagnostics.
+description: Diagnoses Roblox errors, regressions, and unexpected runtime behavior, then prepares scoped fixes or diagnostics. Use proactively when a failure's cause is not established by the supplied source or logs.
 disallowedTools: Agent
 ---
 

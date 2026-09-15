@@ -75,6 +75,7 @@ class SettingsTest(Fixture):
     def test_custom_agents_skills_and_settings_survive_repeated_setup(self):
         agent = self.write(".claude/agents/custom.md", "---\nname: custom\n---\n")
         skill = self.write(".claude/skills/custom/SKILL.md", "custom instructions\n")
+        rule = self.write(".claude/rules/custom.md", "custom rule\n")
         source = '{"env": {"BASH_MAX_OUTPUT_LENGTH": "9000", "MAX_MCP_OUTPUT_TOKENS": "9000"}}\n'
         settings = self.write(".claude/settings.json", source)
         self.write(".claude/skills/rblx-new-game/stale", "stale\n")
@@ -82,6 +83,11 @@ class SettingsTest(Fixture):
             setup.copy_claude_support(str(self.root))
             self.assertEqual(agent.read_text(), "---\nname: custom\n---\n")
             self.assertEqual(skill.read_text(), "custom instructions\n")
+            self.assertEqual(rule.read_text(), "custom rule\n")
+            self.assertEqual(
+                (self.root / ".claude/rules" / setup.CLAUDE_RULE).read_text(),
+                (ROOT / "anthropic/rules/delegation.md").read_text(),
+            )
             self.assertEqual(settings.read_text(), source)
             self.assertTrue(gatelib.required_claude_agents_status(str(self.root))[0])
             self.assertTrue((self.root / ".claude/skills/rblx-writer/SKILL.md").is_file())
@@ -97,6 +103,8 @@ class AgentTest(Fixture):
                 denied = {tool.strip() for tool in fields["disallowedTools"].split(",")}
                 self.assertEqual(fields["name"], name[:-3])
                 self.assertTrue(fields["description"] and body)
+                # Claude Code delegates automatically from this description phrase.
+                self.assertIn("Use proactively", fields["description"])
                 self.assertNotIn("model", fields)
                 self.assertNotIn("tools", fields)
                 self.assertIn("Agent", denied)

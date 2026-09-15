@@ -182,13 +182,19 @@ def _():
         require(os.path.isfile(os.path.join(ROOT, "shared", "skills", skill, "agents", "openai.yaml")), skill)
 
 
-@case("harness setup rebuilds ignored Codex support and all source skills")
+@case("harness setup rebuilds ignored Codex and Claude Code support and all source skills")
 def _():
     with tempfile.TemporaryDirectory() as directory:
         root = harness_fixture(directory)
         result = run([PY, os.path.join(root, "setup_project.py"), "--harness"], cwd=root)
         require(result.returncode == 0, result.stdout + result.stderr)
+        require("setup-harness|READY|hosts=codex,claude|" in result.stdout, result.stdout)
+        require(os.path.isfile(os.path.join(root, ".codex", "config.toml")), "Codex config is absent")
+        require(sorted(os.listdir(os.path.join(root, ".codex", "agents"))) == [
+            "debugger.toml", "optimizer.toml", "researcher.toml", "reviewer.toml",
+        ], "Codex agent set")
         require(not os.path.exists(os.path.join(root, ".codex", "hooks.json")), "setup installed hooks")
+        require(os.path.isfile(os.path.join(root, ".claude", "rules", "rblx-harness-delegation.md")), "Claude delegation rule")
         settings = json.load(open(os.path.join(root, ".claude", "settings.json"), encoding="utf-8"))
         require("hooks" not in settings, "setup installed Claude hooks")
         require(settings["env"]["MAX_MCP_OUTPUT_TOKENS"] == "6000", settings)
@@ -471,6 +477,7 @@ def _():
         require(len(readme.splitlines()) <= 10, "generated README is not minimal")
         require(sorted(os.path.splitext(name)[0] for name in os.listdir(os.path.join(root, ".codex", "agents"))) == ["debugger", "optimizer", "researcher", "reviewer"], "agent set")
         require(sorted(os.listdir(os.path.join(root, ".claude", "agents"))) == CLAUDE_AGENT_FILES, "Claude agent set")
+        require(os.path.isfile(os.path.join(root, ".claude", "rules", "rblx-harness-delegation.md")), "Claude delegation rule")
         for skill in ("rblx-writer", "rblx-gui", "rblx-debug", "rblx-optimize", "rblx-plan"):
             require(os.path.islink(os.path.join(root, ".agents", "skills", skill)), "%s is not linked" % skill)
             require(os.path.islink(os.path.join(root, ".claude", "skills", skill)), "%s is not linked for Claude" % skill)
