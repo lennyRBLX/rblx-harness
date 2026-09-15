@@ -1,7 +1,7 @@
 # rblx-harness
 
-Roblox workflows for Codex: six skills, four optional specialist agents, one
-command interface, project scaffolding, and reusable Luau packages.
+Roblox workflows for Codex and Claude Code: six skills, four optional specialist
+agents, one command interface, project scaffolding, and reusable Luau packages.
 
 ## Setup
 
@@ -18,9 +18,10 @@ git submodule update --init --recursive
 python3 rblx-harness/setup_project.py --project . --from-state
 ```
 
-Setup creates ignored `.agents/skills` links and `.codex/agents` definitions.
-Generated projects also receive `.roblox`, selected asset links, and project
-instructions. Serena manages its own `.serena` directory. Python 3.11+ is required;
+Setup creates ignored skill links and agent definitions for both hosts:
+`.agents/skills` and `.codex/agents` for Codex, `.claude/skills` and `.claude/agents`
+for Claude Code. Generated projects also receive `.roblox`, selected asset links,
+and project instructions in `AGENTS.md`, imported by `CLAUDE.md`. Serena manages its own `.serena` directory. Python 3.11+ is required;
 asset linking requires symlink support. The bundled toolchain downloader currently
 supports Apple Silicon macOS; other hosts must supply compatible tool binaries.
 
@@ -52,6 +53,28 @@ prefixes; [MCP allowlists](https://learn.chatgpt.com/docs/extend/mcp) limit tool
 configured servers. Neither proves data semantics. Writer checks enforce their
 own invariants. Parent runtime permission overrides can supersede role defaults.
 
+## Claude Code integration
+
+| Concern | Implementation |
+|---|---|
+| Skill discovery | `.claude/skills/*/SKILL.md` links to the same `shared/skills` sources |
+| Project context | `CLAUDE.md` imports `AGENTS.md` through a managed `@AGENTS.md` block |
+| Tools | Native search/edit/Git plus `tools/harness.py` for domain operations |
+| Agents | `.claude/agents/*.md` from `anthropic/agents`; inherited model, `Agent` denied so roles cannot delegate, write tools denied for read-only roles |
+| Settings | Absent `env` defaults merged into `.claude/settings.json`: `MAX_MCP_OUTPUT_TOKENS=6000`, `BASH_MAX_OUTPUT_LENGTH=24000` characters |
+| Hooks | None installed; `anthropic/hooks/adapter.py` identifies retired handlers |
+
+These use official [subagents](https://code.claude.com/docs/en/sub-agents),
+[settings](https://code.claude.com/docs/en/settings),
+[environment variables](https://code.claude.com/docs/en/env-vars),
+[CLAUDE.md imports](https://code.claude.com/docs/en/memory),
+[skills](https://code.claude.com/docs/en/skills),
+[hooks](https://code.claude.com/docs/en/hooks), and
+[sandboxing](https://code.claude.com/docs/en/sandboxing). Claude Code has no
+per-agent sandbox or named permission profile: read-only roles lose write tools,
+while their Bash use stays read-only by instruction. Sandboxed commands cannot
+write `.claude` or `.git` hooks/config, so run setup outside the sandbox.
+
 ## Migration
 
 Setup removes only recognized legacy harness hook handlers and updates its four
@@ -60,13 +83,23 @@ instructions outside its managed block. An exact legacy generated `AGENTS.md`
 is migrated; customized content is retained. Mapped place IDs survive relinking.
 `templates/AGENTS.legacy` is migration input, not active context.
 
+For Claude Code, setup removes only the exact `python3` handlers earlier releases
+wrote into `.claude/settings.json` for `claude/hooks/adapter.py` and
+`shared/gates/harness_gate.py`; those scripts no longer exist and would block tool
+use. Other values from those releases, such as `env` or `permissions.deny`, are
+treated as user configuration and retained. An existing `CLAUDE.md` keeps its text;
+the import is added only when no `@AGENTS.md` line is present.
+
 No automatic harness hooks, format retries, mandatory agent chains, milestone
 receipts, or text-substitution compressor remain. The adapter is retained as a
 no-op for already running clients. Skills keep detailed references on demand;
-Codex manages compaction. An optional handoff template remains in `shared/HANDOFF.md`.
+each host manages compaction. An optional handoff template remains in `shared/HANDOFF.md`.
 Existing model and permission preferences remain in user/project configuration.
 The optional Roblox permission profile can be installed with
 `python3 openai/setup/permissions_harness.py --install`; setup does not select it.
+For Claude Code, `python3 anthropic/setup/permissions_harness.py --install` writes
+`~/.claude/rblx-harness-roblox.json` (or under `CLAUDE_CONFIG_DIR`); select it per
+session with `claude --settings ~/.claude/rblx-harness-roblox.json`.
 
 ## Tools and checks
 
@@ -74,6 +107,7 @@ The optional Roblox permission profile can be installed with
 python3 tools/harness.py --help
 python3 tools/harness.py check harness
 python3 tools/harness.py check harness --case "native Codex"
+python3 tools/harness.py check harness --case "Claude"
 ```
 
 For project commands, use `python3 rblx-harness/tools/harness.py` from the project

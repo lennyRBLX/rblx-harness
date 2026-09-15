@@ -18,6 +18,8 @@ SCAFFOLD = os.path.join(ROOT, "shared", "skills", "rblx-new-game", "scripts", "s
 DEPENDENCY = os.path.join(ROOT, "shared", "skills", "rblx-new-game", "scripts", "dependency.py")
 PROJECT_GATE = os.path.join(ROOT, "tools", "project_gate", "project_gate.py")
 PERMISSIONS = os.path.join(ROOT, "openai", "setup", "permissions_harness.py")
+CLAUDE_PERMISSIONS = os.path.join(ROOT, "anthropic", "setup", "permissions_harness.py")
+CLAUDE_AGENT_FILES = ["debugger.md", "optimizer.md", "researcher.md", "reviewer.md"]
 SUBMODULE_NAME = "rblx-harness"
 SUBMODULE_URL = "https://github.com/lennyRBLX/rblx-harness.git"
 
@@ -49,6 +51,7 @@ def harness_fixture(directory):
     selected = (
         ".gitignore",
         "setup_project.py",
+        "anthropic",
         "openai",
         "packages",
         "shared/CORE.md",
@@ -126,6 +129,7 @@ def require_submodule(root):
 def require_ignored_local_state(root):
     paths = {
         ".agents": ".agents/.verify-probe",
+        ".claude": ".claude/.verify-probe",
         ".codex": ".codex/.verify-probe",
         ".serena": ".serena/.verify-probe",
         ".roblox": ".roblox",
@@ -147,7 +151,7 @@ def case(name):
 CASES = []
 
 
-@case("repository surface is six skills, four agents, and Codex only")
+@case("repository surface is six skills and four agents for Codex and Claude Code")
 def _():
     skills = sorted(
         name for name in os.listdir(os.path.join(ROOT, "shared", "skills"))
@@ -160,14 +164,17 @@ def _():
         if name.endswith(".toml")
     )
     require(agents == ["debugger", "optimizer", "researcher", "reviewer"], agents)
-    require(not os.path.exists(os.path.join(ROOT, "claude")), "claude directory remains")
-    require(not os.path.exists(os.path.join(ROOT, ".claude")), ".claude directory remains")
+    claude_agents = sorted(name for name in os.listdir(os.path.join(ROOT, "anthropic", "agents")) if name.endswith(".md"))
+    require(claude_agents == CLAUDE_AGENT_FILES, claude_agents)
+    require(os.path.isfile(os.path.join(ROOT, "anthropic", "config", "settings.json")), "Claude settings are absent")
+    require(open(os.path.join(ROOT, "CLAUDE.md"), encoding="utf-8").read() == "@AGENTS.md\n", "CLAUDE.md must import AGENTS.md")
+    require(not os.path.exists(os.path.join(ROOT, "claude")), "legacy claude directory remains")
     require(not os.path.exists(os.path.join(ROOT, "setup_windows.bat")), "Windows batch remains")
     require(os.path.isfile(os.path.join(ROOT, "setup_project.py")), "Python setup is absent")
     require(os.path.isfile(os.path.join(ROOT, "shared", "HANDOFF.md")), "shared handoff is absent")
     require(os.path.isfile(os.path.join(ROOT, "templates", "README.md")), "project README template is absent")
     require(not os.path.exists(os.path.join(ROOT, "templates", "HANDOFF.md")), "project handoff template remains")
-    tracked_local = run(["git", "ls-files", "--", ".agents", ".codex", ".serena", ".roblox"])
+    tracked_local = run(["git", "ls-files", "--", ".agents", ".claude", ".codex", ".serena", ".roblox"])
     require(tracked_local.returncode == 0 and not tracked_local.stdout.strip(), tracked_local.stdout)
     for skill in skills:
         text = open(os.path.join(ROOT, "shared", "skills", skill, "SKILL.md"), encoding="utf-8").read()
@@ -182,8 +189,13 @@ def _():
         result = run([PY, os.path.join(root, "setup_project.py"), "--harness"], cwd=root)
         require(result.returncode == 0, result.stdout + result.stderr)
         require(not os.path.exists(os.path.join(root, ".codex", "hooks.json")), "setup installed hooks")
+        settings = json.load(open(os.path.join(root, ".claude", "settings.json"), encoding="utf-8"))
+        require("hooks" not in settings, "setup installed Claude hooks")
+        require(settings["env"]["MAX_MCP_OUTPUT_TOKENS"] == "6000", settings)
+        require(sorted(os.listdir(os.path.join(root, ".claude", "agents"))) == CLAUDE_AGENT_FILES, "Claude agent set")
         for skill in ("rblx-debug", "rblx-gui", "rblx-new-game", "rblx-optimize", "rblx-plan", "rblx-writer"):
             require(os.path.islink(os.path.join(root, ".agents", "skills", skill)), skill)
+            require(os.path.islink(os.path.join(root, ".claude", "skills", skill)), skill)
         require(not os.path.exists(os.path.join(root, ".roblox")), "harness setup created .roblox")
         require(not os.path.exists(os.path.join(root, ".serena")), "harness setup created .serena")
         status = run(["git", "status", "--porcelain"], cwd=root)
@@ -241,6 +253,40 @@ def _():
     require(parsed["tool_output_token_limit"] == 6000, merged)
     repeated = gatelib.merge_project_codex_config(merged, canonical)
     require(repeated == merged, "Codex config merge is not byte-stable")
+
+
+@case("Claude settings merge preserves custom values")
+def _():
+    sys.path.insert(0, os.path.join(ROOT, "shared", "gates"))
+    import gatelib
+
+    existing = '{"custom": {"value": 7}, "env": {"MAX_MCP_OUTPUT_TOKENS": "9000"}}\n'
+    canonical = open(os.path.join(ROOT, "anthropic", "config", "settings.json"), encoding="utf-8").read()
+    merged = gatelib.merge_project_claude_settings(existing, canonical)
+    parsed = json.loads(merged)
+    require(parsed["custom"]["value"] == 7, merged)
+    require(parsed["env"] == {"MAX_MCP_OUTPUT_TOKENS": "9000", "BASH_MAX_OUTPUT_LENGTH": "24000"}, merged)
+    repeated = gatelib.merge_project_claude_settings(merged, canonical)
+    require(repeated == merged, "Claude settings merge is not byte-stable")
+
+
+@case("Claude Roblox settings profile allows the harness cache and remains optional")
+def _():
+    with tempfile.TemporaryDirectory() as directory:
+        environment = dict(os.environ, CLAUDE_CONFIG_DIR=os.path.join(directory, "claude"))
+        status = run([PY, CLAUDE_PERMISSIONS], env=environment)
+        require(status.returncode == 0 and "ABSENT" in status.stdout, status.stdout + status.stderr)
+        installed = run([PY, CLAUDE_PERMISSIONS, "--install"], env=environment)
+        require(installed.returncode == 0 and "INSTALLED" in installed.stdout, installed.stdout + installed.stderr)
+        profile_path = os.path.join(environment["CLAUDE_CONFIG_DIR"], "rblx-harness-roblox.json")
+        profile = json.load(open(profile_path, encoding="utf-8"))
+        require("~/.cache/harness" in profile["sandbox"]["filesystem"]["allowWrite"], profile)
+        require("github.com" in profile["sandbox"]["network"]["allowedDomains"], profile)
+        require(not os.path.exists(os.path.join(environment["CLAUDE_CONFIG_DIR"], "settings.json")), "profile changed user settings")
+        saved = open(profile_path, encoding="utf-8").read()
+        repeated = run([PY, CLAUDE_PERMISSIONS, "--install"], env=environment)
+        require(repeated.returncode == 0 and "PRESENT" in repeated.stdout, repeated.stdout + repeated.stderr)
+        require(open(profile_path, encoding="utf-8").read() == saved, "profile install is not byte-stable")
 
 
 @case("new-game approval installs the fixed GitHub submodule into an unborn repository")
@@ -382,6 +428,7 @@ def _():
         )
         require(recovered.returncode == 0, recovered.stdout + recovered.stderr)
         require(os.path.isfile(os.path.join(root, ".codex", "config.toml")), "recovery did not create .codex")
+        require(os.path.isfile(os.path.join(root, ".claude", "settings.json")), "recovery did not create .claude")
 
 
 @case("full scaffold links assets and preserves existing module bytes")
@@ -412,8 +459,9 @@ def _():
         require(os.path.islink(effects), "controller link absent")
         require(os.path.isdir(os.path.join(root, "plugins")), "plugins folder absent")
         require(not os.path.lexists(os.path.join(root, "plugin")), "legacy plugin folder remains")
-        require(not os.path.exists(os.path.join(root, ".claude")), "Claude support emitted")
-        require(not os.path.exists(os.path.join(root, "CLAUDE.md")), "CLAUDE.md emitted")
+        require(os.path.isfile(os.path.join(root, ".claude", "settings.json")), "Claude settings are absent")
+        claude_md = open(os.path.join(root, "CLAUDE.md"), encoding="utf-8").read()
+        require("\n@AGENTS.md\n" in claude_md, claude_md)
         require(not os.path.exists(os.path.join(root, "HANDOFF.md")), "project handoff was emitted")
         readme_path = os.path.join(root, "README.md")
         readme = open(readme_path, encoding="utf-8").read()
@@ -422,9 +470,12 @@ def _():
         require("python3 rblx-harness/setup_project.py --project . --from-state" in readme, readme)
         require(len(readme.splitlines()) <= 10, "generated README is not minimal")
         require(sorted(os.path.splitext(name)[0] for name in os.listdir(os.path.join(root, ".codex", "agents"))) == ["debugger", "optimizer", "researcher", "reviewer"], "agent set")
+        require(sorted(os.listdir(os.path.join(root, ".claude", "agents"))) == CLAUDE_AGENT_FILES, "Claude agent set")
         for skill in ("rblx-writer", "rblx-gui", "rblx-debug", "rblx-optimize", "rblx-plan"):
             require(os.path.islink(os.path.join(root, ".agents", "skills", skill)), "%s is not linked" % skill)
+            require(os.path.islink(os.path.join(root, ".claude", "skills", skill)), "%s is not linked for Claude" % skill)
         require(not os.path.lexists(os.path.join(root, ".agents", "skills", "rblx-new-game")), "rblx-new-game was installed in project")
+        require(not os.path.lexists(os.path.join(root, ".claude", "skills", "rblx-new-game")), "rblx-new-game was installed for Claude")
         require_ignored_local_state(root)
         inspected = run([PY, SCAFFOLD, "inspect", "--root", root])
         require(inspected.returncode == 0, inspected.stdout + inspected.stderr)
@@ -446,6 +497,7 @@ def _():
         write(readme_path, custom_readme)
         shutil.rmtree(os.path.join(root, ".agents"))
         shutil.rmtree(os.path.join(root, ".codex"))
+        shutil.rmtree(os.path.join(root, ".claude"))
         os.unlink(os.path.join(root, ".roblox"))
         os.makedirs(os.path.join(root, ".agents", "skills", "rblx-new-game"))
         write(os.path.join(root, ".agents", "skills", "rblx-new-game", "stale"), "stale\n")
@@ -456,6 +508,7 @@ def _():
         require(restored.returncode == 0, restored.stdout + restored.stderr)
         require(os.path.isfile(os.path.join(root, ".roblox")), "setup did not recreate .roblox")
         require(os.path.isfile(os.path.join(root, ".codex", "config.toml")), "setup did not recreate .codex")
+        require(os.path.isfile(os.path.join(root, ".claude", "settings.json")), "setup did not recreate .claude")
         require(not os.path.lexists(os.path.join(root, ".agents", "skills", "rblx-new-game")), "setup retained rblx-new-game")
         require(open(readme_path, encoding="utf-8").read() == custom_readme, "setup replaced an existing README")
         os.makedirs(os.path.join(root, ".serena"))
@@ -545,6 +598,12 @@ def _():
 @case("native Codex migration and consolidated commands")
 def _():
     result = run([PY, os.path.join(ROOT, "tools", "tests", "test_native_codex.py")])
+    require(result.returncode == 0, result.stdout + result.stderr)
+
+
+@case("native Claude Code settings, agents, hook migration, and permission profile")
+def _():
+    result = run([PY, os.path.join(ROOT, "tools", "tests", "test_native_claude.py")])
     require(result.returncode == 0, result.stdout + result.stderr)
 
 

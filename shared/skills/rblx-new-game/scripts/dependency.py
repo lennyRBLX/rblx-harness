@@ -13,6 +13,7 @@ LOCAL_IGNORE_BEGIN = "# BEGIN rblx-new-game"
 LOCAL_IGNORE_END = "# END rblx-new-game"
 LOCAL_IGNORE_ENTRIES = (
     "/.agents/",
+    "/.claude/",
     "/.codex/",
     "/.serena/",
     "/.roblox",
@@ -158,7 +159,7 @@ def install_submodule(root):
 def setup(root, yes=False):
     if not yes:
         print(
-            "CONSENT_REQUIRED|rblx-harness adds Codex skills, four agents, "
+            "CONSENT_REQUIRED|rblx-harness adds Codex and Claude Code skills, four agents,"
             "rules, tools, templates, and selected shared assets."
         )
         return 3

@@ -216,6 +216,70 @@ def required_codex_agents_status(root):
     return True, ""
 
 
+def merge_project_claude_settings(existing, canonical):
+    """Add missing harness defaults without replacing user settings or preferences."""
+    existing = existing or ""
+    try:
+        configured = json.loads(existing) if existing.strip() else {}
+        defaults = json.loads(canonical)
+    except ValueError as error:
+        raise ValueError("project Claude settings are malformed: %s" % str(error)[:160]) from error
+    if not isinstance(configured, dict) or not isinstance(defaults, dict):
+        raise ValueError("Claude settings must contain an object")
+    changed = False
+    for key, value in defaults.items():
+        if type(value) in (str, int, bool):
+            if key not in configured:
+                configured[key] = value
+                changed = True
+            continue
+        if not isinstance(value, dict) or any(type(item) not in (str, int, bool) for item in value.values()):
+            raise ValueError("harness defaults must be scalars or objects of scalars")
+        current = configured.get(key, {})
+        if not isinstance(current, dict):
+            raise ValueError("project Claude settings %s must contain an object" % key)
+        missing = {name: item for name, item in value.items() if name not in current}
+        if missing:
+            configured[key] = dict(current, **missing)
+            changed = True
+    if not changed:
+        return existing
+    # Keys keep the user's order; only absent defaults are appended.
+    return json.dumps(configured, indent=2) + "\n"
+
+
+def claude_frontmatter(text):
+    """Read the flat `key: value` frontmatter used by harness Claude agent files."""
+    if not text.startswith("---\n"):
+        return None, ""
+    end = text.find("\n---\n", 4)
+    if end < 0:
+        return None, ""
+    fields = {}
+    for line in text[4:end].splitlines():
+        key, separator, value = line.partition(":")
+        if separator and key.strip():
+            fields[key.strip()] = value.strip()
+    return fields, text[end + 5:].strip()
+
+
+def required_claude_agents_status(root):
+    agents_dir = os.path.join(os.path.realpath(root), ".claude", "agents")
+    for name in REQUIRED_CODEX_AGENTS:
+        path = os.path.join(agents_dir, name + ".md")
+        try:
+            with open(path, encoding="utf-8") as handle:
+                fields, body = claude_frontmatter(handle.read())
+        except OSError:
+            return False, "Claude agents must include: %s" % ", ".join(REQUIRED_CODEX_AGENTS)
+        if fields is None or fields.get("name") != name or not fields.get("description") or not body:
+            return False, "%s has an invalid agent definition" % path
+        denied = {tool.strip() for tool in fields.get("disallowedTools", "").split(",")}
+        if "Agent" not in denied:
+            return False, "%s must disable nested delegation" % path
+    return True, ""
+
+
 def corpus_assets_error():
     dump_path = os.path.join(CACHE, "API-Dump.json")
     docs_root = os.path.join(CACHE, "creator-docs")

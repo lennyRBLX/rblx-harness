@@ -32,7 +32,7 @@ class ProjectValidationTest(unittest.TestCase):
         self.addCleanup(self.temporary.cleanup)
         self.root = Path(self.temporary.name)
         subprocess.run(["git", "init", "--quiet", str(self.root)], check=True)
-        (self.root / ".gitignore").write_text("/.agents/\n/.codex/\n/.serena/\n/.roblox\n")
+        (self.root / ".gitignore").write_text("/.agents/\n/.claude/\n/.codex/\n/.serena/\n/.roblox\n")
 
     def validate(self):
         errors = []
@@ -46,7 +46,7 @@ class ProjectValidationTest(unittest.TestCase):
 
     def test_missing_rules_and_negation_still_fail_per_path(self):
         (self.root / ".gitignore").write_text(
-            "/.agents/\n/.codex/*\n!/.codex/.rblx-harness-probe\n/.roblox\n"
+            "/.agents/\n/.claude/\n/.codex/*\n!/.codex/.rblx-harness-probe\n/.roblox\n"
         )
         self.assertEqual(self.validate(), [
             "local state is not ignored: .codex", "local state is not ignored: .serena",

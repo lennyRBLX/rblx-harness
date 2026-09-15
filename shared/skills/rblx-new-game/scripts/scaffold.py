@@ -22,6 +22,7 @@ SKIP_DIRS = {
     ".git",
     "rblx-harness",
     ".agents",
+    ".claude",
     ".codex",
     ".serena",
     "plugin",
@@ -30,6 +31,7 @@ SKIP_DIRS = {
 }
 LOCAL_IGNORE_ENTRIES = (
     "/.agents/",
+    "/.claude/",
     "/.codex/",
     "/.serena/",
     "/.roblox",

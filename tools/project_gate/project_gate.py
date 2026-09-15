@@ -16,6 +16,7 @@ import gatelib
 
 LOCAL_STATE = {
     ".agents": ".agents/.rblx-harness-probe",
+    ".claude": ".claude/.rblx-harness-probe",
     ".codex": ".codex/.rblx-harness-probe",
     ".serena": ".serena/.rblx-harness-probe",
     ".roblox": ".roblox",
@@ -48,7 +49,7 @@ def validate_local_state(root, errors):
     tracked_rc, tracked, detail = gatelib.git(root, "ls-files", "-z", "--", *LOCAL_STATE)
     tracked_paths = tracked.split("\0")
     ignored_rc, ignored, _ = gatelib.git(root, "check-ignore", "--no-index", "--", *LOCAL_STATE.values())
-    # These four fixed probe paths contain no whitespace or quoting characters.
+    # These fixed probe paths contain no whitespace or quoting characters.
     # A fatal batch failure must not accept any partial output as validation.
     ignored_paths = set(ignored.splitlines()) if ignored_rc == 0 else set()
     for relative, probe in LOCAL_STATE.items():
@@ -89,7 +90,7 @@ def validate(root):
                 errors.append("place path is absent: %s" % relative)
     if not os.path.isfile(os.path.join(root, "default.project.json")):
         errors.append("default.project.json is absent")
-    for name in ("AGENTS.md", "README.md"):
+    for name in ("AGENTS.md", "CLAUDE.md", "README.md"):
         if not os.path.isfile(os.path.join(root, name)):
             errors.append("template output is absent: %s" % name)
     validate_local_state(root, errors)
@@ -99,16 +100,30 @@ def validate(root):
             tomllib.load(handle)
     except (OSError, tomllib.TOMLDecodeError) as error:
         errors.append("Codex config: %s" % error)
+    try:
+        with open(os.path.join(root, ".claude", "settings.json"), encoding="utf-8") as handle:
+            if not isinstance(json.load(handle), dict):
+                errors.append("Claude settings: an object is required")
+    except (OSError, ValueError) as error:
+        errors.append("Claude settings: %s" % error)
 
     agents_ok, detail = gatelib.required_codex_agents_status(root)
     if not agents_ok:
         errors.append("agents: %s" % detail)
+    agents_ok, detail = gatelib.required_claude_agents_status(root)
+    if not agents_ok:
+        errors.append("Claude agents: %s" % detail)
     for skill in gatelib.REQUIRED_SKILLS:
         path = os.path.join(root, ".agents", "skills", skill)
         if not os.path.isdir(path) or not os.path.isfile(os.path.join(path, "SKILL.md")):
             errors.append("skill is absent: %s" % skill)
+        path = os.path.join(root, ".claude", "skills", skill)
+        if not os.path.isdir(path) or not os.path.isfile(os.path.join(path, "SKILL.md")):
+            errors.append("Claude skill is absent: %s" % skill)
     if os.path.lexists(os.path.join(root, ".agents", "skills", "rblx-new-game")):
         errors.append("rblx-new-game must not be installed inside a managed project")
+    if os.path.lexists(os.path.join(root, ".claude", "skills", "rblx-new-game")):
+        errors.append("rblx-new-game must not be installed in project Claude skills")
 
     asset_values = manifest.get("assets") or []
     if not isinstance(asset_values, list) or any(not isinstance(value, str) for value in asset_values):

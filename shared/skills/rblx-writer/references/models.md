@@ -1,8 +1,9 @@
 # Model evaluation
 
 The primary and specialist agents inherit session model settings unless the user
-configures an override. Read `openai/agents/*.toml` for role constraints. Use
-[current Codex guidance](https://learn.chatgpt.com/docs/agent-configuration/subagents)
+configures an override. Read `openai/agents/*.toml` or `anthropic/agents/*.md` for
+role constraints. Use [current Codex guidance](https://learn.chatgpt.com/docs/agent-configuration/subagents)
+or [Claude Code subagent guidance](https://code.claude.com/docs/en/sub-agents)
 when changing model or reasoning settings.
 
 For comparisons, record workload, model/version, retries, missed restrictions,

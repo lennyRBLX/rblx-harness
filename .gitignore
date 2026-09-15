@@ -3,6 +3,7 @@ __pycache__/
 *.pyc
 tools/bin/
 /.agents/
+/.claude/
 /.codex/
 /.serena/
 /.roblox

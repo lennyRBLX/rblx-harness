@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-"""Install Codex support and link selected harness assets into a project."""
+"""Install Codex and Claude Code support and link selected harness assets into a project."""
 
 import argparse
+import importlib.util
 import json
 import os
 import re
@@ -20,6 +21,7 @@ LOCAL_IGNORE_BEGIN = "# BEGIN rblx-new-game"
 LOCAL_IGNORE_END = "# END rblx-new-game"
 LOCAL_IGNORE_ENTRIES = (
     "/.agents/",
+    "/.claude/",
     "/.codex/",
     "/.serena/",
     "/.roblox",
@@ -28,6 +30,8 @@ LOCAL_IGNORE_ENTRIES = (
 ASSET_ORDER = ("packages", "services", "controllers", "plugins")
 GUIDANCE_BEGIN = "<!-- BEGIN rblx-harness project guidance -->"
 GUIDANCE_END = "<!-- END rblx-harness project guidance -->"
+CLAUDE_BEGIN = "<!-- BEGIN rblx-harness Claude Code import -->"
+CLAUDE_END = "<!-- END rblx-harness Claude Code import -->"
 
 
 def fail(message):
@@ -265,8 +269,10 @@ def copy_codex_support(project, harness_checkout=False):
     with open(os.path.join(HARNESS, "openai", "config", "project.toml"), encoding="utf-8") as handle:
         canonical = handle.read()
     write_text(config_path, gatelib.merge_project_codex_config(existing, canonical))
+    link_skills(os.path.join(project, ".agents", "skills"), harness_checkout)
 
-    skills_root = os.path.join(project, ".agents", "skills")
+
+def link_skills(skills_root, harness_checkout):
     os.makedirs(skills_root, exist_ok=True)
     if not harness_checkout:
         remove_path(os.path.join(skills_root, "rblx-new-game"))
@@ -281,8 +287,100 @@ def copy_codex_support(project, harness_checkout=False):
         )
 
 
+def claude_hook_adapter():
+    path = os.path.join(HARNESS, "anthropic", "hooks", "adapter.py")
+    spec = importlib.util.spec_from_file_location("rblx_claude_hook_adapter", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def remove_retired_claude_hooks(text):
+    """Remove only retired harness handlers; retain other hooks, settings, and bytes."""
+    if not text.strip():
+        return text
+    try:
+        document = json.loads(text)
+    except ValueError as error:
+        fail("project Claude settings are malformed: %s" % str(error)[:160])
+    if not isinstance(document, dict):
+        fail("project Claude settings must contain an object")
+    hooks = document.get("hooks")
+    if hooks is None:
+        return text
+    if not isinstance(hooks, dict):
+        fail("project Claude hooks must contain an object")
+    retired = claude_hook_adapter().retired_handler
+    changed = False
+    for event, entries in list(hooks.items()):
+        if not isinstance(entries, list):
+            fail("project Claude hook entries must be arrays")
+        retained = []
+        for entry in entries:
+            if not isinstance(entry, dict) or not isinstance(entry.get("hooks"), list):
+                fail("project Claude hook entry must contain a hooks array")
+            handlers = [handler for handler in entry["hooks"] if not retired(handler, event)]
+            changed = changed or len(handlers) != len(entry["hooks"])
+            if handlers:
+                retained.append(dict(entry, hooks=handlers))
+        if retained:
+            hooks[event] = retained
+        else:
+            del hooks[event]
+    if not changed:
+        return text
+    if not hooks:
+        del document["hooks"]
+    return json.dumps(document, indent=2) + "\n"
+
+
+def copy_claude_support(project, harness_checkout=False):
+    claude = os.path.join(project, ".claude")
+    agents = os.path.join(claude, "agents")
+    os.makedirs(agents, exist_ok=True)
+    for name in AGENTS:
+        shutil.copy2(
+            os.path.join(HARNESS, "anthropic", "agents", name + ".md"),
+            os.path.join(agents, name + ".md"),
+        )
+    sys.path.insert(0, os.path.join(HARNESS, "shared", "gates"))
+    import gatelib
+
+    settings_path = os.path.join(claude, "settings.json")
+    try:
+        with open(settings_path, encoding="utf-8") as handle:
+            existing = handle.read()
+    except FileNotFoundError:
+        existing = ""
+    with open(os.path.join(HARNESS, "anthropic", "config", "settings.json"), encoding="utf-8") as handle:
+        canonical = handle.read()
+    migrated = remove_retired_claude_hooks(existing)
+    write_text(settings_path, gatelib.merge_project_claude_settings(migrated, canonical))
+    link_skills(os.path.join(claude, "skills"), harness_checkout)
+
+
+def render_claude_import(project):
+    """Load AGENTS.md through Claude Code's native import; keep other CLAUDE.md text."""
+    path = os.path.join(project, "CLAUDE.md")
+    try:
+        with open(path, encoding="utf-8") as handle:
+            existing = handle.read()
+    except FileNotFoundError:
+        existing = ""
+    if CLAUDE_BEGIN in existing or CLAUDE_END in existing:
+        if (existing.count(CLAUDE_BEGIN) != 1 or existing.count(CLAUDE_END) != 1
+                or existing.index(CLAUDE_BEGIN) > existing.index(CLAUDE_END)):
+            fail("CLAUDE.md has malformed harness import markers")
+        return
+    if any(line.strip() == "@AGENTS.md" for line in existing.splitlines()):
+        return
+    managed = "%s\n@AGENTS.md\n%s" % (CLAUDE_BEGIN, CLAUDE_END)
+    write_text(path, "\n\n".join(part for part in (managed, existing.strip()) if part) + "\n")
+
+
 def install_harness_support():
     copy_codex_support(HARNESS, harness_checkout=True)
+    copy_claude_support(HARNESS, harness_checkout=True)
     print("setup-harness|READY|agents=%s|skills=%s" % (
         ",".join(AGENTS),
         ",".join(HARNESS_SKILLS),
@@ -410,7 +508,9 @@ def install(project, manifest):
         ensure_plugins_directory(project)
 
     copy_codex_support(project)
+    copy_claude_support(project)
     render_templates(project, manifest)
+    render_claude_import(project)
     print("setup-project|READY|places=%s|assets=%s" % (
         ",".join(places),
         ",".join(assets) if assets else "none",
