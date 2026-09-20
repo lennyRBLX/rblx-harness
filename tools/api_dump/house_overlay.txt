@@ -4,3 +4,6 @@
 # undocumented behavior PROPOSES an entry (record_check relays it), and the
 # human rules it into this file from a rblx-harness/ session.
 Humanoid:ApplyDescriptionResetAsync|deletes every limb in the character and replaces them
+Highlight|Highlights only draw on opaque BaseParts.
+Model|Physics simulated Model's Weld all BaseParts to 1 Root; Move via Root.CFrame for speed over Model:PivotTo()
+StringValue|StringValue Max Length is 200000 chars.

@@ -9,6 +9,8 @@ short and load task details through skill references. Preserve unrelated user
 configuration during setup. Tool commands are listed by
 `python3 tools/harness.py --help`.
 
+Apply command, check, and evidence rules from `shared/CORE.md`.
+
 Run `python3 tools/harness.py check harness --case MATCH` for affected behavior;
-use the full suite for broad harness changes. Reuse valid results. Package source
+use the full suite for broad harness changes. Package source
 is a supplied asset; a harness configuration change does not require a Studio run.

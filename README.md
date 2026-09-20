@@ -40,6 +40,7 @@ and `plugins/` support are selectable. Existing detected module bytes are preser
 | Tools | Native search/edit/Git plus `tools/harness.py` for domain operations |
 | Agents | `.codex/agents/*.toml`; inherited model settings, role sandbox defaults, nested delegation disabled |
 | Validation | Checks inside transactional writers; explicitly selected source/project/harness checks |
+| Command policy | Project instructions require scoped commands, batching, justified checks, and evidence reuse |
 | Context size | Progressive disclosure, bounded artifacts, native compaction, 6,000-token tool-history default |
 
 These use official [skills](https://learn.chatgpt.com/docs/build-skills),
@@ -52,6 +53,11 @@ Descriptions and instructions express tool preferences. There is no Codex CLI
 prefixes; [MCP allowlists](https://learn.chatgpt.com/docs/extend/mcp) limit tools on
 configured servers. Neither proves data semantics. Writer checks enforce their
 own invariants. Parent runtime permission overrides can supersede role defaults.
+
+Setup removes recognized retired harness hooks and preserves custom entries.
+See [project rules](shared/CORE.md) for command and evidence policy and the
+[session review](openai/COMMAND_POLICY_REVIEW.md) for its rationale and limits.
+No command declarations or automatic completion tests are required.
 
 ## Claude Code integration
 

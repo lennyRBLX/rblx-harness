@@ -7,9 +7,16 @@ questions:
 - `researcher`: engine API, access, or behavior questions and project-source
   tracing that need several lookups, docs, or files.
 - `debugger`: failures whose cause the supplied source or logs do not establish.
-- `optimizer`: MicroProfiler captures and frame-time or memory questions.
-- `reviewer`: non-trivial Luau changes, before reporting them complete.
+- `optimizer`: source and plan costs, MicroProfiler captures, and frame-time or
+  memory questions.
+- `reviewer`: Luau changes and implementation plans, after optimizer assessment.
 
-Launch independent agents together and continue other work meanwhile. Keep single
+For non-GUI features, GUI features, bugs or regressions, and implementation plans,
+prepare the implementation or plan, run `optimizer`, address its findings, then
+run `reviewer` before completion. Source and plan assessment does not require a
+capture. Pass optimizer findings and their disposition to reviewer.
+
+Launch independent agents together; optimizer and reviewer run in order. Continue
+other work meanwhile. Keep single
 lookups, straightforward edits, Studio probes, and user decisions in the primary
 session. Report agent conclusions with their sources and limits.

@@ -20,5 +20,7 @@ Use `python3 H/tools/harness.py --help` for domain commands.
 4. Remove this task's temporary diagnostics; preserve pre-existing and useful
    regression tests. Report the cause, change, evidence, and remaining limits.
 
-Use `debugger` or another bounded role when delegation is requested. Do not require
-a research, optimization, and review agent sequence for every fix.
+When delegation is requested, use `debugger` if the cause is unresolved. After
+the fix, run `optimizer` before `reviewer`. Address optimizer findings before
+handing the settled changes to reviewer; source analysis does not require a
+capture. Add research only for unresolved questions.

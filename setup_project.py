@@ -6,6 +6,7 @@ import importlib.util
 import json
 import os
 import re
+import shlex
 import shutil
 import sys
 
@@ -215,6 +216,9 @@ def remove_legacy_hooks(project):
         for entry in entries:
             if not isinstance(entry, dict) or not isinstance(entry.get("hooks"), list):
                 fail("project hook entry must contain a hooks array")
+            if event == "PreToolUse" and installed_command_policy(entry):
+                changed = True
+                continue
             handlers = []
             for handler in entry["hooks"]:
                 if legacy_hook_handler(handler, event):
@@ -271,6 +275,27 @@ def copy_codex_support(project, harness_checkout=False):
         canonical = handle.read()
     write_text(config_path, gatelib.merge_project_codex_config(existing, canonical))
     link_skills(os.path.join(project, ".agents", "skills"), harness_checkout)
+
+
+def command_policy_entry(policy):
+    """Reconstruct the retired entry for exact migration matching."""
+    return {"matcher": "^Bash$", "hooks": [{
+        "type": "command",
+        "command": "python3 -B " + shlex.quote(policy),
+        "commandWindows": 'py -3 -B "' + policy.replace('"', '\\"') + '"',
+        "timeout": 5,
+    }]}
+
+
+def installed_command_policy(entry):
+    """Recognize exact generated entries, including a moved checkout's path."""
+    try:
+        args = shlex.split(entry["hooks"][0]["command"])
+    except (KeyError, IndexError, TypeError, ValueError):
+        return False
+    return (len(args) == 3 and args[:2] == ["python3", "-B"]
+            and args[2].replace("\\", "/").endswith("/openai/hooks/command_policy.py")
+            and entry == command_policy_entry(args[2]))
 
 
 def link_skills(skills_root, harness_checkout):

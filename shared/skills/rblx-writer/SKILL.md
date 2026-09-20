@@ -18,6 +18,8 @@ needed family. Use native search and editing for ordinary code work.
 3. Review correctness, authority, lifecycle, and relevant performance risks.
    Use the smallest decisive check on settled changes; reuse valid evidence.
 
-Delegate a bounded independent research or review question only when the user or
-active project instructions request delegation. Pass affected paths, known results,
-and unresolved questions. Keep straightforward work in the primary agent.
+When the user or active project instructions request delegation, use `researcher`
+for unresolved research, implement, then run `optimizer` before `reviewer`.
+Address optimizer findings before handing the settled changes to reviewer.
+Pass affected paths, known results, and unresolved questions. Keep straightforward
+implementation in the primary agent; source analysis does not require a capture.

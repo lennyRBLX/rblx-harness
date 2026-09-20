@@ -20,6 +20,9 @@ Use `python3 H/tools/harness.py --help` for domain commands.
    for unresolved appearance or interaction risks; inspect simple text or spacing
    edits directly. Logs alone do not establish visual acceptance.
 
-Use bounded agents when delegation is requested. For research coverage or an
-untested class boundary, read [coverage.md](references/coverage.md). Preserve
-source and runtime evidence limits; remove only owned temporary files.
+When delegation is requested, use `researcher` for unresolved research, implement,
+then run `optimizer` before `reviewer`. Address optimizer findings before handing
+the settled changes to reviewer; source analysis does not require a capture.
+For research coverage or an untested class boundary, read
+[coverage.md](references/coverage.md). Preserve source and runtime evidence limits;
+remove only owned temporary files.

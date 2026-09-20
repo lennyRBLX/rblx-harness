@@ -193,7 +193,7 @@ def _():
         require(sorted(os.listdir(os.path.join(root, ".codex", "agents"))) == [
             "debugger.toml", "optimizer.toml", "researcher.toml", "reviewer.toml",
         ], "Codex agent set")
-        require(not os.path.exists(os.path.join(root, ".codex", "hooks.json")), "setup installed hooks")
+        require(not os.path.exists(os.path.join(root, ".codex", "hooks.json")), "setup installed Codex hooks")
         require(os.path.isfile(os.path.join(root, ".claude", "rules", "rblx-harness-delegation.md")), "Claude delegation rule")
         settings = json.load(open(os.path.join(root, ".claude", "settings.json"), encoding="utf-8"))
         require("hooks" not in settings, "setup installed Claude hooks")

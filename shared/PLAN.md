@@ -1,14 +1,29 @@
-# Implementation plans
+# [Feature] implementation plan
 
-Use Codex Plan Mode for discussion and its plan tool for execution progress.
-Write a plan file only when the user requests one or durable coordination needs it.
-Preserve the user's format and any required Plan Mode wrapper.
+## Outcome
 
-Include the outcome, affected owners and paths, dependencies, unresolved choices,
-and acceptance evidence. Add API signatures, data flow, authority, lifecycle, and
-Luau types only where implementation depends on them. Cite inspected contracts;
-mark proposed contracts as proposed.
+[Required behavior and scope.]
 
-Keep steps independently verifiable and in dependency order. Record status and
-applicable evidence in place. Reuse valid checks. Keep stable IDs when other work
-refers to them. No fixed headings, milestone receipts, or format gate are required.
+## Implementation steps
+
+| ID | Owner / paths | Change / contracts | Depends on | Acceptance / evidence | Status |
+| --- | --- | --- | --- | --- | --- |
+| S1 | [Owner; paths] | [Change; inspected or proposed contracts] | [Dependencies] | [Observable result; evidence] | Pending |
+
+## Decisions
+
+| Item | Proposed choice | Approval needed |
+| --- | --- | --- |
+| [Choice] | [Recommendation and reason] | [Open approval] |
+
+## Unresolved
+
+| Question | Affected step | Resolution needed |
+| --- | --- | --- |
+| [Unknown] | [Step ID] | [Missing answer or evidence] |
+
+## Pre-implementation tests
+
+| Question | Test | Plan impact | Result |
+| --- | --- | --- | --- |
+| [Unverified fact, boundary, conversion problem, or solution] | [Smallest decisive check] | [Affected step and decision] | Pending |

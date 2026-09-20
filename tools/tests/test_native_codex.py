@@ -94,6 +94,35 @@ command = "custom"
             self.assertTrue(gatelib.required_codex_agents_status(str(self.root))[0])
             self.assertFalse((self.root / ".codex/hooks.json").exists())
 
+    def test_command_policy_retirement_preserves_custom_hooks_and_metadata(self):
+        custom = {"matcher": "Bash", "hooks": [{"type": "command", "command": "echo custom"}]}
+        retired = setup.command_policy_entry("/previous folder/openai/hooks/command_policy.py")
+        path = self.write(".codex/hooks.json", json.dumps({"description": "user", "hooks": {"PreToolUse": [retired, custom]}}))
+        for _ in range(2):
+            setup.copy_codex_support(str(self.root))
+            self.assertEqual(json.loads(path.read_text()),
+                             {"description": "user", "hooks": {"PreToolUse": [custom]}})
+
+    def test_moved_policy_removes_only_exact_generated_entry(self):
+        previous = setup.command_policy_entry("/previous folder/openai/hooks/command_policy.py")
+        custom = setup.command_policy_entry("/custom/openai/hooks/command_policy.py")
+        custom["hooks"][0]["timeout"] = 7
+        self.write(".codex/hooks.json", json.dumps({"hooks": {"PreToolUse": [previous, custom]}}))
+        setup.remove_legacy_hooks(str(self.root))
+        entries = json.loads((self.root / ".codex/hooks.json").read_text())["hooks"]["PreToolUse"]
+        self.assertEqual(entries, [custom])
+
+    def test_retired_policy_removes_empty_file_but_preserves_user_metadata(self):
+        retired = setup.command_policy_entry("/old/openai/hooks/command_policy.py")
+        for metadata in ({}, {"description": "user"}):
+            path = self.write(".codex/hooks.json", json.dumps(dict(metadata, hooks={"PreToolUse": [retired]})))
+            for _ in range(2):
+                setup.copy_codex_support(str(self.root))
+                if metadata:
+                    self.assertEqual(json.loads(path.read_text()), dict(metadata, hooks={}))
+                else:
+                    self.assertFalse(path.exists())
+
 
 class HookMigrationTest(Fixture):
     @staticmethod
@@ -144,11 +173,13 @@ class HookMigrationTest(Fixture):
             self.assertEqual(path.read_text(), source)
 
     def test_stale_adapter_commands_exit_without_retry_output(self):
-        for event in ("PreToolUse", "Stop"):
-            result = subprocess.run([sys.executable, "-B", str(ROOT / "openai/hooks/adapter.py"),
-                                     "--host", "codex", "--event", event, "--hook-scope", "project"],
-                                    input="old payload", capture_output=True, text=True)
-            self.assertEqual((result.returncode, result.stdout, result.stderr), (0, "", ""))
+        for script in ("adapter.py", "command_policy.py"):
+            for event in ("PreToolUse", "Stop"):
+                with self.subTest(script=script, event=event):
+                    result = subprocess.run([sys.executable, "-B", str(ROOT / "openai/hooks" / script),
+                                             "--host", "codex", "--event", event, "--hook-scope", "project"],
+                                            input="old payload", capture_output=True, text=True)
+                    self.assertEqual((result.returncode, result.stdout, result.stderr), (0, "", ""))
 
 
 class PermissionsTest(Fixture):

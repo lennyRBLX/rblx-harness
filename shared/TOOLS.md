@@ -73,10 +73,13 @@ execute transcript text. Keep exact literals, restrictions, and source revisions
 
 ## Checks
 
+Reuse Argon sourcemaps until mappings, paths, map metadata, or options change;
+source-body edits alone do not invalidate them.
+
 `check source --only correctness,replication PATH...` runs selected checkers once.
 Defaults are correctness, replication, and style; performance is opt-in. Checkers
 retain their source scopes and diagnostics. No source repair or Studio run is
-implicit. Use the smallest decisive selection and reuse valid results.
+implicit.
 `check project` validates scaffolding; `check harness --case MATCH` selects suite
 cases. Exit 0 means no blocking result, 2 means a failed check/request, and 3 means
 an unavailable environment where supported by the backend.
