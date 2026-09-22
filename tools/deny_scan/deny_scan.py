@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""deny_scan — a CLI over eight lint rules, one per rule id, sharing one entry
+"""deny_scan — a CLI over correctness lint rules, one per rule id, sharing one entry
 table. Returns blocking source findings to the caller.
 
   deny_scan [--root DIR] <file...>
@@ -30,7 +30,7 @@ CACHE = os.path.expanduser("~/.cache/harness")
 GLOBALS_PATH = os.path.join(CACHE, "api_globals.luau")
 LUTE = gatelib.bundled_tool_path("lute")
 RULES = os.path.join(HERE, "rules")
-RULE_IDS = ["BC3", "WRIT18", "DATA29", "OPT11", "WRIT11", "BC1", "OPT12", "BC7"]
+RULE_IDS = ["BC3", "WRIT18", "DATA29", "OPT11", "WRIT11", "BC1", "OPT12", "BC7", "OPT15", "OPT20", "DATA38"]
 
 
 def gen_config():
@@ -111,11 +111,19 @@ def main(argv):
         capture_output=True,
         text=True,
     )
+    # Lute can print a parse/rule failure before empty JSON and still exit 0.
+    brace = r.stdout.find("{")
+    prefix = r.stdout[:brace] if brace >= 0 else r.stdout
+    if r.returncode != 0 or prefix.strip():
+        detail = (r.stderr or prefix or r.stdout).strip().replace("|", "/")[:500]
+        sys.stderr.write("deny_scan: BLOCKED\n\n0|0|GATE4|required checker failed|%s\n" % detail)
+        return 2
     # JSON mode exits 0 with findings present — count items, never read the code
     try:
         report = json.loads(r.stdout)
     except ValueError:
-        sys.stderr.write("Fix deny_scan output parsing → retry.\n")
+        sys.stderr.write("deny_scan: BLOCKED\n\n0|0|GATE4|unparseable lint output|%s\n" %
+                         (r.stderr or r.stdout)[:300].replace("|", "/"))
         return 2
 
     findings = []

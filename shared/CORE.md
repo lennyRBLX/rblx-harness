@@ -1,7 +1,8 @@
 ## Roblox work
 
-- Use Argon-resolved source for project behavior. Validate remote arguments and
-  ownership before mutation; release connections, tasks, and instances at teardown.
+- Use Argon-resolved source for project behavior. Validate remote types, sizes,
+  finite ranges, rate, and ownership before mutation; release connections, tasks,
+  and instances at teardown.
 - Use `python3 rblx-harness/tools/harness.py types write` for data defaults,
   generated owner types, and public declarations. It validates and commits related
   files together. Resolve changed public APIs with `types read`.

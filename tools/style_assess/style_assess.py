@@ -72,10 +72,11 @@ def run_lint(rules_dir, cfg, files, auto_fix=False):
     if auto_fix:
         cmd.append("--auto-fix")
     r = subprocess.run(cmd + files, capture_output=True, text=True)
-    # a rule that errors prints "Error applying lint rule ..." before the
-    # JSON; the report is still whole, so parse from the first brace
+    # A parser/rule error may precede empty JSON despite exit 0. Fail closed.
     stdout = r.stdout
     brace = stdout.find("{")
+    if stdout[:max(brace, 0)].strip() or r.returncode != 0:
+        return None, r.stderr or stdout
     try:
         report = json.loads(stdout[brace:] if brace >= 0 else stdout)
     except ValueError:

@@ -614,6 +614,12 @@ def _():
     require(result.returncode == 0, result.stdout + result.stderr)
 
 
+@case("Luau contracts: const, profile/parallel pairing, codecs and remote ownership")
+def _():
+    result = run([PY, os.path.join(ROOT, "tools", "tests", "test_luau_contracts.py")])
+    require(result.returncode == 0, result.stdout + result.stderr)
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--list", action="store_true", help="List case names without running them")

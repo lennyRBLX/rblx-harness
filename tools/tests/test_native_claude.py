@@ -95,7 +95,7 @@ class SettingsTest(Fixture):
 
 
 class AgentTest(Fixture):
-    def test_roles_inherit_model_and_cannot_delegate(self):
+    def test_roles_use_opus_and_cannot_delegate(self):
         self.assertEqual(sorted(path.name for path in (ROOT / "anthropic/agents").iterdir()), AGENT_FILES)
         for name in AGENT_FILES:
             with self.subTest(agent=name):
@@ -105,7 +105,7 @@ class AgentTest(Fixture):
                 self.assertTrue(fields["description"] and body)
                 # Claude Code delegates automatically from this description phrase.
                 self.assertIn("Use proactively", fields["description"])
-                self.assertNotIn("model", fields)
+                self.assertEqual(fields["model"], "opus")
                 self.assertNotIn("tools", fields)
                 self.assertIn("Agent", denied)
                 if name != "debugger.md":
@@ -120,6 +120,19 @@ class AgentTest(Fixture):
         self.assertIn("nested delegation", detail)
         path.unlink()
         self.assertFalse(gatelib.required_claude_agents_status(str(self.root))[0])
+
+    def test_status_rejects_agent_without_opus_model(self):
+        setup.copy_claude_support(str(self.root))
+        path = self.root / ".claude/agents/optimizer.md"
+        path.write_text(path.read_text().replace("model: opus", "model: sonnet"))
+        ok, detail = gatelib.required_claude_agents_status(str(self.root))
+        self.assertFalse(ok)
+        self.assertIn("invalid agent definition", detail)
+
+    def test_delegation_requires_named_subagents(self):
+        rule = (ROOT / "anthropic/rules/delegation.md").read_text()
+        self.assertIn("separate subagent", rule)
+        self.assertIn("Never perform a specialist role inline", rule)
 
 
 class HookMigrationTest(Fixture):

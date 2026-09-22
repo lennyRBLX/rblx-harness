@@ -66,8 +66,8 @@ No command declarations or automatic completion tests are required.
 | Skill discovery | `.claude/skills/*/SKILL.md` links to the same `shared/skills` sources |
 | Project context | `CLAUDE.md` imports `AGENTS.md` through a managed `@AGENTS.md` block |
 | Tools | Native search/edit/Git plus `tools/harness.py` for domain operations |
-| Agents | `.claude/agents/*.md` from `anthropic/agents`; "Use proactively" descriptions, inherited model, `Agent` denied so roles cannot delegate, write tools denied for read-only roles |
-| Delegation | `.claude/rules/rblx-harness-delegation.md` from `anthropic/rules`; supplies the project delegation request the shared skills require, so Claude routes to agents unprompted while Codex keeps request-only delegation |
+| Agents | `.claude/agents/*.md` from `anthropic/agents`; Opus subagents, `Agent` denied so roles cannot delegate, write tools denied for read-only roles |
+| Delegation | `.claude/rules/rblx-harness-delegation.md` from `anthropic/rules`; requires Claude to launch applicable named roles as subagents and never fulfill a specialist role inline |
 | Settings | Absent `env` defaults merged into `.claude/settings.json`: `MAX_MCP_OUTPUT_TOKENS=6000`, `BASH_MAX_OUTPUT_LENGTH=24000` characters |
 | Hooks | None installed; `anthropic/hooks/adapter.py` identifies retired handlers |
 
@@ -97,8 +97,8 @@ use. Other values from those releases, such as `env` or `permissions.deny`, are
 treated as user configuration and retained. An existing `CLAUDE.md` keeps its text;
 the import is added only when no `@AGENTS.md` line is present.
 
-No automatic harness hooks, format retries, mandatory agent chains, milestone
-receipts, or text-substitution compressor remain. The adapter is retained as a
+No automatic harness hooks, format retries, milestone receipts, or
+text-substitution compressor remain. The adapter is retained as a
 no-op for already running clients. Skills keep detailed references on demand;
 each host manages compaction. An optional handoff template remains in `shared/HANDOFF.md`.
 Existing model and permission preferences remain in user/project configuration.

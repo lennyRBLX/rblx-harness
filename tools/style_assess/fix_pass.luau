@@ -21,14 +21,22 @@ local function mark(id)
 	changedIds[id] = true
 end
 
-local function tokenStream(root)
+local function tokenStream(root, source)
 	-- separator commas excluded: WRIT14 removes a trailing comma, the one
 	-- token-level edit the formatter is allowed. Everything else must match.
 	local out = {}
+	local lines = string.split(source, "\n")
 	local v = visitor.create()
 	v.visitToken = function(token)
 		if token.text ~= "" and token.text ~= "," then
-			table.insert(out, token.text)
+			-- Lute 1.0 normalizes const's CST localKeyword.text to "local".
+			-- Compare actual binding keywords so a rewrite cannot erase const.
+			local text = token.text
+			if text == "local" then
+				local loc = token.location
+				text = lines[loc.beginLine]:sub(loc.beginColumn, loc.endColumn - 1)
+			end
+			table.insert(out, text)
 		end
 		return true
 	end
@@ -320,12 +328,12 @@ local function main()
 	local source = fs.readFileToString(inPath)
 
 	local before = syntax.parse(source)
-	local streamBefore = tokenStream(before.root)
+	local streamBefore = tokenStream(before.root, source)
 
 	local once = pipeline(source)
 	assertTabIndentation(once)
 	local after = syntax.parse(once) -- parse-verify: an unparseable result never lands
-	local streamAfter = tokenStream(after.root)
+	local streamAfter = tokenStream(after.root, once)
 
 	assert(#streamBefore == #streamAfter, "fix_pass: token count changed - refusing to write")
 	for i, tok in streamBefore do

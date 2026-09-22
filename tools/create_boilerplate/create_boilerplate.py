@@ -38,7 +38,7 @@ TOOLS = os.path.dirname(HERE)
 sys.path.insert(0, TOOLS)
 import houseout  # noqa: E402
 
-FRAME = """local m = {}
+FRAME = """const m = {}
 
 -- privates
 
@@ -57,7 +57,7 @@ return m
 # copied forward is a section that collects the connections that belong in
 # Start. The divider stays sanctioned [R BC5]; it is earned by content, not
 # emitted ahead of it.
-CONTROLLER_FRAME = """local m = {}
+CONTROLLER_FRAME = """const m = {}
 
 -- privates
 
@@ -74,11 +74,11 @@ return m
 # one moment the writer is copying it. Absent PlayerGui, the GUI declines to
 # start: Gui/init.luau task.spawns each child's Start under pcall, so the
 # return is the whole contract and the warn is what a human reads [R DEBUG8].
-GUI_FRAME = """local Players = game:GetService("Players")
+GUI_FRAME = """const Players = game:GetService("Players")
 
-local Player = Players.LocalPlayer
+const Player = Players.LocalPlayer
 
-local m = {}
+const m = {}
 
 -- privates
 
@@ -94,7 +94,7 @@ end
 return m
 """
 
-TOOL_FRAME = """local m = {}
+TOOL_FRAME = """const m = {}
 
 -- privates
 
@@ -113,9 +113,9 @@ end
 return m
 """
 
-UPDATE_FRAME = """local RELEASE_DATE = "{date}"
+UPDATE_FRAME = """const RELEASE_DATE = "{date}"
 
-local m = {{
+const m = {{
 	ReleaseDate = "{date}"
 }}
 

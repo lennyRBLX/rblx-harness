@@ -14,6 +14,7 @@ Use `python3 H/tools/harness.py --help` for domain commands.
 2. Load [engine evidence](../rblx-writer/references/engine.md) for affected engine
    contracts; query `api behavior gui` for sizing. For React, read
    [react.md](references/react.md). Load `rblx-writer` for non-GUI feature code.
+   For Unicode text slicing, read [text contracts](../rblx-writer/references/luau.md).
 3. Implement with native editing tools; use `scaffold module gui` for new modules.
    Give each animated or layout property one owner and clean up at owner teardown.
 4. Review behavior and lifecycle. Select [visual checks](references/visual-tests.md)

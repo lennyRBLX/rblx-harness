@@ -34,7 +34,9 @@ check project
 check harness [--case MATCH ...] [--list]
 Source checks are read-only on project source and write tool caches. Each selected
 checker runs once. No Studio run or source repair is implicit. Harness checks run
-the full suite unless --case selects a subset. Missing tools are failures.""",
+the full suite unless --case selects a subset. Missing tools are failures.
+Correctness includes profile/parallel pairing and literal codec advisories;
+replication includes unreliable remotes. Style accepts const bindings.""",
     "inspect": """inspect read --file PATH[:FIRST:LAST] [--file PATH ...]
 inspect diff --path PATH [--path PATH ...] [--base REF]
 Both accept --max-chars N, --since PACK, and --no-cache. Full evidence is saved

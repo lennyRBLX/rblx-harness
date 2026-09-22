@@ -17,7 +17,7 @@ local function lint(ast, sourcepath, context)
 		local f = node.func
 		if f.tag == "indexname" and f.index.text == "new" and f.expression.tag == "global" and f.expression.name.text == "Instance" then
 			local value = lib.stringValue(lib.nodes(node.arguments)[1])
-			if value == "RemoteEvent" or value == "RemoteFunction" then
+			if value == "RemoteEvent" or value == "RemoteFunction" or value == "UnreliableRemoteEvent" then
 				table.insert(
 					out,
 					lib.violation(name, node.location, 'Instance.new("' .. value .. '")', "Declare the remote via m.Events + Event package; retry.", sourcepath)

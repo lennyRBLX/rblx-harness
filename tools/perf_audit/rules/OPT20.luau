@@ -1,7 +1,6 @@
 -- OPT20: standing profile labels — per-frame loops ship debug.profilebegin
--- with a literal 'Module.function.Sum' label, one open, and every exit
--- (return/break/fall-through) preceded by debug.profileend().
-local visitor = require("@std/syntax/visitor")
+-- with a literal 'Module.function.Sum' label, nested profiles allowed; flow checks every exit.
+local flow = require("../flow")
 local lib = require("../../replication_audit/lib")
 local perframe = require("../perframe")
 
@@ -19,17 +18,14 @@ local function debugCall(stat, member)
 end
 
 local function lint(ast, sourcepath, context)
-	local out = {}
+	local out = flow.lint(ast, sourcepath, "profile", false)
 	for _, body in perframe.bodies(ast) do
 		local stats = body.statements
 		local beginCall = nil
 		for _, stat in stats do
 			local c = debugCall(stat, "profilebegin")
 			if c ~= nil then
-				if beginCall ~= nil then
-					table.insert(out, lib.violation(name, c.location, "second profilebegin", "one open per per-frame body", sourcepath))
-				end
-				beginCall = c
+				beginCall = beginCall or c
 			end
 		end
 		if beginCall == nil then
@@ -44,34 +40,6 @@ local function lint(ast, sourcepath, context)
 			table.insert(
 				out,
 				lib.violation(name, beginCall.location, tostring(label), "label format is Module.function.Sum", sourcepath)
-			)
-		end
-		-- every exit closes: each return/break, and the fall-through end,
-		-- preceded by debug.profileend()
-		local function checkBlock(block)
-			for i, stat in block.statements do
-				if stat.tag == "return" or stat.tag == "break" then
-					local prev = block.statements[i - 1]
-					if prev == nil or debugCall(prev, "profileend") == nil then
-						table.insert(
-							out,
-							lib.violation(name, stat.location, "exit without profileend", "every exit closes the label", sourcepath)
-						)
-					end
-				end
-			end
-		end
-		local v = visitor.create()
-		v.visitStatBlock = function(block)
-			checkBlock(block)
-			return true
-		end
-		visitor.visitBlock(body, v)
-		local last = stats[#stats]
-		if last ~= nil and last.tag ~= "return" and debugCall(last, "profileend") == nil then
-			table.insert(
-				out,
-				lib.violation(name, last.location, "fall-through without profileend", "every exit closes the label", sourcepath)
 			)
 		end
 	end

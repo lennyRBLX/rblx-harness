@@ -78,6 +78,10 @@ def scan(tool, rules_dir, argv, fails_open=False):
     )
     stdout = r.stdout
     brace = stdout.find("{")
+    if stdout[:max(brace, 0)].strip() or r.returncode != 0:
+        sys.stderr.write("%s: BLOCKED\n\nGATE4|required checker failed|%s\n" %
+                         (tool, (r.stderr or stdout)[:300]))
+        return 2
     try:
         report = json.loads(stdout[brace:] if brace >= 0 else stdout)
     except ValueError:
@@ -110,6 +114,10 @@ def scan(tool, rules_dir, argv, fails_open=False):
     findings = grouped["hard"] + grouped["auto-fix"] + grouped["advisory"]
     if not findings:
         return 0
+    infrastructure = [finding for finding in findings if finding[3] == "GATE4"]
+    if infrastructure:
+        sys.stderr.write(houseout.render_findings(tool, infrastructure, root))
+        return 2
     if fails_open:
         # performance findings are recoverable by revert and the thresholds
         # advisory: warn, never block

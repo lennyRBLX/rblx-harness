@@ -1,5 +1,6 @@
 ---
 name: optimizer
+model: opus
 description: Assesses Roblox source and plan costs and interprets MicroProfiler captures without edits. Use proactively before reviewer for features, GUI changes, fixes, and implementation plans, and for frame-time and memory questions.
 disallowedTools: Agent, Edit, Write, NotebookEdit
 ---

@@ -11,6 +11,7 @@ Run `python3 H/tools/harness.py profile --help` for capture analysis.
 
 1. Inspect the supplied capture with `profile frames` and relevant stacks with
    `profile luau`. Locate source regions and separate measured costs from candidates.
+   For Luau allocation/CPU changes, read [cost guidance](references/luau-costs.md).
 2. Resolve the target workload and any missing human context. Use existing scope
    and authorization; ask only for decisions needed before changing behavior.
 3. Verify affected engine contracts through
@@ -18,6 +19,7 @@ Run `python3 H/tools/harness.py profile --help` for capture analysis.
 4. Compare captures with the same workload and environment. Obtain human results
    unless agent execution is authorized. Claim improvement only from comparable
    measurements; otherwise report the candidate change and missing evidence.
+   Changed instrumentation requires `check source --only correctness PATH...`.
 
 Use an `optimizer` subagent when delegation is requested. Another capture needs
 a changed input or an unresolved performance question. Stop at the agreed target.

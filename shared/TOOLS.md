@@ -80,6 +80,12 @@ source-body edits alone do not invalidate them.
 Defaults are correctness, replication, and style; performance is opt-in. Checkers
 retain their source scopes and diagnostics. No source repair or Studio run is
 implicit.
+Correctness includes OPT15 explicit parallel-scope pairing/serial require, OPT20
+profile pairing, and DATA38 literal codec advisories. Flow checks cover direct
+calls per function; aliases, helper effects, exceptions, and cancellation need
+review. Performance adds advisory labels/possible parallel writes. Replication
+WRIT8 covers reliable and unreliable remotes. Const is supported by the pinned
+Lute/LSP and preserved by the style formatter; no syntax suppression is needed.
 `check project` validates scaffolding; `check harness --case MATCH` selects suite
 cases. Exit 0 means no blocking result, 2 means a failed check/request, and 3 means
 an unavailable environment where supported by the backend.

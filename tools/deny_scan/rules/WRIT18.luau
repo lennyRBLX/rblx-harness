@@ -1,4 +1,4 @@
--- WRIT18: no getfenv, setfenv, loadstring, setmetatable, newproxy in game
+-- WRIT18: no _G/shared, getfenv, setfenv, loadstring, setmetatable, newproxy in game
 -- code. setmetatable and newproxy are the only two metatable constructors and
 -- both are denied; getfenv/setfenv double-report as luau-lsp DeprecatedApi at
 -- done-gate, and deny_scan blocks first so the house id wins.
@@ -12,7 +12,7 @@ local function lint(ast, sourcepath, context)
 	if not lib.inPaths(sourcepath, entry.paths) then
 		return {}
 	end
-	local denied = entry.pattern or { "getfenv", "setfenv", "loadstring", "setmetatable", "newproxy" }
+	local denied = entry.pattern or { "getfenv", "setfenv", "loadstring", "setmetatable", "newproxy", "_G", "shared" }
 	local remedy = entry.message or "denied in game code"
 	local out = {}
 	local v = visitor.create()

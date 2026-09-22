@@ -2,6 +2,12 @@
 -- through context.options. Every entry names a live rule id (session-gate
 -- check #3 verifies).
 return {
+	OPT15 = { id = "OPT15", pattern = {}, paths = {}, except = {}, presence = false,
+		message = "Close explicit parallel scopes before exit; require in serial." },
+	OPT20 = { id = "OPT20", pattern = {}, paths = {}, except = {}, presence = false,
+		message = "Pair profiles on every path in the same function." },
+	DATA38 = { id = "DATA38", pattern = {}, paths = {}, except = {}, presence = false,
+		message = "Preserve IDs; validate buffer bounds and encoded ranges." },
 	BC3 = {
 		id = "BC3",
 		pattern = { "wait", "spawn", "delay" },
@@ -12,7 +18,7 @@ return {
 	},
 	WRIT18 = {
 		id = "WRIT18",
-		pattern = { "getfenv", "setfenv", "loadstring", "setmetatable", "newproxy" },
+		pattern = { "getfenv", "setfenv", "loadstring", "setmetatable", "newproxy", "_G", "shared" },
 		paths = { "shared/src/", "places/", "src/" },
 		except = {},
 		presence = false,

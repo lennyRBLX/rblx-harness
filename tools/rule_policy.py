@@ -33,6 +33,8 @@ HARD_RULE_IDS = frozenset(
         "GATE7",
         "OPT8",
         "OPT12",
+        "OPT15",
+        "OPT20",
         "OPT16",
         "OPT17",
         "OUT1",

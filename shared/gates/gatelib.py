@@ -272,7 +272,7 @@ def required_claude_agents_status(root):
                 fields, body = claude_frontmatter(handle.read())
         except OSError:
             return False, "Claude agents must include: %s" % ", ".join(REQUIRED_CODEX_AGENTS)
-        if fields is None or fields.get("name") != name or not fields.get("description") or not body:
+        if fields is None or fields.get("name") != name or fields.get("model") != "opus" or not fields.get("description") or not body:
             return False, "%s has an invalid agent definition" % path
         denied = {tool.strip() for tool in fields.get("disallowedTools", "").split(",")}
         if "Agent" not in denied:

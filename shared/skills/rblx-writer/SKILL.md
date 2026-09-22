@@ -15,8 +15,14 @@ needed family. Use native search and editing for ordinary code work.
    Load `rblx-gui` when controls, settings, progress, errors, or Undo need GUI changes.
 2. Implement the feature. Use `scaffold module` for new module frames and
    `types write` for related data and public type changes.
+   Prefer `const` for unreassigned bindings; keep mutable bindings `local`.
+   For types, collections, or text, read [Luau contracts](references/luau.md).
+   For codecs/remotes, read [network contracts](references/network.md).
+   For startup, async services, or Actors, read [runtime contracts](references/runtime.md).
 3. Review correctness, authority, lifecycle, and relevant performance risks.
    Use the smallest decisive check on settled changes; reuse valid evidence.
+   Changed profile/parallel scopes require `check source --only correctness PATH...`;
+   it checks path pairing. Review indirect calls and exception cleanup separately.
 
 When the user or active project instructions request delegation, use `researcher`
 for unresolved research, implement, then run `optimizer` before `reviewer`.
