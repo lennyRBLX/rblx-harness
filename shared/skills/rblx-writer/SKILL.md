@@ -16,6 +16,8 @@ needed family. Use native search and editing for ordinary code work.
 2. Implement the feature. Use `scaffold module` for new module frames and
    `types write` for related data and public type changes.
    Prefer `const` for unreassigned bindings; keep mutable bindings `local`.
+   Chain guards sharing a return with `elseif`. Put a blank line after guards
+   and functions, and before final branches. Return one-use results directly.
    For types, collections, or text, read [Luau contracts](references/luau.md).
    For codecs/remotes, read [network contracts](references/network.md).
    For startup, async services, or Actors, read [runtime contracts](references/runtime.md).

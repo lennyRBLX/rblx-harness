@@ -82,6 +82,7 @@ class ApiEvidenceTest(unittest.TestCase):
 
         self.dump_path = os.path.join(self.cache, "API-Dump.json")
         self.refresh_path = os.path.join(self.cache, "corpus-refresh.json")
+        self.find_index_path = os.path.join(self.cache, "find_index.json")
         self.behavior_path = os.path.join(self.root, "behavior.json")
         self.overlay_path = os.path.join(self.root, "house_overlay.txt")
         self.docs_revision = "docs-current"
@@ -274,6 +275,9 @@ properties:
             "CONTENT": self.content,
             "ENGINE": self.engine,
             "REFRESH_PATH": self.refresh_path,
+            "CACHE": self.cache,
+            "DOCS_INDEX": os.path.join(self.cache, "docs_index.json"),
+            "FIND_INDEX": self.find_index_path,
             "BEHAVIOR_PATH": self.behavior_path,
             "OVERLAY_PATH": self.overlay_path,
             "docs_revision": lambda: self.docs_revision,
@@ -553,6 +557,117 @@ properties:
         self.assertEqual(split[3], "void")
         self.assertEqual(split[4], "void")
         self.assertEqual(split[5], "Split summary")
+
+    def output(self, *args):
+        stream = io.StringIO()
+        with contextlib.redirect_stdout(stream):
+            result = api_dump.main(list(args))
+        return result, stream.getvalue()
+
+    def current_stamp(self):
+        return {"api_dump_sha256": self.dump_sha, "creator_docs_revision": self.docs_revision}
+
+    def write_current_manifest(self):
+        self.write_json(self.refresh_path, {"refreshed_at": 123, **self.current_stamp()})
+
+    def test_find_uses_matching_index_and_parses_only_printed_hits(self):
+        self.write_current_manifest()
+        _, live = self.output("find", "split", "--all")
+        self.assertIn("World.Split|", live)
+        api_dump._yaml_cache.clear()
+        api_dump.install_find_index(api_dump.build_find_index(self.current_stamp()))
+        api_dump._yaml_cache.clear()
+        self.assertIsNotNone(api_dump.installed_find_index())
+        _, indexed = self.output("find", "split", "--all")
+        self.assertEqual(indexed, live)
+        self.assertEqual(list(api_dump._yaml_cache), [os.path.join(self.classes, "World.yaml")])
+
+    def test_find_parses_live_when_index_does_not_match_manifest(self):
+        self.write_current_manifest()
+        _, live = self.output("find", "split", "--all")
+        bogus = api_dump.build_find_index(dict(self.current_stamp(), creator_docs_revision="older-docs"))
+        bogus["classes"]["World"]["members"]["Split"] = "unrelated"
+        api_dump.install_find_index(bogus)
+        self.assertIsNone(api_dump.installed_find_index())
+        _, result = self.output("find", "split", "--all")
+        self.assertEqual(result, live)
+
+    def test_find_installs_an_absent_index(self):
+        self.write_current_manifest()
+        self.assertFalse(os.path.exists(self.find_index_path))
+        _, first = self.output("find", "split", "--all")
+        index = api_dump.installed_find_index()
+        self.assertIsNotNone(index)
+        self.assertEqual(index["api_dump_sha256"], self.dump_sha)
+        api_dump._yaml_cache.clear()
+        _, second = self.output("find", "split", "--all")
+        self.assertEqual(second, first)
+        self.assertEqual(list(api_dump._yaml_cache), [os.path.join(self.classes, "World.yaml")])
+
+    def test_find_leaves_a_mismatched_index_for_sync(self):
+        self.write_current_manifest()
+        stale = api_dump.build_find_index(dict(self.current_stamp(), creator_docs_revision="older-docs"))
+        api_dump.install_find_index(stale)
+        with open(self.find_index_path, "rb") as handle:
+            before = handle.read()
+        self.output("find", "split", "--all")
+        with open(self.find_index_path, "rb") as handle:
+            self.assertEqual(handle.read(), before)
+
+    def test_find_succeeds_when_the_index_cannot_be_written(self):
+        self.write_current_manifest()
+        _, live = self.output("find", "split", "--all")
+        os.remove(self.find_index_path)
+        with mock.patch.object(api_dump.os, "replace", side_effect=PermissionError("read-only")):
+            result, out = self.output("find", "split", "--all")
+        self.assertIn(result, (None, 0))
+        self.assertEqual(out, live)
+        self.assertEqual(os.listdir(self.cache).count("find_index.json"), 0)
+        self.assertFalse([name for name in os.listdir(self.cache) if name.endswith(".tmp")])
+
+    def sync_output(self, urlopen):
+        os.makedirs(os.path.join(self.docs, ".git"), exist_ok=True)
+        completed = subprocess.CompletedProcess([], 0, "", "")
+        with mock.patch.object(api_dump.gatelib, "corpus_status", return_value=("stale", "old")), \
+                mock.patch.object(api_dump.gatelib, "corpus_assets_error", return_value=""), \
+                mock.patch.object(api_dump.urllib.request, "urlopen", urlopen), \
+                mock.patch.object(api_dump.subprocess, "run", return_value=completed):
+            return self.output("--sync")
+
+    def test_stale_sync_deletes_find_index_then_rebuilds_it(self):
+        bogus = {"schema": api_dump.FIND_INDEX_SCHEMA, "api_dump_sha256": "old", "creator_docs_revision": "old",
+                 "classes": {"World": {"summary": "stale", "members": {}}}, "enums": {}}
+        self.write_json(self.find_index_path, bogus)
+        with open(self.dump_path, "rb") as handle:
+            data = handle.read()
+        result, out = self.sync_output(mock.Mock(return_value=io.BytesIO(data)))
+        self.assertEqual(result, 0)
+        lines = [line.split("|", 2)[0] + "|" + line.split("|", 2)[1] for line in out.splitlines()]
+        self.assertLess(lines.index("find-index|deleted"), lines.index("dump|synced"))
+        self.assertLess(lines.index("find-index|rebuilt"), lines.index("refresh|successful"))
+        index = api_dump.installed_find_index()
+        self.assertIsNotNone(index)
+        self.assertEqual(index["api_dump_sha256"], self.dump_sha)
+        self.assertEqual(index["classes"]["World"]["summary"], "World summary")
+        self.assertEqual(index["classes"]["World"]["members"]["Split"], "Split summary")
+
+    def test_failed_sync_leaves_no_find_index(self):
+        self.write_current_manifest()
+        api_dump.install_find_index(api_dump.build_find_index(self.current_stamp()))
+        with self.assertRaises(SystemExit) as raised:
+            self.sync_output(mock.Mock(side_effect=OSError("offline")))
+        self.assertEqual(raised.exception.code, 3)
+        self.assertFalse(os.path.exists(self.find_index_path))
+
+    def test_fresh_sync_builds_only_a_missing_or_mismatched_find_index(self):
+        self.write_current_manifest()
+        with mock.patch.object(api_dump.gatelib, "corpus_status", return_value=("fresh", "")):
+            _, first = self.output("--sync")
+            self.assertIn("find-index|rebuilt|", first)
+            self.assertIsNotNone(api_dump.installed_find_index())
+            _, second = self.output("--sync")
+        self.assertNotIn("find-index", second)
+
 
 
 

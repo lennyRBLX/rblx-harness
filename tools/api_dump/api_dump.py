@@ -47,6 +47,8 @@ DOCS_ROOT = os.path.join(CACHE, "creator-docs")
 CONTENT = os.path.join(DOCS_ROOT, "content", "en-us")
 ENGINE = os.path.join(CONTENT, "reference", "engine")
 DOCS_INDEX = os.path.join(CACHE, "docs_index.json")
+FIND_INDEX = os.path.join(CACHE, "find_index.json")
+FIND_INDEX_SCHEMA = 1
 REFRESH_PATH = os.path.join(CACHE, "corpus-refresh.json")
 SAMPLES_DIR = os.path.join(CACHE, "samples")
 GLOBALS_PATH = os.path.join(CACHE, "api_globals.luau")
@@ -901,12 +903,96 @@ def verb_describe(spec):
         print(desc)
 
 
+def corpus_stamp():
+    return {"api_dump_sha256": file_sha256(DUMP_PATH), "creator_docs_revision": docs_revision()}
+
+
+def build_find_index(stamp):
+    """Search summaries for every dump class, member and enum, parsed once from
+    the creator-docs YAML. --sync replaces it; find installs it when absent."""
+    classes = {}
+    for cname in classes_by_name():
+        cy = class_yaml(cname)
+        members = {}
+        for mname, entry in yaml_members(cy).items():
+            msum = summary_of(entry)
+            if msum:
+                members[mname] = msum
+        classes[cname] = {"summary": one_line(cy.get("summary")) if cy else "", "members": members}
+    enums = {}
+    for e in load_dump()["Enums"]:
+        esum = one_line((enum_yaml(e["Name"]) or {}).get("summary"))
+        if esum:
+            enums[e["Name"]] = esum
+    return {"schema": FIND_INDEX_SCHEMA, **stamp, "classes": classes, "enums": enums}
+
+
+def install_find_index(index):
+    temporary = FIND_INDEX + ".%d.tmp" % os.getpid()
+    try:
+        with open(temporary, "w", encoding="utf-8") as f:
+            json.dump(index, f, separators=(",", ":"))
+            f.write("\n")
+        os.replace(temporary, FIND_INDEX)
+    except OSError:
+        try:
+            os.remove(temporary)
+        except OSError:
+            pass
+        raise
+
+
+def remove_find_index():
+    try:
+        os.remove(FIND_INDEX)
+    except FileNotFoundError:
+        pass
+
+
+def installed_find_index():
+    """The installed index when it matches the refresh manifest, else None."""
+    try:
+        with open(FIND_INDEX, encoding="utf-8") as f:
+            index = json.load(f)
+        with open(REFRESH_PATH, encoding="utf-8") as f:
+            manifest = json.load(f)
+    except (OSError, ValueError, UnicodeError):
+        return None
+    if not isinstance(index, dict) or not isinstance(manifest, dict):
+        return None
+    if index.get("schema") != FIND_INDEX_SCHEMA:
+        return None
+    if not isinstance(index.get("classes"), dict) or not isinstance(index.get("enums"), dict):
+        return None
+    for key in ("api_dump_sha256", "creator_docs_revision"):
+        if not manifest.get(key) or index.get(key) != manifest.get(key):
+            return None
+    return index
+
+
+def find_index():
+    """Installed search summaries, or the same summaries parsed live. An absent
+    index is installed from the live parse; a mismatched one is left for --sync."""
+    index = installed_find_index()
+    if index is not None:
+        return index
+    if os.path.exists(FIND_INDEX) or not docs_available():
+        return build_find_index({})
+    index = build_find_index(corpus_stamp())
+    try:
+        install_find_index(index)
+    except OSError:
+        pass  # an unwritable cache only costs speed
+    return index
+
+
 def verb_find(terms, lift):
     need_dump()
     terms = [t.lower() for t in terms if t]
     if not terms:
         print("miss|void|no terms")
         return
+    index = find_index()
     scored = []
 
     def score(name, summary):
@@ -918,36 +1004,34 @@ def verb_find(terms, lift):
             s += lsum.count(t)
         return s
 
-    by_name = classes_by_name()
-    for cname, c in by_name.items():
-        cy = class_yaml(cname)
-        csum = one_line(cy.get("summary")) if cy else ""
-        sc = score(cname, csum)
+    summaries = index["classes"]
+    for cname, c in classes_by_name().items():
+        entry = summaries.get(cname) or {}
+        sc = score(cname, entry.get("summary"))
         if sc > 0:
-            scored.append((sc, 0, ("class", c, cy, None)))
-        ym = yaml_members(cy)
+            scored.append((sc, 0, ("class", c)))
+        msums = entry.get("members") or {}
         for m in c.get("Members", []):
             if not member_visible(m, lift):
                 continue
-            entry = ym.get(m["Name"])
-            msum = summary_of(entry, m) if entry else ""
-            sc = score(m["Name"], msum)
+            sc = score(m["Name"], msums.get(m["Name"]))
             if sc > 0:
-                scored.append((sc, 1, ("member", cname, m, ym)))
+                scored.append((sc, 1, ("member", cname, m)))
     for e in load_dump()["Enums"]:
-        ey = enum_yaml(e["Name"]) or {}
-        sc = score(e["Name"], one_line(ey.get("summary")))
+        esum = index["enums"].get(e["Name"], "")
+        sc = score(e["Name"], esum)
         if sc > 0:
-            scored.append((sc, 2, ("enum", e, ey, None)))
+            scored.append((sc, 2, ("enum", e, esum)))
     scored.sort(key=lambda x: (-x[0], x[1]))
+    # Only the printed hits need their full YAML records.
     for _, _, hit in scored[:20]:
         if hit[0] == "class":
-            print(class_header(hit[1], hit[2]))
+            print(class_header(hit[1], class_yaml(hit[1]["Name"])))
         elif hit[0] == "member":
-            print(member_record(hit[1], hit[2], hit[3], qualify=True))
+            print(member_record(hit[1], hit[2], yaml_members(class_yaml(hit[1])), qualify=True))
         else:
-            e, ey = hit[1], hit[2]
-            print("%s|void|%s|void|%s" % (e["Name"], field(",".join(carried_tags(e.get("Tags"), CLASS_TAGS))), field(one_line(ey.get("summary")))))
+            e, esum = hit[1], hit[2]
+            print("%s|void|%s|void|%s" % (e["Name"], field(",".join(carried_tags(e.get("Tags"), CLASS_TAGS))), field(esum)))
 
 
 # ---------------------------------------------------------------- doc verbs --
@@ -1369,9 +1453,18 @@ def sync():
     state, detail = gatelib.corpus_status()
     if state == "fresh":
         print("sync|fresh|no network or Creator Docs Git writes")
+        if installed_find_index() is None:
+            install_find_index(build_find_index(corpus_stamp()))
+            print("find-index|rebuilt|local corpus")
         return 0
     if state == "malformed":
         print("sync|repairing-malformed|%s" % one_line(detail))
+
+    # The find index describes the corpus being replaced; a failed sync must
+    # not leave it behind. The rebuild below replaces any copy find writes
+    # meanwhile, and a copy stamped from a half-synced corpus never matches.
+    remove_find_index()
+    print("find-index|deleted|" + FIND_INDEX)
 
     os.makedirs(CACHE, exist_ok=True)
     tmp = DUMP_PATH + ".%d.tmp" % os.getpid()
@@ -1451,10 +1544,13 @@ def sync():
     asset_error = gatelib.corpus_assets_error()
     if asset_error:
         env_fail("corpus-malformed", asset_error)
+    stamp = corpus_stamp()
+    find = build_find_index(stamp)
+    install_find_index(find)
+    print("find-index|rebuilt|%d classes, %d enums" % (len(find["classes"]), len(find["enums"])))
     temporary = REFRESH_PATH + ".%d.tmp" % os.getpid()
     with open(temporary, "w", encoding="utf-8") as f:
-        json.dump({"refreshed_at": time.time(), "api_dump_sha256": file_sha256(DUMP_PATH),
-                   "creator_docs_revision": docs_revision()}, f, sort_keys=True)
+        json.dump({"refreshed_at": time.time(), **stamp}, f, sort_keys=True)
         f.write("\n")
     os.replace(temporary, REFRESH_PATH)
     print("refresh|successful|%d" % int(time.time()))

@@ -155,16 +155,24 @@ local function pass_writ14(text)
 end
 
 -- ---------------------------------------------------------------- WRIT12 --
--- structural blank-line ops that need the CST: a blank line after a block
--- guard clause when code follows, never after an inlined guard, one blank
--- line between sibling functions.
+-- WRIT12: blank lines after guards/functions/loops, between sibling
+-- conditionals, before final branches, and after multiline calls before returns.
+local function guardExit(block)
+	local body = block.statements
+	local stat = body[1]
+	return #body == 1 and (stat.tag == "return" or stat.tag == "break" or stat.tag == "continue")
+end
+
 local function isGuardIf(stat)
-	if stat.tag ~= "conditional" or stat.elseBlock ~= nil or #stat.elseifs > 0 then
+	if stat.tag ~= "conditional" or stat.elseBlock ~= nil or not guardExit(stat.thenBlock) then
 		return false
 	end
-	local body = stat.thenBlock.statements
-	local last = body[#body]
-	return last ~= nil and (last.tag == "return" or last.tag == "break" or last.tag == "continue")
+	for _, branch in stat.elseifs do
+		if not guardExit(branch.thenBlock) then
+			return false
+		end
+	end
+	return true
 end
 
 local function pass_writ12_structural(text)
@@ -181,22 +189,37 @@ local function pass_writ12_structural(text)
 	v.visitStatBlock = function(block)
 		for i, stat in block.statements do
 			local nxt = block.statements[i + 1]
-			if stat.tag == "conditional" and isGuardIf(stat) and nxt ~= nil then
-				local inlined = stat.location.beginLine == stat.location.endLine
-				if inlined then
-					-- never a blank after an inlined guard
+			if nxt ~= nil then
+				if isGuardIf(stat) and nxt.location.beginLine == stat.location.endLine + 1 then
+					inserts[stat.location.endLine] = true
+				elseif stat.tag == "conditional" and nxt.tag == "conditional"
+					and stat.location.beginLine < stat.location.endLine and nxt.location.beginLine < nxt.location.endLine
+					and nxt.location.beginLine == stat.location.endLine + 1 then
+					inserts[stat.location.endLine] = true
+				elseif stat.tag == "conditional" and nxt.tag == "return" and not isGuardIf(stat) then
 					local line = stat.location.endLine + 1
 					while blank(line) and line < nxt.location.beginLine do
 						removals[line] = true
 						line += 1
 					end
-				elseif nxt.location.beginLine == stat.location.endLine + 1 then
+				end
+				local after = block.statements[i + 2]
+				if stat.tag == "expression" and nxt.tag == "conditional" and not isGuardIf(nxt)
+					and nxt.location.beginLine ~= nxt.location.endLine and after ~= nil and after.tag == "return"
+					and nxt.location.beginLine == stat.location.endLine + 1 then
+					inserts[stat.location.endLine] = true
+				end
+				if stat.tag == "expression" and nxt.tag == "return" and stat.location.beginLine < stat.location.endLine
+					and nxt.location.beginLine == stat.location.endLine + 1 then
+					inserts[stat.location.endLine] = true
+				end
+				local isLoop = stat.tag == "for" or stat.tag == "forin" or stat.tag == "while" or stat.tag == "repeat"
+				if isLoop and nxt.tag == "expression" and nxt.location.beginLine == stat.location.endLine + 1 then
 					inserts[stat.location.endLine] = true
 				end
 			end
 			local isFn = stat.tag == "function" or stat.tag == "localfunction"
-			local nxtFn = nxt ~= nil and (nxt.tag == "function" or nxt.tag == "localfunction")
-			if isFn and nxtFn and nxt.location.beginLine == stat.location.endLine + 1 then
+			if isFn and nxt ~= nil and nxt.location.beginLine == stat.location.endLine + 1 then
 				inserts[stat.location.endLine] = true
 			end
 		end

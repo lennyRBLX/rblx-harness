@@ -159,6 +159,145 @@ return m
         self.assertEqual(status, 0, output)
         self.assertEqual(self.source.read_text(), fixed)
 
+    def test_formatter_separates_complete_guard_chain(self):
+        source = '''function m:Damage(fragmentId: number, amount: number): boolean
+    if not self.ready then
+        return false
+    elseif typeof(fragmentId) ~= "number" then
+        return false
+    elseif amount <= 0 then
+        return false
+    end
+    local index = self.byFragment[fragmentId]
+    if index == nil then
+        return false
+    end
+    return self:Hit(index, amount)
+end
+'''
+        self.source.write_text(source)
+        result = subprocess.run([style.LUTE, "run", style.FIX_PASS, str(self.source), str(self.source)],
+                                capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        fixed = self.source.read_text()
+        self.assertIn("\tend\n\n\tlocal index", fixed)
+        self.assertIn("\tend\n\n\treturn self:Hit", fixed)
+
+        mixed = source.replace("elseif amount <= 0 then\n        return false", "elseif amount <= 0 then\n        print(amount)")
+        self.source.write_text(mixed)
+        result = subprocess.run([style.LUTE, "run", style.FIX_PASS, str(self.source), str(self.source)],
+                                capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("\tend\n\tlocal index", self.source.read_text())
+
+    def test_formatter_groups_inline_guards_and_final_branch(self):
+        source = '''local function hit(attached: Attached, b: number, piece: number, amount: number): (boolean, boolean)
+    local building = attached.buildings[b + 1]
+    if building == nil or building.region == nil then return false, false end
+    const changed, destroyed = Structure.damage(building, piece, amount)
+    if not changed then return false, false end
+    const value = Readu8(building.health, piece)
+    Stream.health(attached.stream :: Stream.Stream, b, piece, value)
+    if destroyed then
+        table.insert(attached.destroyQueue, b * 65536 + piece)
+        return true, true
+    end
+
+    return true, false
+end
+'''
+        expected = '''local function hit(attached: Attached, b: number, piece: number, amount: number): (boolean, boolean)
+    local building = attached.buildings[b + 1]
+    if building == nil or building.region == nil then return false, false end
+
+    const changed, destroyed = Structure.damage(building, piece, amount)
+    if not changed then return false, false end
+
+    const value = Readu8(building.health, piece)
+    Stream.health(attached.stream :: Stream.Stream, b, piece, value)
+
+    if destroyed then
+        table.insert(attached.destroyQueue, b * 65536 + piece)
+        return true, true
+    end
+    return true, false
+end
+'''.replace("    ", "\t")
+        self.source.write_text(source)
+        result = subprocess.run([style.LUTE, "run", style.FIX_PASS, str(self.source), str(self.source)],
+                                capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(self.source.read_text(), expected)
+
+    def test_formatter_separates_function_from_declaration(self):
+        source = '''local function warnOnce(seen: { [string]: boolean }, text: string)
+    if not seen[text] then
+        seen[text] = true
+        warn(text)
+    end
+end
+local Warned: { [string]: boolean } = {}
+'''
+        self.source.write_text(source)
+        result = subprocess.run([style.LUTE, "run", style.FIX_PASS, str(self.source), str(self.source)],
+                                capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("end\n\nlocal Warned", self.source.read_text())
+
+    def test_formatter_separates_multiline_call_from_return(self):
+        source = '''local function count(): number
+    local destroyed = 0
+    Spatial.query(function()
+        destroyed += 1
+    end)
+    return destroyed
+end
+'''
+        self.source.write_text(source)
+        result = subprocess.run([style.LUTE, "run", style.FIX_PASS, str(self.source), str(self.source)],
+                                capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("\tend)\n\n\treturn destroyed", self.source.read_text())
+
+    def test_formatter_separates_sibling_block_conditionals(self):
+        source = '''local function endOfFrame(attached: Attached): ()
+    for _, building in attached.buildings do
+        if building.changed then
+            table.clear(islands)
+            if Structure.release(building, islands) > 0 then
+                Bodies.enqueue(bodies, building.index, islands[1])
+            end
+        end
+        if building.dirty then
+            Scheduler.restart(scheduler, building)
+        end
+    end
+end
+'''
+        self.source.write_text(source)
+        result = subprocess.run([style.LUTE, "run", style.FIX_PASS, str(self.source), str(self.source)],
+                                capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        fixed = self.source.read_text()
+        self.assertIn("\t\tend\n\n\t\tif building.dirty", fixed)
+        self.assertIn("table.clear(islands)\n\t\t\tif Structure.release", fixed)
+
+    def test_formatter_separates_loop_from_cleanup(self):
+        source = '''local function applyDestructions(attached: Attached): ()
+    local queue = attached.destroyQueue
+    for _, entry in queue do
+        Structure.destroyPiece(entry)
+    end
+    table.clear(queue)
+    Bodies.settle(attached.bodies)
+end
+'''
+        self.source.write_text(source)
+        result = subprocess.run([style.LUTE, "run", style.FIX_PASS, str(self.source), str(self.source)],
+                                capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("\tend\n\n\ttable.clear(queue)", self.source.read_text())
+
     def test_const_binding_mutation_is_still_rejected(self):
         for assignment in ("X = 2", "X += 1", "local function f() X = 2 end"):
             with self.subTest(assignment=assignment):

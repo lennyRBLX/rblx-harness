@@ -151,13 +151,13 @@ def case(name):
 CASES = []
 
 
-@case("repository surface is six skills and four agents for Codex and Claude Code")
+@case("repository surface is seven skills and four agents for Codex and Claude Code")
 def _():
     skills = sorted(
         name for name in os.listdir(os.path.join(ROOT, "shared", "skills"))
         if os.path.isfile(os.path.join(ROOT, "shared", "skills", name, "SKILL.md"))
     )
-    require(skills == ["rblx-debug", "rblx-gui", "rblx-new-game", "rblx-optimize", "rblx-plan", "rblx-writer"], skills)
+    require(skills == ["rblx-debug", "rblx-gui", "rblx-new-game", "rblx-optimize", "rblx-plan", "rblx-test", "rblx-writer"], skills)
     agents = sorted(
         os.path.splitext(name)[0]
         for name in os.listdir(os.path.join(ROOT, "openai", "agents"))
@@ -199,7 +199,7 @@ def _():
         require("hooks" not in settings, "setup installed Claude hooks")
         require(settings["env"]["MAX_MCP_OUTPUT_TOKENS"] == "6000", settings)
         require(sorted(os.listdir(os.path.join(root, ".claude", "agents"))) == CLAUDE_AGENT_FILES, "Claude agent set")
-        for skill in ("rblx-debug", "rblx-gui", "rblx-new-game", "rblx-optimize", "rblx-plan", "rblx-writer"):
+        for skill in ("rblx-debug", "rblx-gui", "rblx-new-game", "rblx-optimize", "rblx-plan", "rblx-test", "rblx-writer"):
             require(os.path.islink(os.path.join(root, ".agents", "skills", skill)), skill)
             require(os.path.islink(os.path.join(root, ".claude", "skills", skill)), skill)
         require(not os.path.exists(os.path.join(root, ".roblox")), "harness setup created .roblox")
@@ -478,7 +478,7 @@ def _():
         require(sorted(os.path.splitext(name)[0] for name in os.listdir(os.path.join(root, ".codex", "agents"))) == ["debugger", "optimizer", "researcher", "reviewer"], "agent set")
         require(sorted(os.listdir(os.path.join(root, ".claude", "agents"))) == CLAUDE_AGENT_FILES, "Claude agent set")
         require(os.path.isfile(os.path.join(root, ".claude", "rules", "rblx-harness-delegation.md")), "Claude delegation rule")
-        for skill in ("rblx-writer", "rblx-gui", "rblx-debug", "rblx-optimize", "rblx-plan"):
+        for skill in ("rblx-writer", "rblx-gui", "rblx-debug", "rblx-optimize", "rblx-plan", "rblx-test"):
             require(os.path.islink(os.path.join(root, ".agents", "skills", skill)), "%s is not linked" % skill)
             require(os.path.islink(os.path.join(root, ".claude", "skills", skill)), "%s is not linked for Claude" % skill)
         require(not os.path.lexists(os.path.join(root, ".agents", "skills", "rblx-new-game")), "rblx-new-game was installed in project")
