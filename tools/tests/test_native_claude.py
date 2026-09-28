@@ -27,6 +27,12 @@ setup = load("claude_setup", "setup_project.py")
 adapter = load("claude_hook_adapter", "anthropic/hooks/adapter.py")
 permissions = load("claude_permissions", "anthropic/setup/permissions_harness.py")
 AGENT_FILES = ["debugger.md", "optimizer.md", "researcher.md", "reviewer.md"]
+AGENT_PROFILES = {
+    "debugger.md": ("claude-opus-5-5", "xhigh"),
+    "optimizer.md": ("claude-opus-5-5", "high"),
+    "researcher.md": ("haiku", None),
+    "reviewer.md": ("claude-opus-5-5", "high"),
+}
 
 
 class Fixture(unittest.TestCase):
@@ -84,6 +90,7 @@ class SettingsTest(Fixture):
         agent = self.write(".claude/agents/custom.md", "---\nname: custom\n---\n")
         skill = self.write(".claude/skills/custom/SKILL.md", "custom instructions\n")
         rule = self.write(".claude/rules/custom.md", "custom rule\n")
+        legacy = self.write(".claude/rules/rblx-harness-delegation.md", "old rule\n")
         source = json.dumps({
             "env": {"BASH_MAX_OUTPUT_LENGTH": "9000", "MAX_MCP_OUTPUT_TOKENS": "9000"},
             "permissions": {"allow": ["Agent(custom)"]},
@@ -93,13 +100,12 @@ class SettingsTest(Fixture):
         first_settings = None
         for _ in range(2):
             setup.copy_claude_support(str(self.root))
+            setup.render_claude_import(str(self.root))
+            setup.retire_claude_rule(str(self.root))
             self.assertEqual(agent.read_text(), "---\nname: custom\n---\n")
             self.assertEqual(skill.read_text(), "custom instructions\n")
             self.assertEqual(rule.read_text(), "custom rule\n")
-            self.assertEqual(
-                (self.root / ".claude/rules" / setup.CLAUDE_RULE).read_text(),
-                (ROOT / "anthropic/rules/delegation.md").read_text(),
-            )
+            self.assertFalse(legacy.exists())
             installed = settings.read_text()
             if first_settings is None:
                 first_settings = installed
@@ -114,7 +120,7 @@ class SettingsTest(Fixture):
 
 
 class AgentTest(Fixture):
-    def test_roles_use_opus_and_cannot_delegate(self):
+    def test_roles_use_required_profiles_and_cannot_delegate(self):
         self.assertEqual(sorted(path.name for path in (ROOT / "anthropic/agents").iterdir()), AGENT_FILES)
         for name in AGENT_FILES:
             with self.subTest(agent=name):
@@ -124,7 +130,7 @@ class AgentTest(Fixture):
                 self.assertTrue(fields["description"] and body)
                 # Claude Code delegates automatically from this description phrase.
                 self.assertIn("Use proactively", fields["description"])
-                self.assertEqual(fields["model"], "opus")
+                self.assertEqual((fields["model"], fields.get("effort")), AGENT_PROFILES[name])
                 self.assertNotIn("tools", fields)
                 self.assertIn("Agent", denied)
                 if name != "debugger.md":
@@ -140,19 +146,17 @@ class AgentTest(Fixture):
         path.unlink()
         self.assertFalse(gatelib.required_claude_agents_status(str(self.root))[0])
 
-    def test_status_rejects_agent_without_opus_model(self):
+    def test_status_rejects_agent_without_required_model_or_effort(self):
         setup.copy_claude_support(str(self.root))
         path = self.root / ".claude/agents/optimizer.md"
-        path.write_text(path.read_text().replace("model: opus", "model: sonnet"))
-        ok, detail = gatelib.required_claude_agents_status(str(self.root))
-        self.assertFalse(ok)
-        self.assertIn("invalid agent definition", detail)
-
-    def test_delegation_requires_named_subagents(self):
-        rule = (ROOT / "anthropic/rules/delegation.md").read_text()
-        self.assertIn("`.claude/agents/`", rule)
-        self.assertIn("native Agent tool with `subagent_type`", rule)
-        self.assertIn("Do not perform the\nspecialist role inline", rule)
+        original = path.read_text()
+        for source, replacement in (("model: claude-opus-5-5", "model: sonnet"),
+                                    ("effort: high", "effort: medium")):
+            with self.subTest(field=source):
+                path.write_text(original.replace(source, replacement))
+                ok, detail = gatelib.required_claude_agents_status(str(self.root))
+                self.assertFalse(ok)
+                self.assertIn("invalid agent definition", detail)
 
 
 class HookMigrationTest(Fixture):
@@ -218,15 +222,31 @@ class ImportTest(Fixture):
         path = self.write("CLAUDE.md", "# Team notes\n")
         setup.render_claude_import(str(self.root))
         text = path.read_text()
-        self.assertTrue(text.startswith(setup.CLAUDE_BEGIN + "\n@AGENTS.md\n" + setup.CLAUDE_END + "\n\n"))
+        canonical = (ROOT / "CLAUDE.md").read_text().strip()
+        self.assertTrue(text.startswith(setup.CLAUDE_BEGIN + "\n" + canonical + "\n" + setup.CLAUDE_END + "\n\n"))
         self.assertTrue(text.endswith("# Team notes\n"))
         setup.render_claude_import(str(self.root))
         self.assertEqual(path.read_text(), text)
 
-    def test_existing_import_is_untouched(self):
+    def test_existing_import_gains_rule_and_keeps_other_text(self):
         path = self.write("CLAUDE.md", "Rules\n@AGENTS.md\n")
         setup.render_claude_import(str(self.root))
-        self.assertEqual(path.read_text(), "Rules\n@AGENTS.md\n")
+        canonical = (ROOT / "CLAUDE.md").read_text().strip()
+        self.assertEqual(path.read_text(), "Rules\n" + setup.CLAUDE_BEGIN + "\n" + canonical +
+                         "\n" + setup.CLAUDE_END + "\n")
+
+    def test_existing_managed_import_is_updated(self):
+        path = self.write("CLAUDE.md", setup.CLAUDE_BEGIN + "\n@AGENTS.md\n" +
+                          setup.CLAUDE_END + "\n\n# Team notes\n")
+        setup.render_claude_import(str(self.root))
+        canonical = (ROOT / "CLAUDE.md").read_text().strip()
+        self.assertEqual(path.read_text(), setup.CLAUDE_BEGIN + "\n" + canonical + "\n" +
+                         setup.CLAUDE_END + "\n\n# Team notes\n")
+
+    def test_retired_rule_and_empty_folder_are_removed(self):
+        self.write(".claude/rules/rblx-harness-delegation.md", "old rule\n")
+        setup.retire_claude_rule(str(self.root))
+        self.assertFalse((self.root / ".claude/rules").exists())
 
     def test_malformed_markers_fail(self):
         source = setup.CLAUDE_END + "\n" + setup.CLAUDE_BEGIN + "\n"

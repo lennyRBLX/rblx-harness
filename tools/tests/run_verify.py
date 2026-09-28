@@ -51,12 +51,12 @@ def harness_fixture(directory):
     selected = (
         ".gitignore",
         "setup_project.py",
+        "CLAUDE.md",
         "anthropic",
         "openai",
         "packages",
         "shared/CORE.md",
         "shared/TOOLS.md",
-        "shared/HANDOFF.md",
         "shared/PLAN.md",
         "shared/gates",
         "shared/skills",
@@ -166,11 +166,11 @@ def _():
     claude_agents = sorted(name for name in os.listdir(os.path.join(ROOT, "anthropic", "agents")) if name.endswith(".md"))
     require(claude_agents == CLAUDE_AGENT_FILES, claude_agents)
     require(os.path.isfile(os.path.join(ROOT, "anthropic", "config", "settings.json")), "Claude settings are absent")
-    require(open(os.path.join(ROOT, "CLAUDE.md"), encoding="utf-8").read() == "@AGENTS.md\n", "CLAUDE.md must import AGENTS.md")
+    claude_md = open(os.path.join(ROOT, "CLAUDE.md"), encoding="utf-8").read()
+    require(claude_md.startswith("@AGENTS.md\n\n") and claude_md.strip() != "@AGENTS.md", "Claude guidance")
     require(not os.path.exists(os.path.join(ROOT, "claude")), "legacy claude directory remains")
     require(not os.path.exists(os.path.join(ROOT, "setup_windows.bat")), "Windows batch remains")
     require(os.path.isfile(os.path.join(ROOT, "setup_project.py")), "Python setup is absent")
-    require(os.path.isfile(os.path.join(ROOT, "shared", "HANDOFF.md")), "shared handoff is absent")
     require(os.path.isfile(os.path.join(ROOT, "shared", "skills", "rblx-new-game", "AGENTS.md")), "project AGENTS template is absent")
     require(os.path.isfile(os.path.join(ROOT, "shared", "skills", "rblx-new-game", "README.md")), "project README template is absent")
     require(not os.path.exists(os.path.join(ROOT, "templates")), "obsolete templates directory remains")
@@ -194,7 +194,7 @@ def _():
             "debugger.toml", "optimizer.toml", "researcher.toml", "reviewer.toml",
         ], "Codex agent set")
         require(not os.path.exists(os.path.join(root, ".codex", "hooks.json")), "setup installed Codex hooks")
-        require(os.path.isfile(os.path.join(root, ".claude", "rules", "rblx-harness-delegation.md")), "Claude delegation rule")
+        require(not os.path.exists(os.path.join(root, ".claude", "rules")), "Claude rules folder")
         settings = json.load(open(os.path.join(root, ".claude", "settings.json"), encoding="utf-8"))
         require("hooks" not in settings, "setup installed Claude hooks")
         require(settings["env"]["MAX_MCP_OUTPUT_TOKENS"] == "6000", settings)
@@ -474,7 +474,7 @@ def _():
         require(os.path.isfile(os.path.join(root, ".claude", "settings.json")), "Claude settings are absent")
         claude_md = open(os.path.join(root, "CLAUDE.md"), encoding="utf-8").read()
         require("\n@AGENTS.md\n" in claude_md, claude_md)
-        require(not os.path.exists(os.path.join(root, "HANDOFF.md")), "project handoff was emitted")
+        require(open(os.path.join(ROOT, "CLAUDE.md"), encoding="utf-8").read().strip() in claude_md, "Claude guidance")
         readme_path = os.path.join(root, "README.md")
         readme = open(readme_path, encoding="utf-8").read()
         require("Players win matches for loot boxes" in readme, readme)
@@ -483,7 +483,7 @@ def _():
         require(len(readme.splitlines()) <= 10, "generated README is not minimal")
         require(sorted(os.path.splitext(name)[0] for name in os.listdir(os.path.join(root, ".codex", "agents"))) == ["debugger", "optimizer", "researcher", "reviewer"], "agent set")
         require(sorted(os.listdir(os.path.join(root, ".claude", "agents"))) == CLAUDE_AGENT_FILES, "Claude agent set")
-        require(os.path.isfile(os.path.join(root, ".claude", "rules", "rblx-harness-delegation.md")), "Claude delegation rule")
+        require(not os.path.exists(os.path.join(root, ".claude", "rules")), "Claude rules folder")
         for skill in ("rblx-writer", "rblx-gui", "rblx-debug", "rblx-optimize", "rblx-plan", "rblx-test"):
             require(os.path.islink(os.path.join(root, ".agents", "skills", skill)), "%s is not linked" % skill)
             require(os.path.islink(os.path.join(root, ".claude", "skills", skill)), "%s is not linked for Claude" % skill)
@@ -565,7 +565,6 @@ def _():
         require(os.path.isfile(os.path.join(root, "manifest.json")), "manifest.json is absent")
         require(os.path.isdir(os.path.join(root, "plugins")), "plugins folder was not migrated")
         require(not os.path.lexists(os.path.join(root, "plugin")), "legacy plugin folder remains")
-        require(not os.path.exists(os.path.join(root, "HANDOFF.md")), "project handoff was emitted")
         require(not os.path.exists(os.path.join(root, "README.md")), "README was emitted without harness use")
         require(not os.path.exists(os.path.join(root, SUBMODULE_NAME)), "harness was installed")
         require(open(os.path.join(root, "AGENTS.md"), encoding="utf-8").read() == "# Custom project instructions\n", "custom instructions were replaced")

@@ -34,7 +34,6 @@ GUIDANCE_BEGIN = "<!-- BEGIN rblx-harness project guidance -->"
 GUIDANCE_END = "<!-- END rblx-harness project guidance -->"
 CLAUDE_BEGIN = "<!-- BEGIN rblx-harness Claude Code import -->"
 CLAUDE_END = "<!-- END rblx-harness Claude Code import -->"
-CLAUDE_RULE = "rblx-harness-delegation.md"
 
 
 def fail(message):
@@ -370,14 +369,6 @@ def copy_claude_support(project, harness_checkout=False):
             os.path.join(HARNESS, "anthropic", "agents", name + ".md"),
             os.path.join(agents, name + ".md"),
         )
-    # Shared skills delegate only when project instructions request it; this
-    # Claude-only rule makes that request without changing Codex guidance.
-    rules = os.path.join(claude, "rules")
-    os.makedirs(rules, exist_ok=True)
-    shutil.copy2(
-        os.path.join(HARNESS, "anthropic", "rules", "delegation.md"),
-        os.path.join(rules, CLAUDE_RULE),
-    )
     sys.path.insert(0, os.path.join(HARNESS, "shared", "gates"))
     import gatelib
 
@@ -395,8 +386,11 @@ def copy_claude_support(project, harness_checkout=False):
 
 
 def render_claude_import(project):
-    """Load AGENTS.md through Claude Code's native import; keep other CLAUDE.md text."""
+    """Install the harness CLAUDE.md content; keep other project instructions."""
     path = os.path.join(project, "CLAUDE.md")
+    with open(os.path.join(HARNESS, "CLAUDE.md"), encoding="utf-8") as handle:
+        canonical = handle.read().strip()
+    managed = "%s\n%s\n%s" % (CLAUDE_BEGIN, canonical, CLAUDE_END)
     try:
         with open(path, encoding="utf-8") as handle:
             existing = handle.read()
@@ -406,16 +400,32 @@ def render_claude_import(project):
         if (existing.count(CLAUDE_BEGIN) != 1 or existing.count(CLAUDE_END) != 1
                 or existing.index(CLAUDE_BEGIN) > existing.index(CLAUDE_END)):
             fail("CLAUDE.md has malformed harness import markers")
+        start = existing.index(CLAUDE_BEGIN)
+        end = existing.index(CLAUDE_END) + len(CLAUDE_END)
+        write_text(path, existing[:start] + managed + existing[end:])
         return
-    if any(line.strip() == "@AGENTS.md" for line in existing.splitlines()):
+    if canonical in existing:
         return
-    managed = "%s\n@AGENTS.md\n%s" % (CLAUDE_BEGIN, CLAUDE_END)
+    import_line = re.search(r"(?m)^[ \t]*@AGENTS\.md[ \t]*$", existing)
+    if import_line:
+        write_text(path, existing[:import_line.start()] + managed + existing[import_line.end():])
+        return
     write_text(path, "\n\n".join(part for part in (managed, existing.strip()) if part) + "\n")
+
+
+def retire_claude_rule(project):
+    rules = os.path.join(project, ".claude", "rules")
+    legacy = os.path.join(rules, "rblx-harness-delegation.md")
+    if os.path.lexists(legacy):
+        os.unlink(legacy)
+    if os.path.isdir(rules) and not os.listdir(rules):
+        os.rmdir(rules)
 
 
 def install_harness_support():
     copy_codex_support(HARNESS, harness_checkout=True)
     copy_claude_support(HARNESS, harness_checkout=True)
+    retire_claude_rule(HARNESS)
     print("setup-harness|READY|hosts=codex,claude|agents=%s|skills=%s" % (
         ",".join(AGENTS),
         ",".join(HARNESS_SKILLS),
@@ -538,6 +548,7 @@ def install(project, manifest):
     copy_claude_support(project)
     render_templates(project, manifest)
     render_claude_import(project)
+    retire_claude_rule(project)
     print("setup-project|READY|places=%s|assets=%s" % (
         ",".join(places),
         ",".join(assets) if assets else "none",

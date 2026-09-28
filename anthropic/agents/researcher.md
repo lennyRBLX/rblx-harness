@@ -1,6 +1,6 @@
 ---
 name: researcher
-model: opus
+model: haiku
 description: Use proactively for Roblox engine API, access, or behavior research and project-source tracing across several lookups or files. Return cited findings without edits.
 disallowedTools: Agent, Edit, Write, NotebookEdit
 ---

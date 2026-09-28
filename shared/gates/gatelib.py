@@ -20,6 +20,12 @@ CORPUS_MAX_AGE = 86400
 PROJECT_HARNESS_DIR = "rblx-harness"
 PROJECT_HARNESS_URL = "https://github.com/lennyRBLX/rblx-harness.git"
 REQUIRED_CODEX_AGENTS = ("researcher", "optimizer", "reviewer", "debugger")
+REQUIRED_CLAUDE_AGENT_PROFILES = {
+    "researcher": ("haiku", None),
+    "optimizer": ("claude-opus-5-5", "high"),
+    "reviewer": ("claude-opus-5-5", "high"),
+    "debugger": ("claude-opus-5-5", "xhigh"),
+}
 REQUIRED_SKILLS = ("rblx-writer", "rblx-gui", "rblx-debug", "rblx-optimize", "rblx-plan")
 
 
@@ -283,7 +289,10 @@ def required_claude_agents_status(root):
                 fields, body = claude_frontmatter(handle.read())
         except OSError:
             return False, "Claude agents must include: %s" % ", ".join(REQUIRED_CODEX_AGENTS)
-        if fields is None or fields.get("name") != name or fields.get("model") != "opus" or not fields.get("description") or not body:
+        model, effort = REQUIRED_CLAUDE_AGENT_PROFILES[name]
+        if (fields is None or fields.get("name") != name or
+                fields.get("model") != model or fields.get("effort") != effort or
+                not fields.get("description") or not body):
             return False, "%s has an invalid agent definition" % path
         denied = {tool.strip() for tool in fields.get("disallowedTools", "").split(",")}
         if "Agent" not in denied:

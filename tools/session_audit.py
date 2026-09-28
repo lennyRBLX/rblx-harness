@@ -20,7 +20,7 @@ RULES = [
     ("Studio output and state", r"get_console_output|get_studio_state|list_roblox_studios|screen_capture|inspect_instance|search_game_tree"),
     ("API and type evidence", r"api_dump\.py|type_lookup\.py|web__run|web\.run"),
     ("Validation and build", r"run_verify\.py|lint_driver|style_assess|deny_scan|luau-lsp|luau-analyze|\bpytest\b|\bunittest\b|argon (?:build|sourcemap)|project_gate\.py|compileall|py_compile"),
-    ("Rules and skill retrieval", r"(?:cat|sed|read_text|rg)[\s\S]*(?:CORE\.md|SKILL\.md|AGENTS\.md|references/engine\.md|HANDOFF\.md)"),
+    ("Rules and skill retrieval", r"(?:cat|sed|read_text|rg)[\s\S]*(?:CORE\.md|SKILL\.md|AGENTS\.md|references/engine\.md)"),
     ("Git inspection", r"git\s+(?:diff|status|show|log|ls-files|rev-parse)\b"),
     ("Source retrieval and search", r"\b(?:cat|sed|rg|grep|head|tail)\b|read_text\(|get_symbols_overview|find_symbol"),
     ("Agent dispatch and messages", r"spawn_agent|send_message|followup_task|interrupt_agent"),

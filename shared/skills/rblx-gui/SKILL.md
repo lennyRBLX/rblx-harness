@@ -5,25 +5,11 @@ description: Create or connect Roblox GUI behavior with Instances or React Luau,
 
 # Roblox GUI
 
-Follow project `AGENTS.md`; read [CORE.md](../../CORE.md) only if its Roblox
-guidance is absent. Resolve the harness containing this skill as `H`.
-Use `python3 H/tools/harness.py --help` for domain commands.
+Follow project `AGENTS.md`; if it lacks Roblox guidance, read [CORE.md](../../CORE.md). Let `H` be this skill's harness checkout; use `python3 H/tools/harness.py --help` for domain commands.
 
-1. Identify GUI owners, stack, devices, and behavior. Preserve project choices.
-   Connecting existing controls or Undo to new logic counts as GUI work.
-2. Load [engine evidence](../rblx-writer/references/engine.md) for affected engine
-   contracts; query `api behavior gui` for sizing. For React, read
-   [react.md](references/react.md). Load `rblx-writer` for non-GUI feature code.
-   For Unicode text slicing, read [text contracts](../rblx-writer/references/luau.md).
-3. Implement with native editing tools; use `scaffold module gui` for new modules.
-   Give each animated or layout property one owner and clean up at owner teardown.
-4. Review behavior and lifecycle. Select [visual checks](references/visual-tests.md)
-   for unresolved appearance or interaction risks; inspect simple text or spacing
-   edits directly. Logs alone do not establish visual acceptance.
+1. Identify GUI owners, stack, devices, and behavior; preserve project choices. Connecting controls or Undo to new logic is GUI work.
+2. Read [engine evidence](../rblx-writer/references/engine.md) for affected contracts; query `api behavior gui` for sizing. Read [react.md](references/react.md) for React and [text contracts](../rblx-writer/references/luau.md) for Unicode slicing. Load `rblx-writer` for non-GUI code.
+3. Edit natively; use `scaffold module gui` for new modules. Give each animated or layout property one owner; clean up at teardown.
+4. Review behavior and lifecycle. Use [visual checks](references/visual-tests.md) for unresolved appearance or interaction risks; inspect simple text or spacing edits directly. Logs do not prove visual acceptance.
 
-When delegation is requested, use `researcher` for unresolved research, implement,
-then run `optimizer` before `reviewer`. Address optimizer findings before handing
-the settled changes to reviewer; source analysis does not require a capture.
-For research coverage or an untested class boundary, read
-[coverage.md](references/coverage.md). Preserve source and runtime evidence limits;
-remove only owned temporary files.
+If delegation is requested, use `researcher` for unresolved research, then `optimizer` before `reviewer`; address optimizer findings first. Source analysis needs no capture. For research coverage or an untested class boundary, read [coverage.md](references/coverage.md). Preserve source and runtime evidence limits; remove only owned temporary files.

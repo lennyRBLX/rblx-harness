@@ -1,6 +1,7 @@
 ---
 name: debugger
-model: opus
+model: claude-opus-5-5
+effort: xhigh
 description: Use proactively for Roblox errors, regressions, and unexpected runtime behavior when supplied source or logs do not establish the cause. Diagnose and prepare scoped fixes or diagnostics.
 disallowedTools: Agent
 ---

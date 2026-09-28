@@ -1,6 +1,7 @@
 ---
 name: optimizer
-model: opus
+model: claude-opus-5-5
+effort: high
 description: Use proactively before reviewer for Roblox features, GUI changes, fixes, and implementation plans, and for frame-time or memory questions. Assess source or plan costs and MicroProfiler captures without edits.
 disallowedTools: Agent, Edit, Write, NotebookEdit
 ---
