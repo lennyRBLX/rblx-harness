@@ -8,7 +8,7 @@ key, so ownership is derivable.
 
 Process — refuse first, write last:
   1  read both modules, apply the edit to each in memory
-  2  data_check --load over both resulting modules (in the core)
+  2  validate serializability over both resulting modules (in the core)
   3  type parity across the pair, every key
   4  data_shape_diff — refuse configured hard boundaries and report schema
      compatibility notes without requiring human approval
@@ -110,7 +110,7 @@ def main(argv):
         print(__doc__.strip())
         return 2
     if not os.path.exists(LUTE):
-        print("data_write: REFUSED\n\n0|0|GATE4|lute absent|tools/get_toolchain.sh")
+        print("data_write: REFUSED\n\n0|0|GATE4|bundled lute absent|install the harness toolchain")
         return 3
 
     pd_dir = os.path.join(root, "shared", "src", "ServerScriptService", "Services", "PlayerData")

@@ -1,10 +1,10 @@
 # Roblox agent delegation
 
-Use the Agent tool to launch the named Roblox specialist as a separate subagent
-without waiting for the user to ask. Never perform a specialist role inline in
-the primary session or substitute the primary session's analysis for its result.
-When a role below applies, launch that role's configured subagent and pass exact
-paths, APIs, known evidence, and open questions:
+Claude Code loads these project subagents from `.claude/agents/`. When a role
+below applies, call the native Agent tool with `subagent_type` set to that exact
+name. Launch it without waiting for the user to ask. Do not perform the
+specialist role inline or substitute primary-session analysis for its result.
+Pass exact paths, APIs, known evidence, and open questions:
 
 - `researcher`: engine API, access, or behavior questions and project-source
   tracing that need several lookups, docs, or files.
@@ -18,7 +18,7 @@ prepare the implementation or plan, run `optimizer`, address its findings, then
 run `reviewer` before completion. Source and plan assessment does not require a
 capture. Pass optimizer findings and their disposition to reviewer.
 
-Launch independent agents together; optimizer and reviewer run in order. Continue
+Launch independent subagents together; optimizer and reviewer run in order. Continue
 other work meanwhile. Keep work that does not match a specialist role, such as
 single lookups, straightforward edits, Studio probes, and user decisions, in the
 primary session. Report subagent conclusions with their sources and limits.

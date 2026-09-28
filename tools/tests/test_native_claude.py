@@ -49,23 +49,31 @@ class SettingsTest(Fixture):
         existing = json.dumps({
             "model": "opus",
             "env": {"MAX_MCP_OUTPUT_TOKENS": "9000", "CUSTOM": "1"},
-            "permissions": {"deny": ["Edit(**/.luaurc)"]},
+            "permissions": {"deny": ["Edit(**/.luaurc)"], "allow": ["Agent(custom)", "Agent(researcher)"]},
         })
         merged = gatelib.merge_project_claude_settings(existing, self.canonical)
         document = json.loads(merged)
         self.assertEqual(list(document), ["model", "env", "permissions"])
-        self.assertEqual(document["permissions"], {"deny": ["Edit(**/.luaurc)"]})
+        self.assertEqual(document["permissions"], {
+            "deny": ["Edit(**/.luaurc)"],
+            "allow": ["Agent(custom)", "Agent(researcher)", "Agent(debugger)",
+                      "Agent(optimizer)", "Agent(reviewer)"],
+        })
         self.assertEqual(document["env"], {
             "MAX_MCP_OUTPUT_TOKENS": "9000", "CUSTOM": "1", "BASH_MAX_OUTPUT_LENGTH": "24000",
         })
         self.assertEqual(gatelib.merge_project_claude_settings(merged, self.canonical), merged)
 
     def test_complete_settings_are_returned_unchanged(self):
-        existing = '{"env":{"BASH_MAX_OUTPUT_LENGTH":"1000","MAX_MCP_OUTPUT_TOKENS":"2000"}}'
+        existing = json.dumps({
+            "env": {"BASH_MAX_OUTPUT_LENGTH": "1000", "MAX_MCP_OUTPUT_TOKENS": "2000"},
+            "permissions": {"allow": ["Agent(researcher)", "Agent(debugger)",
+                                      "Agent(optimizer)", "Agent(reviewer)"]},
+        })
         self.assertEqual(gatelib.merge_project_claude_settings(existing, self.canonical), existing)
 
     def test_invalid_settings_are_not_replaced(self):
-        for source in ('{"env":', "[]", '{"env": []}'):
+        for source in ('{"env":', "[]", '{"env": []}', '{"permissions": {"allow": "Agent"}}'):
             with self.subTest(source=source):
                 path = self.write(".claude/settings.json", source)
                 with self.assertRaises((RuntimeError, ValueError)):
@@ -76,9 +84,13 @@ class SettingsTest(Fixture):
         agent = self.write(".claude/agents/custom.md", "---\nname: custom\n---\n")
         skill = self.write(".claude/skills/custom/SKILL.md", "custom instructions\n")
         rule = self.write(".claude/rules/custom.md", "custom rule\n")
-        source = '{"env": {"BASH_MAX_OUTPUT_LENGTH": "9000", "MAX_MCP_OUTPUT_TOKENS": "9000"}}\n'
+        source = json.dumps({
+            "env": {"BASH_MAX_OUTPUT_LENGTH": "9000", "MAX_MCP_OUTPUT_TOKENS": "9000"},
+            "permissions": {"allow": ["Agent(custom)"]},
+        }) + "\n"
         settings = self.write(".claude/settings.json", source)
         self.write(".claude/skills/rblx-new-game/stale", "stale\n")
+        first_settings = None
         for _ in range(2):
             setup.copy_claude_support(str(self.root))
             self.assertEqual(agent.read_text(), "---\nname: custom\n---\n")
@@ -88,7 +100,14 @@ class SettingsTest(Fixture):
                 (self.root / ".claude/rules" / setup.CLAUDE_RULE).read_text(),
                 (ROOT / "anthropic/rules/delegation.md").read_text(),
             )
-            self.assertEqual(settings.read_text(), source)
+            installed = settings.read_text()
+            if first_settings is None:
+                first_settings = installed
+            self.assertEqual(installed, first_settings)
+            self.assertEqual(json.loads(installed)["permissions"]["allow"], [
+                "Agent(custom)", "Agent(researcher)", "Agent(debugger)",
+                "Agent(optimizer)", "Agent(reviewer)",
+            ])
             self.assertTrue(gatelib.required_claude_agents_status(str(self.root))[0])
             self.assertTrue((self.root / ".claude/skills/rblx-writer/SKILL.md").is_file())
             self.assertFalse((self.root / ".claude/skills/rblx-new-game").exists())
@@ -131,8 +150,9 @@ class AgentTest(Fixture):
 
     def test_delegation_requires_named_subagents(self):
         rule = (ROOT / "anthropic/rules/delegation.md").read_text()
-        self.assertIn("separate subagent", rule)
-        self.assertIn("Never perform a specialist role inline", rule)
+        self.assertIn("`.claude/agents/`", rule)
+        self.assertIn("native Agent tool with `subagent_type`", rule)
+        self.assertIn("Do not perform the\nspecialist role inline", rule)
 
 
 class HookMigrationTest(Fixture):
@@ -156,7 +176,10 @@ class HookMigrationTest(Fixture):
         migrated = json.loads(path.read_text())
         self.assertEqual(migrated["hooks"], {"Stop": [{"hooks": [custom]}]})
         self.assertEqual(migrated["custom"], "retained")
-        self.assertEqual(migrated["permissions"], document["permissions"])
+        self.assertEqual(migrated["permissions"]["deny"], document["permissions"]["deny"])
+        self.assertEqual(migrated["permissions"]["allow"], [
+            "Agent(researcher)", "Agent(debugger)", "Agent(optimizer)", "Agent(reviewer)",
+        ])
         saved = path.read_bytes()
         setup.copy_claude_support(str(self.root))
         self.assertEqual(path.read_bytes(), saved)

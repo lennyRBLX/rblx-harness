@@ -78,7 +78,7 @@ def main(argv):
         return 0
 
     if not os.path.exists(LUTE):
-        print("Install the harness toolchain, verify it, and retry: %s" % os.path.join(TOOLS, "get_toolchain.sh"))
+        print("Install the harness toolchain, verify it, and retry")
         return 3
 
     # the table must parse and every entry carry its fields — a silently-empty

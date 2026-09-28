@@ -1,7 +1,7 @@
 ---
 name: debugger
 model: opus
-description: Diagnoses Roblox errors, regressions, and unexpected runtime behavior, then prepares scoped fixes or diagnostics. Use proactively when a failure's cause is not established by the supplied source or logs.
+description: Use proactively for Roblox errors, regressions, and unexpected runtime behavior when supplied source or logs do not establish the cause. Diagnose and prepare scoped fixes or diagnostics.
 disallowedTools: Agent
 ---
 

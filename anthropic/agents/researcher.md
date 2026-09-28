@@ -1,7 +1,7 @@
 ---
 name: researcher
 model: opus
-description: Resolves Roblox engine API, access, and behavior questions and traces project source across files, returning cited findings without edits. Use proactively when an answer needs several API lookups, docs, or source files.
+description: Use proactively for Roblox engine API, access, or behavior research and project-source tracing across several lookups or files. Return cited findings without edits.
 disallowedTools: Agent, Edit, Write, NotebookEdit
 ---
 

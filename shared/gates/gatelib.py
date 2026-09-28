@@ -233,14 +233,25 @@ def merge_project_claude_settings(existing, canonical):
                 configured[key] = value
                 changed = True
             continue
-        if not isinstance(value, dict) or any(type(item) not in (str, int, bool) for item in value.values()):
-            raise ValueError("harness defaults must be scalars or objects of scalars")
+        if not isinstance(value, dict) or any(
+            type(item) not in (str, int, bool)
+            and not (isinstance(item, list) and all(isinstance(entry, str) for entry in item))
+            for item in value.values()
+        ):
+            raise ValueError("harness defaults must be scalars or objects of scalars or string arrays")
         current = configured.get(key, {})
         if not isinstance(current, dict):
             raise ValueError("project Claude settings %s must contain an object" % key)
-        missing = {name: item for name, item in value.items() if name not in current}
-        if missing:
-            configured[key] = dict(current, **missing)
+        merged = dict(current)
+        for name, item in value.items():
+            if name not in current:
+                merged[name] = item
+            elif isinstance(item, list):
+                if not isinstance(current[name], list):
+                    raise ValueError("project Claude settings %s.%s must contain an array" % (key, name))
+                merged[name] = current[name] + [entry for entry in item if entry not in current[name]]
+        if merged != current:
+            configured[key] = merged
             changed = True
     if not changed:
         return existing

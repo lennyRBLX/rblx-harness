@@ -96,7 +96,7 @@ def stage_sourcemap(root, project_name):
 def stage_analyze(root, project_name, sourcemap_data):
     lsp = LUAU_LSP if os.path.exists(LUAU_LSP) else "luau-lsp"
     if not os.path.isfile(DEFINITIONS):
-        raise EnvError("definitions-absent", "vendored globalTypes.d.luau missing - tools/get_toolchain.sh")
+        raise EnvError("definitions-absent", "vendored globalTypes.d.luau missing")
     paths = [p for p in ("shared", "places") if os.path.isdir(os.path.join(root, p))]
     if not paths:
         paths = ["."]

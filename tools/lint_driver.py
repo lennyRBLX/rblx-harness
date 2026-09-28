@@ -46,7 +46,7 @@ def scan(tool, rules_dir, argv, fails_open=False):
         print("usage: %s [--root DIR] <file...>" % tool)
         return 0
     if not os.path.exists(LUTE):
-        print("%s: BLOCKED (ENV)\n\nENV|lute-absent|tools/get_toolchain.sh" % tool)
+        print("%s: BLOCKED (ENV)\n\nENV|lute-absent|install the harness toolchain" % tool)
         return 3
 
     scannable = []

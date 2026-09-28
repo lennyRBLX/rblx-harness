@@ -216,7 +216,7 @@ def main(argv):
         print(__doc__.strip())
         return 0
     if not os.path.exists(LUTE):
-        print("style_assess: BLOCKED (ENV)\n\nENV|lute-absent|tools/get_toolchain.sh")
+        print("style_assess: BLOCKED (ENV)\n\nENV|lute-absent|install the harness toolchain")
         return 3
 
     files = collect_files(paths, root, ignores)

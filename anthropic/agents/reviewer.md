@@ -1,7 +1,7 @@
 ---
 name: reviewer
 model: opus
-description: Reviews Roblox Luau changes and implementation plans for correctness, security, and lifecycle without edits. Use proactively after optimizer assessment for features, GUI changes, fixes, and plans, before reporting them complete.
+description: Use proactively after optimizer assessment to review Roblox Luau features, GUI changes, fixes, and implementation plans before completion. Check correctness, security, and lifecycle without edits.
 disallowedTools: Agent, Edit, Write, NotebookEdit
 ---
 

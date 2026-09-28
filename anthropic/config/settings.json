@@ -2,5 +2,13 @@
   "env": {
     "BASH_MAX_OUTPUT_LENGTH": "24000",
     "MAX_MCP_OUTPUT_TOKENS": "6000"
+  },
+  "permissions": {
+    "allow": [
+      "Agent(researcher)",
+      "Agent(debugger)",
+      "Agent(optimizer)",
+      "Agent(reviewer)"
+    ]
   }
 }

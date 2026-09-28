@@ -60,7 +60,6 @@ def harness_fixture(directory):
         "shared/PLAN.md",
         "shared/gates",
         "shared/skills",
-        "templates",
         "tools/api_dump",
         "tools/context_pack.py",
         "tools/harness.py",
@@ -172,8 +171,9 @@ def _():
     require(not os.path.exists(os.path.join(ROOT, "setup_windows.bat")), "Windows batch remains")
     require(os.path.isfile(os.path.join(ROOT, "setup_project.py")), "Python setup is absent")
     require(os.path.isfile(os.path.join(ROOT, "shared", "HANDOFF.md")), "shared handoff is absent")
-    require(os.path.isfile(os.path.join(ROOT, "templates", "README.md")), "project README template is absent")
-    require(not os.path.exists(os.path.join(ROOT, "templates", "HANDOFF.md")), "project handoff template remains")
+    require(os.path.isfile(os.path.join(ROOT, "shared", "skills", "rblx-new-game", "AGENTS.md")), "project AGENTS template is absent")
+    require(os.path.isfile(os.path.join(ROOT, "shared", "skills", "rblx-new-game", "README.md")), "project README template is absent")
+    require(not os.path.exists(os.path.join(ROOT, "templates")), "obsolete templates directory remains")
     tracked_local = run(["git", "ls-files", "--", ".agents", ".claude", ".codex", ".serena", ".roblox"])
     require(tracked_local.returncode == 0 and not tracked_local.stdout.strip(), tracked_local.stdout)
     for skill in skills:
@@ -198,6 +198,9 @@ def _():
         settings = json.load(open(os.path.join(root, ".claude", "settings.json"), encoding="utf-8"))
         require("hooks" not in settings, "setup installed Claude hooks")
         require(settings["env"]["MAX_MCP_OUTPUT_TOKENS"] == "6000", settings)
+        require(settings["permissions"]["allow"] == [
+            "Agent(researcher)", "Agent(debugger)", "Agent(optimizer)", "Agent(reviewer)",
+        ], settings)
         require(sorted(os.listdir(os.path.join(root, ".claude", "agents"))) == CLAUDE_AGENT_FILES, "Claude agent set")
         for skill in ("rblx-debug", "rblx-gui", "rblx-new-game", "rblx-optimize", "rblx-plan", "rblx-test", "rblx-writer"):
             require(os.path.islink(os.path.join(root, ".agents", "skills", skill)), skill)
@@ -272,6 +275,9 @@ def _():
     parsed = json.loads(merged)
     require(parsed["custom"]["value"] == 7, merged)
     require(parsed["env"] == {"MAX_MCP_OUTPUT_TOKENS": "9000", "BASH_MAX_OUTPUT_LENGTH": "24000"}, merged)
+    require(parsed["permissions"]["allow"] == [
+        "Agent(researcher)", "Agent(debugger)", "Agent(optimizer)", "Agent(reviewer)",
+    ], merged)
     repeated = gatelib.merge_project_claude_settings(merged, canonical)
     require(repeated == merged, "Claude settings merge is not byte-stable")
 

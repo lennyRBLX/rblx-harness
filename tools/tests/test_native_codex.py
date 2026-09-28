@@ -234,7 +234,7 @@ extends = ":workspace"
         self.assertEqual((self.root / "config.toml").read_text(), '[malformed\n')
 
 
-class GuidanceMigrationTest(Fixture):
+class GuidanceTemplateTest(Fixture):
     manifest = {"places": ["Lobby", "Match"], "gameplay": "Win matches", "assets": []}
 
     def render(self, **changes):
@@ -254,21 +254,7 @@ class GuidanceMigrationTest(Fixture):
         self.assertNotIn("Gameplay loop: Win matches", updated)
         self.assertEqual(readme.read_text(), "# Custom README\n")
 
-    def test_exact_legacy_guidance_migrates_preserving_ids_and_suffix(self):
-        legacy = (ROOT / "templates/AGENTS.legacy").read_text().replace(
-            "{{SUMMARY}}", "Gameplay loop: Win matches\n\nServices: none\n\nControllers: none"
-        ).replace("{{PLACES}}", "Lobby|1234\n- Match").replace("{{ASSETS}}", "none")
-        self.write("AGENTS.md", legacy + "\n# User rules\nRetain this.\n")
-        migrated = self.render()
-        self.assertNotIn("Hooks enforce", migrated)
-        self.assertIn("Lobby|1234", migrated)
-        self.assertIn("# User rules\nRetain this.", migrated)
-        self.assertEqual(self.render(), migrated)
-        updated = self.render(places=["Lobby", "Arena"])
-        self.assertIn("Lobby|1234\n- Arena", updated)
-        self.assertNotIn("- Match", updated)
-
-    def test_customized_legacy_guidance_is_preserved(self):
+    def test_existing_guidance_is_preserved(self):
         custom = "## places\n\nLobby|2345\n\n# Team\nCustom rules.\n"
         self.write("AGENTS.md", custom)
         self.assertIn(custom.strip(), self.render())

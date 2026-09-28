@@ -15,6 +15,7 @@ HARNESS = os.path.dirname(os.path.abspath(__file__))
 AGENTS = ("researcher", "optimizer", "reviewer", "debugger")
 PROJECT_SKILLS = ("rblx-writer", "rblx-gui", "rblx-debug", "rblx-optimize", "rblx-plan", "rblx-test")
 HARNESS_SKILLS = PROJECT_SKILLS + ("rblx-new-game",)
+NEW_GAME_SKILL = os.path.join(HARNESS, "shared", "skills", "rblx-new-game")
 MANIFEST = "manifest.json"
 IGNORE_BEGIN = "# BEGIN rblx-harness links"
 IGNORE_END = "# END rblx-harness links"
@@ -432,7 +433,7 @@ def render_templates(project, manifest):
         services,
         controllers,
     )
-    with open(os.path.join(HARNESS, "templates", "AGENTS.md"), encoding="utf-8") as handle:
+    with open(os.path.join(NEW_GAME_SKILL, "AGENTS.md"), encoding="utf-8") as handle:
         template = handle.read()
     with open(os.path.join(HARNESS, "shared", "CORE.md"), encoding="utf-8") as handle:
         rules = handle.read().strip()
@@ -463,19 +464,11 @@ def render_templates(project, manifest):
             fail("AGENTS.md has malformed harness guidance markers")
         guidance = pattern.sub(lambda _: rendered.strip(), existing)
     else:
-        # Older setup owned the entire generated document. Migrate exact known
-        # bytes only; customized documents are retained outside the managed block.
-        legacy_path = os.path.join(HARNESS, "templates", "AGENTS.legacy")
-        with open(legacy_path, encoding="utf-8") as handle:
-            legacy = handle.read().replace("{{SUMMARY}}", summary).replace(
-                "{{PLACES}}", place_lines
-            ).replace("{{ASSETS}}", ", ".join(assets) if assets else "none")
-        retained = existing[len(legacy):] if existing.startswith(legacy) else existing
-        guidance = "\n\n".join(part for part in (rendered.strip(), retained.strip()) if part) + "\n"
+        guidance = "\n\n".join(part for part in (rendered.strip(), existing.strip()) if part) + "\n"
     write_text(guidance_path, guidance)
     readme_path = os.path.join(project, "README.md")
     if not os.path.exists(readme_path):
-        with open(os.path.join(HARNESS, "templates", "README.md"), encoding="utf-8") as handle:
+        with open(os.path.join(NEW_GAME_SKILL, "README.md"), encoding="utf-8") as handle:
             readme = handle.read()
         project_name = os.path.basename(project.rstrip(os.sep)) or "Roblox Project"
         write_text(
