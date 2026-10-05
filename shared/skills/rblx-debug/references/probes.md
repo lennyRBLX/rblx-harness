@@ -3,8 +3,9 @@
 Use only for development-relevant engine questions left unresolved by
 [engine evidence](../../rblx-writer/references/engine.md).
 Name the unresolved question and result that would change
-the fix. Retrieve existing output first. Do not rerun an established failure
-for confirmation or repair an optional probe unless its answer is still needed.
+the fix. Retrieve existing output first. Reuse an established failure. Repeat reproductions when needed to distinguish a cause or verify the fix. Keep authored-algorithm correctness separate from documented engine behavior.
+
+Use the [shared procedure](../../rblx-test/references/procedure.md) for lifecycle, readiness, collection and cleanup and the [buffer protocol](../../rblx-test/references/buffer.md) for output. Give each probe one stable ID and stopping condition.
 
 ## Setup & records
 
@@ -17,7 +18,7 @@ for confirmation or repair an optional probe unless its answer is still needed.
 
 - Validate preconditions before mutation. Failed preflight permits no cleanup writes. Track started owned mutations; restore only affected values, including on errors. Stop if restoration fails. After stopping, remove owned temporary fixtures; retain useful regression tests.
 - Distinguish fixture defects from engine limits. Validate service results before calls: successful `pcall` may return nil; a later nil-index error does not prove access denial.
-- Bound output; on truncation, retain full records in owned non-code runtime values & retrieve before Play teardown.
+- Use shared buffer chunks and automated collection; reject truncation or missing records. Keep Play available until required retrieval finishes.
 - Paired writer/observer: acknowledge write before sampling & sampling completion before restoration; use bounded deadlines & restore on errors. Separate writer readback from observer reads; protocol ACK does not prove property arrival.
 
 ## Conditional cases

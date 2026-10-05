@@ -24,6 +24,6 @@
 
 ## Pre-implementation tests
 
-| Question | Test | Plan impact | Result |
+| ID / question | Decision / broadest useful test | Stopping condition | Evidence / state |
 | --- | --- | --- | --- |
-| [Unverified fact, boundary, conversion problem, or solution] | [Smallest decisive check] | [Affected step and decision] | Pending |
+| [Stable ID and one question] | [Decision and measurement that selects narrower work] | [Acceptance threshold or bounded failure] | [Valid prior findings; changed dependencies; pending human actions] |

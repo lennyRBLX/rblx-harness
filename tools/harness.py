@@ -43,12 +43,16 @@ Both accept --max-chars N, --since PACK, and --no-cache. Full evidence is saved
 outside the repository unless --no-cache is selected. Truncation is reported.
 inspect session --project NAME --output REPORT_STEM
 Session audit reads local rollouts; visible payload estimates are not billing.""",
-    "profile": """profile frames CAPTURE_STEM [--downloads DIR]
+    "profile": """profile capture baseline|collect --help
+profile results LOG --side SIDE --script NAME --run ID
+profile frames CAPTURE_STEM [--downloads DIR]
 profile luau --from-json FILE [FILE ...]
 profile luau --emit-harness server|client|both [--seconds N] [--frequency HZ]
 Analyze saved MicroProfiler exports or emit a diagnostic snippet. Emission does
 not execute the snippet. Compare only equivalent captures.""",
-    "studio": """studio output --studio-id ID [--since SNAPSHOT] [--contains TEXT]
+    "studio": """studio decode LOG --side SIDE --script NAME --run ID
+studio output --studio-id ID --side SIDE --script NAME --run ID [--wait SECONDS]
+studio output --studio-id ID [--since SNAPSHOT] [--contains TEXT]
 studio output --input LOG [--since SNAPSHOT] [--contains TEXT]
 studio boot [--project FILE] [--console-log FILE] [--play-seconds N]
 studio map | census | clean [--delete]
@@ -75,8 +79,11 @@ ROUTES = {
     ("inspect", "read"): ("tools/context_pack.py", "--root"),
     ("inspect", "diff"): ("tools/context_pack.py", "--root"),
     ("inspect", "session"): ("tools/session_audit.py", None),
+    ("profile", "capture"): ("tools/frame_census/capture.py", None),
     ("profile", "frames"): ("tools/frame_census/frame_census.py", "--root"),
     ("profile", "luau"): ("tools/luau_hotspot/luau_hotspot.py", None),
+    ("studio", "decode"): ("tools/test_buffer.py", None),
+    ("profile", "results"): ("tools/test_buffer.py", None),
     ("studio", "output"): ("tools/studio_output.py", None),
     ("studio", "boot"): ("tools/boot_smoke/boot_smoke.py", "--root"),
     ("studio", "map"): ("tools/place_map/place_map.py", "--root"),

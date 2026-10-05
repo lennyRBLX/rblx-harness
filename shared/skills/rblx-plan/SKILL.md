@@ -11,6 +11,6 @@ State the outcome and dependency-ordered, independently verifiable steps with ow
 
 Reuse settled choices and verified results. Give receiving agents only missing context, with exact paths, symbols, values, and acceptance limits. Written plans need no automatic format gate or completion receipts.
 
-Distill approved Decisions, Unresolved, and Pre-implementation tests into steps; remove those rows and empty tables. Pre-implementation tests may only establish new facts, test plan boundaries, or identify conversion problems or solutions for reference source and Luau.
+Distill approved Decisions, Unresolved, and Pre-implementation tests into steps; remove those rows and empty tables. Each test needs one decision, question, stable ID and stopping condition. Begin with the broadest useful measurement and remove prerequisites that cannot affect the decision. Reuse valid findings and documented engine facts. Permit necessary measurement repeats, reproductions and checks affected by changes. Keep authored-algorithm correctness separate. Plan human readiness, independent result/capture collection, coverage and cleanup with the [shared procedure](../rblx-test/references/procedure.md).
 
 If delegation is requested, use `researcher` for unresolved contracts, draft the plan, then run `optimizer` before `reviewer`. Have optimizer assess proposed costs and performance acceptance evidence without requiring a capture; address its findings. Have reviewer check contracts, dependencies, authority, lifecycle, and acceptance evidence, then complete the plan.

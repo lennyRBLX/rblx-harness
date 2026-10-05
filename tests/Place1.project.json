@@ -1,0 +1,14 @@
+{
+  "name": "harness_support_acceptance",
+  "tree": {
+    "$className": "DataModel",
+    "StarterPlayer": {
+      "StarterPlayerScripts": {
+        "HarnessAcceptance": {
+          "$path": "Place1/client",
+          "TestSupport": { "$path": "../shared/test_support" }
+        }
+      }
+    }
+  }
+}

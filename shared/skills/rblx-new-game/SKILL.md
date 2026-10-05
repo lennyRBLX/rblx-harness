@@ -18,3 +18,5 @@ Keep a multi-place layout even for one place. Service/Controller answers use `sh
 Assets: packages, services, controllers, plugins; `all` selects all four. Packages/services/controllers need the harness; plugins may stand alone. Keep existing `plugins/`. Detected module bytes replace boilerplate at accepted destinations. Keep confirmed choices in root `manifest.json`.
 
 Setup installs five project skills, four agents, selected asset links, and project instructions. Bootstrap `rblx-new-game` stays outside generated project skills. Keep generated `.agents/`, `.codex/`, `.roblox`, and Serena-owned `.serena/` ignored. Codex manages context loading and compaction; install no harness hooks. Preserve project docs and unrelated user configuration.
+
+Test scaffolding keeps source under `tests/<Place>/<side>` with Argon mounts for only the authored server or client driver. Mount shared TestSupport beside the test. Prepare source and invocation while stopped; use the [shared test procedure](../rblx-test/references/procedure.md) for readiness, collection and cleanup. Retain useful source; remove owned temporary drivers only after evidence is archived.

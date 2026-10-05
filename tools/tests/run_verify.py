@@ -60,11 +60,13 @@ def harness_fixture(directory):
         "shared/PLAN.md",
         "shared/gates",
         "shared/skills",
+        "shared/test_support",
         "tools/api_dump",
         "tools/context_pack.py",
         "tools/harness.py",
         "tools/session_audit.py",
         "tools/studio_output.py",
+        "tools/test_buffer.py",
         "tools/studio_rpc.py",
         "tools/studio_mcp_launcher.py",
         "tools/create_boilerplate",
@@ -625,6 +627,12 @@ def _():
     require(result.returncode == 0, result.stdout + result.stderr)
 
 
+@case("test buffer, capture coverage, collection and cleanup boundaries")
+def _():
+    result = run([PY, os.path.join(ROOT, "tools", "tests", "test_test_support.py")])
+    require(result.returncode == 0, result.stdout + result.stderr)
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--list", action="store_true", help="List case names without running them")
@@ -648,8 +656,6 @@ def main(argv=None):
         except Exception as error:
             failures.append((name, error))
             print("FAIL|%s|%s" % (name, error))
-        else:
-            print("PASS|%s" % name)
     if args.case:
         print("VERIFY|SELECTED|%s|%d/%d|failures=%d" % (
             "FAILED" if failures else "READY", len(selected), len(CASES), len(failures),

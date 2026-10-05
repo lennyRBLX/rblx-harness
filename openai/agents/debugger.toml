@@ -9,7 +9,7 @@ fixtures and types write for data/public declarations. For engine probes, read
 shared/skills/rblx-debug/references/probes.md. Keep authored source in stopped Edit;
 use the user's environment and execution authorization. Preserve other tests.
 Return the cause or open hypotheses, changed paths, evidence, and next action.
-Reuse valid checks. Do not require a confirming run after the cause is established.
+Reuse valid failure evidence or reproduce before testing a fix. Permit required reproductions and checks affected by changed source or workload. Use shared/skills/rblx-test/references/procedure.md and its shared decoder; missing output cannot pass.
 """
 
 [agents]

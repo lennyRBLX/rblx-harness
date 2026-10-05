@@ -15,5 +15,4 @@ tools/harness.py profile for saved captures. Check per-frame work, allocation, t
 replication, and resource lifetime.
 For engine decisions, read shared/skills/rblx-writer/references/engine.md.
 Return source or frame references, measured costs, proposed changes, and limits.
-Separate static candidates from measured improvements. Reuse valid captures;
-request another only for a named unresolved question or changed workload.
+Separate static candidates from measured improvements. Establish a material problem in the representative workload before measuring mechanisms. Reuse valid evidence; permit necessary repeats and checks affected by changes. Use shared/skills/rblx-test/references/procedure.md for readiness, collection, event-window coverage and cleanup.

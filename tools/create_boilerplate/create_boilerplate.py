@@ -25,11 +25,12 @@ in one deterministic, reversible step.
 
 A Service or Controller suffix produces a naming advisory [R WRIT10] but does
 not deny emission. Unsafe path-shaped names remain refused [R GATE2]. An
-existing target exits 2 — except --test, which re-emits the header in place [R
+existing target exits 2 — test sources are also preserved [R
 DEBUG2].
 """
 
 import os
+import json
 import re
 import sys
 
@@ -143,58 +144,41 @@ DATA_FRAME = """export type Entry = {
 return {}
 """
 
-TEST_FRAME = """--[[
-what it does: {what}
-HOW TO USE: {how}
-delete-when: {when}
-]]
-
+TEST_FRAME = """-- {what}
+-- {how}
 local ENABLED = false
-
 local RunService = game:GetService("RunService")
 
 if not ENABLED or not RunService:IsStudio() then
-	return
+    return
 end
+
+local Runner = require(script.Parent.TestSupport.Runner)
+Runner.run(script, {{
+    id = "{id}", -- One question; new question needs a new ID.
+    timeout = 30,
+    setup = function(context)
+        -- Own fixtures through context. Declare metrics and spike thresholds here.
+    end,
+    warmup = function(context)
+        -- Warm the representative workload outside measurement.
+    end,
+    workload = function(context)
+        -- Stop on the declared acceptance condition. Missing assertions cannot pass.
+        context:check(false, "test question and stopping condition required")
+    end,
+}})
 """
 
-# LIVE tests run on a staging place, never Studio and never a joinable
-# production place [R DEBUG1 rung 3] — the gate is the staging PlaceId, set
-# on sign-off
-LIVE_FRAME = """--[[
-what it does: {what}
-HOW TO USE: {how}
-delete-when: {when}
-]]
-
-local ENABLED = false
-local STAGING_PLACE_ID = 0
-
-if not ENABLED or game.PlaceId ~= STAGING_PLACE_ID or STAGING_PLACE_ID == 0 then
-	return
-end
-"""
-
-# the receipt verification shim [R DATA21, DATA36]: buy once, rejoin
-# mid-hold, expect call 2 to log granted without a second grant from the
-# product handler
-LIVE_PAYMENTS_BODY = """
-local MarketplaceService = game:GetService("MarketplaceService")
-
-local calls = {}
-local original = MarketplaceService.ProcessReceipt
-assert(original ~= nil, "LIVE.Payments | run after Payments:Start()")
-
-MarketplaceService.ProcessReceipt = function(receiptInfo)
-	local id = tostring(receiptInfo.PurchaseId)
-	calls[id] = (calls[id] or 0) + 1
-	print("receipt|" .. id .. "|call " .. calls[id])
-	local decision = original(receiptInfo)
-	local label = decision == Enum.ProductPurchaseDecision.PurchaseGranted and "granted" or "not-processed"
-	print("receipt|" .. id .. "|" .. label .. "|call " .. calls[id])
-	return decision
-end
-"""
+# Staging remains explicitly gated. Receipt fixtures use the same lifecycle;
+# do not install an unowned, unbounded ProcessReceipt wrapper.
+LIVE_FRAME = TEST_FRAME.replace(
+    'local RunService = game:GetService("RunService")',
+    'local STAGING_PLACE_ID = 0',
+).replace(
+    'not RunService:IsStudio()',
+    'game.PlaceId ~= STAGING_PLACE_ID or STAGING_PLACE_ID == 0',
+)
 
 KINDS = {
     "service": ("shared/src/ServerScriptService/Services/{name}.luau", FRAME),
@@ -242,7 +226,7 @@ def refuse_place(root, place):
 
 
 def emit_test(root, spec, place, side):
-    m = re.match(r"^(Fix|Diagnose|LIVE)\.([A-Za-z0-9]+)$", spec)
+    m = re.match(r"^(Fix|Diagnose|Measure|LIVE)\.([A-Za-z0-9]+)$", spec)
     if not m:
         print("create_boilerplate: REFUSED\n")
         print("%s|DEBUG2|test name is <Mode>.<Name>|Fix.Shop, Diagnose.Pets, LIVE.Shop" % spec)
@@ -251,46 +235,47 @@ def emit_test(root, spec, place, side):
         print("create_boilerplate: REFUSED\n")
         print("%s|DEBUG2|--place required|tests live in tests/<Place>/" % spec)
         return 2
+    if not re.fullmatch(r"[A-Za-z][A-Za-z0-9_-]*", place) or side not in (None, "server", "client"):
+        return refuse_name_component(place)
     side = side or "server"
     dest = os.path.join(root, "tests", place, side, "%s.%s.luau" % (spec, side))
-    os.makedirs(os.path.dirname(dest), exist_ok=True)
     mode = spec.split(".")[0]
-    if mode == "LIVE":
-        header = LIVE_FRAME.format(
-            what="verify the change on the staging place",
-            how="set ENABLED = true and STAGING_PLACE_ID, publish to staging on sign-off, watch the console",
-            when="the developer states the behavior is verified and the debugger prompts deletion",
-        )
-        if spec == "LIVE.Payments":
-            header = (
-                LIVE_FRAME.format(
-                    what="verify the receipt contract: one grant per PurchaseId, retries cached",
-                    how="set ENABLED = true and STAGING_PLACE_ID, publish to staging, buy a real dev product once, rejoin mid-hold to force a retry, read the receipt| lines",
-                    when="the developer states the receipt flow is verified and the debugger prompts deletion",
-                )
-                + LIVE_PAYMENTS_BODY
-            )
-    else:
-        header = TEST_FRAME.format(
-            what="reproduce/discriminate the reported defect",
-            how="set ENABLED = true, play in Studio, watch the console",
-            when="the developer states the bug is fixed and the debugger prompts deletion",
-        )
+    header = (LIVE_FRAME if mode == "LIVE" else TEST_FRAME).format(
+        what="state one question and its stopping condition",
+        how=("Set the staging PlaceId, RunId and confirmed Ready before an authorized staging run."
+             if mode == "LIVE" else "In stopped Edit set RunId and confirmed Ready, enable, then MCP Play; collect with studio output."),
+        id=spec,
+    )
     if os.path.exists(dest):
-        # re-emit the header in place; the body below the frame is kept
-        with open(dest, encoding="utf-8") as f:
-            existing = f.read()
-        marker = existing.find("if not ENABLED")
-        if marker >= 0:
-            end = existing.find("end", marker)
-            body = existing[existing.find("\n", end) + 1 :] if end >= 0 else ""
-        else:
-            body = existing
-        with open(dest, "w", encoding="utf-8") as f:
-            f.write(header + body)
-        print("create_boilerplate: REFRAMED\n")
-        print(houseout.elide(dest, root))
-        return 0
+        print("create_boilerplate: REFUSED|test exists; preserve source and edit explicitly")
+        return 2
+    canonical = os.path.join(os.path.dirname(os.path.dirname(HERE)), "shared", "test_support")
+    mappings = []
+    for name in (place + ".project.json", "default.project.json"):
+        project = os.path.join(root, name)
+        if not os.path.isfile(project):
+            continue
+        with open(project, encoding="utf-8") as stream:
+            document = json.load(stream)
+        tree = document.get("tree", {})
+        service = tree.get("ServerScriptService", {}) if side == "server" else tree.get("StarterPlayer", {}).get("StarterPlayerScripts", {})
+        tests = service.get("Tests", {})
+        if tests.get("$path") != "tests/%s/%s" % (place, side):
+            continue
+        wanted = {"$path": os.path.relpath(canonical, root).replace(os.sep, "/")}
+        if "TestSupport" in tests and tests["TestSupport"] != wanted:
+            print("create_boilerplate: REFUSED|TestSupport mapping belongs to another source")
+            return 2
+        tests["TestSupport"] = wanted
+        mappings.append((project, document))
+    if not mappings:
+        print("create_boilerplate: REFUSED|map tests/%s/%s through Argon before authoring" % (place, side))
+        return 2
+    for project, document in mappings:
+        with open(project, "w", encoding="utf-8") as stream:
+            json.dump(document, stream, indent=2)
+            stream.write("\n")
+    os.makedirs(os.path.dirname(dest), exist_ok=True)
     with open(dest, "w", encoding="utf-8") as f:
         f.write(header)
     print("create_boilerplate: EMITTED\n")
