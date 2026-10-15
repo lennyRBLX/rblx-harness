@@ -1,38 +1,40 @@
-# Network contracts
+# Codec and remote contracts
 
-Use for buffers, serialization, or remotes. Keep the existing Event/owner APIs.
+Keep existing Event/owner APIs. For engine-dependent limits, use
+[engine evidence](engine.md).
 
-- Define packet ID, version, field widths, units, length limits, and trailing-byte
-  policy. Validate before mutation; decode failures must not commit partial state.
-- Check integer, nonnegative offsets/lengths and `offset + width <= buffer.len(b)`.
-  Bound strings, packet counts, allocation, and decode loops. Grow writers from
-  positive capacity with a maximum; zero capacity must not cause endless doubling.
-- Reject NaN/infinity and out-of-range values before integer writes or quantization.
-  Match signedness and precision. Preserve UserIds with f64 or lossless mapping;
-  keep external integers beyond exact double range as strings.
-- `bit32` is 32-bit. Bound varints to the codec width; reject excess continuation
-  and high overflow bits in the final byte. Do not use a u32 varint for large IDs.
-- Test codec round trips at boundaries, truncation, malformed lengths, and overflow.
-  Quantization tests need an error bound. Do not discard CFrame axes without a
-  protocol contract. Use project-owned IDs/names for durable enum schemas.
-- Batch within count/byte limits; bound per-player queues and clear on leave.
-  Separate reliable state changes from disposable updates. Unreliable packets may
-  be lost/reordered: sequence updates and periodically restore full state when
-  deltas depend on prior packets. Check current payload limits through `api`.
-- Transport reliability does not make purchases/saves exactly once. Use operation
-  IDs and idempotent server handlers. Do not block server progress on InvokeClient;
-  use requests with bounded pending state, deadlines, and disconnect cleanup.
-- Runtime payload validation remains necessary with typed wrappers. A generic
-  remote name alone does not link the argument types to its payload schema.
-- For HTTP, distinguish protected-call success, HTTP Success/status, and valid
-  response data. Protect JSON decoding; check its schema. Keep secrets server-side.
-  Honor the external JSON contract for empty objects, arrays, nulls, mixed keys,
-  and large IDs; do not invent sentinel fields without that contract.
+## Codecs
 
-`check source --only correctness,replication PATH...` checks literal lossy codec
-uses (DATA38, advisory) and Event ownership, including UnreliableRemoteEvent
-(WRIT8). Computed sizes, protocol semantics, and authorization need review/tests.
+- Specify packet ID/version, widths, units, length limits and trailing-byte policy.
+  Decode fully before committing state.
+- Require integer, nonnegative offsets/lengths and `offset + width <= buffer.len(b)`.
+  Bound strings, counts, allocations and loops. Grow writers from positive capacity
+  to a fixed maximum; zero must not loop forever.
+- Reject nonfinite/out-of-range values before integer writes or quantization.
+  Match signedness/precision. Preserve UserIds with f64 or lossless mappings;
+  use strings for external integers beyond exact double range.
+- `bit32` is 32-bit. Bound varints by width; reject excess continuation and final
+  overflow bits. A u32 varint cannot hold large IDs.
+- Check boundary round trips, truncation, malformed lengths and overflow. Declare
+  quantization error; preserve CFrame axes unless the schema permits loss.
+  Use project IDs/names for durable enums.
+
+## Transport
+
+- Bound batch counts/bytes and per-player queues; clear queues on leave.
+  Sequence disposable updates; restore full state when unreliable deltas depend
+  on prior packets. Query current payload limits.
+- Use operation IDs and idempotent purchase/save handlers. Replace blocking
+  InvokeClient dependencies with bounded requests, deadlines and disconnect cleanup.
+- Validate runtime payloads despite typed wrappers; a generic remote name alone
+  does not connect argument types to its schema.
+- For HTTP, check protected-call success, HTTP status/Success and response schema
+  separately. Protect JSON decoding; keep secrets server-side. Preserve the external
+  contract for objects, arrays, nulls, mixed keys and large IDs; no invented sentinels.
+
+DATA38/WRIT8 check literal codec risks and Event ownership; review computed schemas,
+protocol semantics and authorization separately.
 
 Sources: [buffer](https://luau.org/library/#buffer-library),
-[remote events](https://create.roblox.com/docs/scripting/events/remote),
+[remotes](https://create.roblox.com/docs/scripting/events/remote),
 [HTTP](https://create.roblox.com/docs/reference/engine/classes/HttpService).

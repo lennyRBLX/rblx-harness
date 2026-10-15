@@ -1,49 +1,32 @@
-# Luau contracts
+# Luau edge cases
 
-Use for types, collections, text, or language features. Keep project conventions;
-examples in external references do not override harness rules.
+- `const` prevents rebinding, not mutation. Freeze nested config where required;
+  clone/freeze are shallow. Handle cycles in deep traversal.
+- Narrow `unknown`; casts do not validate. Preserve generic type packs; use `()`
+  for no returns. Read/write type properties do not enforce runtime access.
+  Verify solver rollout for type functions, attributes and complex overloads;
+  an RFC is insufficient. Primitive intersections do not create runtime ID brands.
+- Preserve nil-bearing packs with `table.pack`, `.n`, `table.unpack(args, 1, args.n)`.
+  Only a final call/vararg expands; parentheses truncate. Raw value varargs are
+  not an iterator.
+- Use `#` for dense arrays; count sparse tables explicitly and use `next(t) == nil`
+  for dictionary emptiness. Remove backwards, or revisit swap-removed indices.
+- `table.create(n, tableValue)` aliases the fill table. `table.clear` retains
+  capacity and affects aliases. Distinguish cached nil from a miss; bound pools
+  and reset reused state. Use stacks/loops for unbounded traversal.
+- Use plain `string.find(..., 1, true)` for literals; escape external pattern input.
+  Use format for precision, interpolation for substitution, `table.concat` for bulk.
+- Distinguish bytes, codepoints and graphemes. Validate external UTF-8, handle
+  `utf8.len` failure, and truncate UI text at grapheme boundaries.
+- Use `os.clock` for elapsed time, epoch time for stored dates, `GetServerTimeNow`
+  for shared timelines. Treat client timestamps as untrusted.
+- Use `error(message, 2)` for caller contract failures. Protected-call errors are
+  unknown values; traceback handlers must not yield.
+- Reuse project Signal/Trove/Retry packages. Keep metatable/newproxy patterns out
+  of owned game code (WRIT18).
 
-- `const` prevents rebinding, not mutation. Freeze config tables, including nested
-  tables that must be immutable. Handle cycles if implementing deep traversal.
-  Use named constants for domain limits; retain normal loop indices and sentinels.
-- Narrow `unknown` at boundaries. Casts do not validate data; avoid `:: any` as a
-  substitute. Use tagged unions for variants and `never` for exhaustive dispatch.
-  Return no values with `()`. Preserve generic type packs in forwarding APIs.
-  Read/write properties are type constraints, not runtime access control.
-- Keep public aliases in `types write`. Verify solver support before type
-  functions, attributes, or overload-heavy APIs; an RFC alone proves no rollout.
-  Primitive intersections do not create runtime brands. Prefer validated wrappers
-  when distinct ID types must be enforced without unchecked casts.
-- Preserve nil-bearing packs with `table.pack`, `.n`, and
-  `table.unpack(args, 1, args.n)`. A final call/vararg expands; parentheses and
-  nonfinal positions truncate. Do not iterate raw value varargs as an iterator.
-- Use `#` only for dense arrays; track sparse counts and test dictionary emptiness
-  with `next(t) == nil`. Remove dense elements backwards, or swap-remove and
-  revisit the swapped index when order is irrelevant.
-- `table.create(n)` reserves array capacity; table-valued fill arguments alias.
-  Clone/freeze are shallow. `table.clear` retains capacity and affects all aliases.
-  Bound caches/pools; reset owned state on reuse. Avoid nil-as-cache-miss when nil
-  is a valid cached result. Use loops/stacks for unbounded traversal.
-- Use plain `string.find(..., 1, true)` for literal input; escape input for Lua
-  patterns. Patterns are not JSON parsers. Use format for required precision,
-  interpolation for readable substitution, `table.concat` for bulk assembly.
-- Byte length differs from codepoints and graphemes. Validate external UTF-8;
-  handle `utf8.len` failure. Truncate UI text at grapheme boundaries when needed.
-- Use `os.clock` for local elapsed measurements, epoch time for stored dates,
-  and `GetServerTimeNow` for shared timelines. Client timestamps remain untrusted.
-- Use `error(message, 2)` for caller contract failures. Handle protected-call
-  errors as unknown values; do not assume a table shape. A traceback handler
-  must not yield. Pass arguments directly when a wrapper closure adds no behavior.
-- Keep engine effects at the boundary and pure computation testable. Reuse project
-  Signal/Trove/Retry packages; do not copy illustrative replacements. WRIT18 keeps
-  metatable/newproxy patterns out of owned game code.
+Pinned Lute/LSP supports `const`; do not lower it or suppress syntax diagnostics.
+Preserve TYPE3 pragma policy; external examples do not require strict/native headers.
 
-`check source --only style PATH...` accepts const declarations/functions;
-`scaffold module` emits immutable bindings. The pinned Lute/LSP already parse
-const; do not lower it to local or suppress syntax diagnostics. Source repair
-retains the existing TYPE3 pragma policy; do not import mandatory strict/native
-headers from an example.
-
-Sources: [syntax](https://luau.org/syntax/),
-[types](https://luau.org/typecheck/), [library](https://luau.org/library/),
-[compatibility](https://luau.org/compatibility/).
+Sources: [syntax](https://luau.org/syntax/), [types](https://luau.org/typecheck/),
+[library](https://luau.org/library/), [compatibility](https://luau.org/compatibility/).

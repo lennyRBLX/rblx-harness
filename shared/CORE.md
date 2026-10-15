@@ -1,5 +1,7 @@
 ## Roblox work
 
+Harness CLI: `python3 H/tools/harness.py`; `H` is the harness checkout.
+
 - Use Argon-resolved source for project behavior. Before mutation, validate remote types, sizes, finite ranges, rate, and ownership. Release connections, tasks, and instances at teardown.
 - Use `python3 rblx-harness/tools/harness.py types write` for data defaults, generated owner types, and public declarations; it validates and commits related files together. Resolve changed public APIs with `types read`.
 - Use current scoped engine evidence before relying on access or behavior; query `api` only for missing or invalidated answers. Keep caller, phase, restrictions, source revision, and the selected skill's engine reference.

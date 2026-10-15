@@ -1,46 +1,36 @@
 # Runtime contracts
 
-Use for startup, async services, Actors, or runtime assets. Resolve engine facts
-through [engine evidence](engine.md); existing behavior records own streaming,
-deferred signals, replication, persistence, and module-cache contracts.
+Use [engine evidence](engine.md) for streaming, signals, replication, persistence,
+module caches and API thread safety.
 
-- Connect lifecycle/tag signals before enumerating current objects. Make setup
-  idempotent; handle existing players/characters and objects removed during setup.
-  A readiness check must also handle completion before the waiter subscribes.
-  An unconditional event Wait after firing can miss immediate delivery.
-- Keep module loading separate from Start/init. Keep require paths static and
-  acyclic; verify string prefixes, replication readiness, and resolver support in
-  both engine and project tools. Tool-only `.luaurc` aliases are not engine proof.
-- Choose frame callbacks by required phase, not by name recency. Use explicit
-  render priority for camera ordering and own the matching unbind. A property
-  signal delivers no value; read the property. ValueBase.Changed differs from
-  Instance.Changed. Match exact class vs inheritance in instance lookups.
-- Keep explicit `task.desynchronize()` scopes paired with `task.synchronize()`
-  before normal/early exit. Parallel callbacks start parallel without an opener;
-  synchronize before unsafe APIs. Query thread safety for reads as well as writes.
-  Load dependencies in serial. Phase changes are not a nested stack.
-- Pair `debug.profilebegin/end` in the same function, including branches and loop
-  exits. Nested profiles are valid. If profiled work can throw, close the label
-  after a protected call, then propagate/handle the failure. Cancellation and
-  indirect calls require separate lifecycle review.
-- Reuse the project's persistence/session-lock owner. Keep transforms repeatable;
-  save on leave and shutdown through one coordinated owner. Bound retries with
-  backoff/jitter, cancellation, and deadlines; retry non-idempotent work only after
-  resolving ambiguous success. MemoryStore is temporary; messaging is notification,
-  not durable state. Read current quotas instead of copying reference numbers.
-- Use current asset permission/budget evidence for EditableImage/EditableMesh.
-  Handle creation failure, release owned resources, reuse buffers, and prefer
-  bulk drawing when measured useful. Preload only essential assets and inspect
-  completion status. Seed a private Random stream when determinism matters.
+- Connect lifecycle/tag signals before enumeration. Make setup idempotent; handle
+  existing players/characters and removal during setup. Subscribe readiness waiters
+  without missing prior completion or immediate delivery.
+- Separate require from Start/init. Keep paths static and acyclic; check prefixes,
+  replication readiness and engine/project resolver support. `.luaurc` aliases alone
+  do not prove engine support.
+- Select frame callbacks by phase. Own render-priority unbinding. Property signals
+  supply no value; read it. Distinguish ValueBase.Changed, Instance.Changed, exact
+  class lookup and inheritance.
+- Pair explicit `task.desynchronize()` with `task.synchronize()` before every exit.
+  Parallel callbacks need no opener; synchronize before unsafe APIs, including reads.
+  Require dependencies in serial. Phase changes are not a nested stack.
+- Pair `debug.profilebegin/end` within one function across branches/loops. Close
+  profiles after protected calls before handling/propagating errors. Review
+  cancellation and indirect effects separately.
+- Reuse the persistence/session-lock owner. Keep transforms repeatable; coordinate
+  leave/shutdown saves. Bound retries with backoff/jitter, cancellation and deadlines;
+  resolve ambiguous success before retrying non-idempotent work. MemoryStore is
+  temporary; messaging is notification. Query current quotas.
+- Check EditableImage/EditableMesh permissions and budgets; handle creation failure
+  and release resources. Reuse buffers; batch drawing when measured useful. Preload
+  essential assets and check status. Use private seeded Random streams for determinism.
 
-Run `check source --only correctness PATH...` for OPT15/OPT20 pairing. It follows
-direct global calls, branches, loops, early returns, and literal parallel callbacks.
-It isolates nested functions and ignores comments/strings. It does not prove
-alias/helper effects, arbitrary throws, cancellation, Actor ancestry, or API
-thread safety. Keep scopes structurally balanced; correlated branch conditions
-are not solved. `--only performance` also reports possible unsafe parallel writes
-and missing per-frame labels as advisories.
+For changed parallel/profile scopes, run `check source --only correctness PATH...`.
+OPT15/OPT20 follow direct calls and structural flow, not aliases, helper effects,
+throws, cancellation, Actor ancestry, thread safety or correlated branch conditions.
+Performance-mode scope/label warnings are advisory.
 
-Sources: [parallel execution](https://create.roblox.com/docs/scripting/multithreading),
-[profiling](https://create.roblox.com/docs/studio/microprofiler/tag-code),
+Sources: [parallel](https://create.roblox.com/docs/scripting/multithreading),
+[profiles](https://create.roblox.com/docs/studio/microprofiler/tag-code),
 [lifecycle](https://create.roblox.com/docs/players).

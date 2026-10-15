@@ -1,33 +1,38 @@
-# Controlled engine probes
+# Engine probes
 
-Use only for development-relevant engine questions left unresolved by
-[engine evidence](../../rblx-writer/references/engine.md).
-Name the unresolved question and result that would change
-the fix. Retrieve existing output first. Reuse an established failure. Repeat reproductions when needed to distinguish a cause or verify the fix. Keep authored-algorithm correctness separate from documented engine behavior.
+Use after [engine evidence](../../rblx-writer/references/engine.md) leaves a
+fix-relevant question unresolved. Retrieve existing output first. Follow `rblx-test`
+and its [procedure](../../rblx-test/references/procedure.md).
 
-Use the [shared procedure](../../rblx-test/references/procedure.md) for lifecycle, readiness, collection and cleanup and the [buffer protocol](../../rblx-test/references/buffer.md) for output. Give each probe one stable ID and stopping condition.
+## Setup and observations
 
-## Setup & records
+- Use a disposable place. Stage disabled fixtures with `scaffold module --test`.
+- Discover Studio/datamodel IDs; supply `studio_id` and `datamodel_type` on each
+  MCP execution. Serialize writes per datamodel.
+- Record build, MCP version/executable, source revisions, settings, RunContext,
+  location, caller and serial/parallel phase; mark unavailable values unknown.
+- Record operation, before/requested/after values, exact error, effect, observer
+  result, restart need, restoration and human report. Assignment, effect,
+  persistence and replication are separate results.
+- Validate service results: successful `pcall` may return nil; a later nil-index
+  error does not prove access denial.
 
-- Use a disposable place and the user-selected environment and execution authorization. Stage disabled fixtures with `python3 H/tools/harness.py scaffold module --test`; author source in stopped Edit. Assign exact paths & cleanup ownership; preserve other edits.
-- Discover studios/datamodels; supply `studio_id` & `datamodel_type` on every MCP execution. Serialize writes per datamodel.
-- Record Studio build, MCP version/executable identity, source revisions, place settings, RunContext/location, caller & serial/parallel phase. Unavailable values stay unknown.
-- Each case: operation, before, requested value, after, exact error, effect, other-process observation, restart need, restoration & human report. Separate assignment, effect, persistence & replication; unrun cases never pass.
+## Mutation protocol
 
-## Execution & cleanup
+Preflight before mutation. Track started owned changes; restore only those changes,
+including on errors. Failed preflight permits no restoration writes. Stop if
+restoration fails.
 
-- Validate preconditions before mutation. Failed preflight permits no cleanup writes. Track started owned mutations; restore only affected values, including on errors. Stop if restoration fails. After stopping, remove owned temporary fixtures; retain useful regression tests.
-- Distinguish fixture defects from engine limits. Validate service results before calls: successful `pcall` may return nil; a later nil-index error does not prove access denial.
-- Use shared buffer chunks and automated collection; reject truncation or missing records. Keep Play available until required retrieval finishes.
-- Paired writer/observer: acknowledge write before sampling & sampling completion before restoration; use bounded deadlines & restore on errors. Separate writer readback from observer reads; protocol ACK does not prove property arrival.
+For paired writer/observer tests, acknowledge write before sampling and sampling
+completion before restoration. Bound deadlines and restore on errors. Separate
+writer readback from observer reads; ACK does not prove property arrival.
 
 ## Conditional cases
 
-Select only operations needed by the unresolved question. These cases do not
-require a complete matrix or a second identical successful run.
+Select only cases that can resolve the question; no full matrix or duplicate pass.
 
-- **Signals:** Access-check diagnostic reads. Workspace.SignalBehavior is NotScriptable; do not assume XML makes it readable/configurable. Record human-observed editor setting separately from exact event dispatch. Callback timing proves neither configured setting nor Default mapping; calibration applies only to that event/run.
-- **Workspace:** Read member behavior records. Test documented runtime Gravity writes with a controlled falling part & separate process observations. Configure documented streaming settings before fresh Play; never toggle StreamingEnabled during production Play. PluginSecurity alone does not imply startup-only behavior. Keep read/write denials separate.
-- **Modules:** Query `behavior modules`. Compare repeated require identity within one caller, then server/client/MCP callers separately. While stopped, compare the same instance after a source edit against a destroyed/recreated owned instance; record old references separately. Fresh Play is a separate case, not a replacement test. MCP cache lifetime stays unknown without evidence for that context.
-
-Recheck affected procedures when operational sources or versions change.
+| Topic | Probe distinction |
+|---|---|
+| Signals | Record human editor setting separately from event timing; timing proves neither configured setting nor Default mapping. Calibration applies only to that event/run. Access-check diagnostic reads. |
+| Workspace | Test documented Gravity writes with a falling part and separate-process observations. Configure streaming before fresh Play; keep read/write denials separate. Security metadata alone does not establish startup timing. |
+| Modules | Query `api behavior modules`. Compare require identity within one caller, then server/client/MCP separately. While stopped, compare source-edited and destroyed/recreated owned instances; retain old references. Fresh Play is a separate case. MCP cache lifetime needs caller-specific evidence. |
