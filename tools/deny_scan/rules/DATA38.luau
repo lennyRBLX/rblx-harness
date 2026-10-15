@@ -26,11 +26,22 @@ local function lint(ast, sourcepath, context)
 			return true
 		end
 		local args = lib.nodes(node.arguments)
-		local value = args[3]
 		local member = f.index.text
-		if member:match("^write[ui]%d+$") or member == "writef32" then
+		local value = args[if member == "writebits" then 4 else 3]
+		if member:match("^write[ui]%d+$") or member == "writef32" or member == "writebits" then
 			if value and value.tag == "indexname" and value.index.text == "UserId" then
 				note(value, "lossy UserId encoding", "use f64 or a lossless string/ID mapping")
+			end
+		end
+		if member == "readbits" or member == "writebits" then
+			local width = numberLiteral(args[3])
+			if width and (width < 0 or width > 32 or width % 1 ~= 0) then
+				note(args[3], "invalid bit count", "Require integer bit count in 0..32")
+			elseif member == "writebits" and width then
+				local n = numberLiteral(value)
+				if n and (n < 0 or n >= 2 ^ width or n % 1 ~= 0) then
+					note(value, "bit codec truncates literal", "Require explicit truncation policy or a fitting unsigned value")
+				end
 			end
 		end
 		local signed, bits = member:match("^write([ui])(%d+)$")

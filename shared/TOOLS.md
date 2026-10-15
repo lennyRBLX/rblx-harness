@@ -49,7 +49,7 @@ Reuse Argon sourcemaps until mappings, paths, map metadata, or options change; s
 
 `check source --only correctness,replication PATH...` runs selected checkers once. Defaults: correctness, replication, style; performance is opt-in. Checkers keep their source scopes and diagnostics. No source repair or Studio run is implicit.
 
-Correctness includes OPT15 explicit parallel-scope pairing/serial require, OPT20 profile pairing, and DATA38 literal codec advisories. Flow checks cover direct calls per function; review aliases, helper effects, exceptions, and cancellation. Performance adds advisory labels/possible parallel writes. Replication WRIT8 covers reliable and unreliable remotes. Pinned Lute/LSP supports `const`, which the style formatter preserves; no syntax suppression is needed.
+Correctness includes OPT15 explicit parallel-scope pairing/serial require, OPT20 profile pairing, and DATA38 literal codec width/range advisories. Flow checks cover direct calls per function; review aliases, helper effects, exceptions, and cancellation. Performance adds advisory labels/possible parallel writes and OPT21 representation candidates. For scans, sorts, computed keys, or codec calls, use the returned location, required comparison, and evidence limits; no finding establishes a material cost. Replication WRIT8 covers reliable and unreliable remotes. Pinned Lute/LSP supports `const`, which the style formatter preserves; no syntax suppression is needed.
 
 `check project` validates scaffolding; `check harness --case MATCH` selects suite cases. Exit 0 means no blocking result; 2 means a failed check/request; 3 means an unavailable environment where the backend supports it.
 
@@ -60,6 +60,10 @@ Read the [shared procedure](skills/rblx-test/references/procedure.md) and
 collection. `studio decode LOG --side SIDE --script NAME --run RUN` and
 `profile results` share the collector. `--historical` reads old TEST JSON only.
 New authored output and decoded summaries are not JSON.
+For paired method timing groups, add `--compare BASE CANDIDATE` to `profile results`.
+It validates group/count/threshold alignment and reports timing deltas and a
+conditional setup/script/teardown timing estimate. Require equivalent results, comparable
+inputs, production reuse, and separate memory/byte evidence before selection.
 
 Before a human capture: `profile capture baseline --baseline RUN/candidates.json`
 records candidate files. After the human finishes saving: `profile capture collect

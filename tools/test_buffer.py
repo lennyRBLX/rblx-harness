@@ -1,5 +1,6 @@
 """HTB1 buffer transport. Shared by test, debug and optimization collection."""
 import argparse
+from fractions import Fraction
 import json
 import math
 from pathlib import Path
@@ -176,6 +177,63 @@ def summary(records):
     return '\n'.join(output)
 
 
+def compare(records, baseline, candidate):
+    """Paired timing arithmetic only; production reuse and equivalence stay external."""
+    token(baseline); token(candidate)
+    if baseline == candidate:
+        raise ValueError('comparison methods must differ')
+    output = []
+    for (side, script, _run), result in records:
+        if result['status'] != 'pass' or result['failed'] or result['skipped']:
+            raise ValueError('comparison requires complete passing results')
+        methods = {}
+        for method in (baseline, candidate):
+            methods[method] = {(m['workload'], m['kind']): m
+                               for m in result['metrics'] if m['method'] == method}
+        before, after = methods[baseline], methods[candidate]
+        if not before or before.keys() != after.keys():
+            raise ValueError('comparison requires matching workload/kind groups')
+        for key, b in before.items():
+            a = after[key]
+            if (a['count'], a['threshold_us']) != (b['count'], b['threshold_us']):
+                raise ValueError('comparison count/threshold mismatch')
+        prefix = f'{side}|{script}|COMPARE|{baseline}/{candidate}|'
+        for (workload, kind), b in sorted(before.items()):
+            a = after[(workload, kind)]
+            base = Fraction(b['total_us'], b['count'])
+            change = Fraction(a['total_us'], a['count']) - base
+            percent = f'{float(change/base*100):+.3f}' if base else 'NA'
+            output.append(prefix + f'{workload}/{kind}|base_us={float(base):.3f}'
+                          + f'|candidate_us={a["total_us"]/a["count"]:.3f}'
+                          + f'|delta_us={float(change):+.3f}|delta_percent={percent}'
+                          + f'|max_delta_us={a["max_us"]-b["max_us"]:+d}'
+                          + f'|spike_delta={a["spike_count"]-b["spike_count"]:+d}')
+        for workload in sorted({w for w, _ in before}):
+            kinds = {k for w, k in before if w == workload}
+            if not {'setup', 'script', 'teardown'} <= kinds:
+                output.append(prefix + workload + '|timing-model=unavailable'
+                              + '|Require paired setup/script/teardown and production reuse')
+                continue
+            def delta(kind):
+                a, b = after[(workload, kind)], before[(workload, kind)]
+                return Fraction(a['total_us'], a['count']) - Fraction(b['total_us'], b['count'])
+            fixed, per_use = delta('setup') + delta('teardown'), delta('script')
+            # Scheduling can overlap the timed script region; never add it here.
+            crossover = (max(1, math.ceil(fixed / -per_use)) if per_use < 0
+                         else 1 if per_use == 0 and fixed <= 0 else 'none')
+            output.append(prefix + f'{workload}|timing-model=conditional-estimate'
+                          + f'|fixed_delta_us={float(fixed):+.3f}'
+                          + f'|per_use_delta_us={float(per_use):+.3f}'
+                          + f'|late_break_even_uses={crossover}'
+                          + '|Require one-time setup/teardown and equal work per script sample; CPU claims also require non-yielding regions')
+    if not output:
+        raise ValueError('missing comparison results')
+    output.append('COMPARE|limits|Timing arithmetic only; require equivalent results or accepted error, '
+                  'comparable data/environment/batching, production frequency/reuse, memory/GC, bytes, '
+                  'and actual consuming-path evidence before selecting a representation')
+    return '\n'.join(output)
+
+
 def historical(text):
     """Read historical TEST JSON without routing profiler exports through this codec."""
     stripped = text.strip()
@@ -204,10 +262,13 @@ def main(argv=None):
     p.add_argument('--side', choices=['SERVER', 'CLIENT'])
     p.add_argument('--script'); p.add_argument('--run')
     p.add_argument('--historical', action='store_true')
+    p.add_argument('--compare', nargs=2, metavar=('BASE', 'CANDIDATE'))
     a = p.parse_args(argv)
     try:
         text = a.input.read_text()
         if a.historical:
+            if a.compare:
+                raise ValueError('historical results do not support paired comparisons')
             rows = historical(text)
             for r in rows:
                 print(f"HISTORICAL|legacy-status={r['status']}|passed={r['passed']} failed={r['failed']} skipped={r['skipped']}" + ("|" + reason(r["reason"]) if r.get("reason") else ""))
@@ -215,7 +276,11 @@ def main(argv=None):
         if not all((a.side, a.script, a.run)):
             raise ValueError('side, script and run required')
         c = Collector((a.side, a.script, a.run)); c.feed(text)
-        results = c.finish(); print(summary(results))
+        results = c.finish()
+        comparison = compare(results, *a.compare) if a.compare else None
+        print(summary(results))
+        if comparison:
+            print(comparison)
         return 0 if all(r['status'] == 'pass' for _, r in results) else 2
     except (OSError, ValueError, KeyError) as e:
         print('RESULT|rejected|' + str(e)); return 2

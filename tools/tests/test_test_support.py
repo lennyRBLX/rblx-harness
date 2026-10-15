@@ -31,6 +31,60 @@ def viewer(place=12, marker='Harness/r/H/m/w/measurement', frames=3):
 
 
 class BufferTests(unittest.TestCase):
+    def paired(self, base=(10, 5, 1), candidate=(100, 2, 1)):
+        rows = []
+        for method, values in (('base', base), ('candidate', candidate)):
+            for kind, value in zip(('setup', 'script', 'teardown'), values):
+                rows.append(f'M\t{method}\tload.index\t{kind}\t2\t{value*2}\t{value}\t1000\t0\t0\t10000\n'.encode())
+        return [(('CLIENT', 'Test', 'r'), codec.decode(RAW+b''.join(rows)))]
+
+    def test_paired_timing_and_conditional_crossover(self):
+        records = self.paired()
+        output = codec.compare(records, 'base', 'candidate')
+        self.assertIn('delta_us=-3.000|delta_percent=-60.000', output)
+        self.assertIn('fixed_delta_us=+90.000|per_use_delta_us=-3.000|late_break_even_uses=30', output)
+        self.assertIn('Timing arithmetic only', output)
+        # A non-timing budget can still select the slower representation.
+        self.assertIn('late_break_even_uses=none', codec.compare(self.paired(candidate=(5, 6, 1)), 'base', 'candidate'))
+        self.assertIn('late_break_even_uses=1', codec.compare(self.paired(candidate=(5, 5, 1)), 'base', 'candidate'))
+        self.assertIn('delta_percent=NA', codec.compare(self.paired(base=(0, 0, 0)), 'base', 'candidate'))
+
+    def test_paired_timing_rejects_incomplete_or_mismatched_evidence(self):
+        for change in ('missing', 'count', 'threshold', 'skipped', 'failed', 'workload'):
+            records = self.paired()
+            result = records[0][1]
+            if change == 'missing': result['metrics'].pop()
+            elif change in ('count', 'threshold'): result['metrics'][-1][{'count':'count', 'threshold':'threshold_us'}[change]] += 1
+            elif change == 'skipped': result['skipped'] = 1
+            elif change == 'failed': result['status'] = 'fail'
+            elif change == 'workload': result['metrics'][-1]['workload'] = 'other'
+            with self.subTest(change=change), self.assertRaises(ValueError):
+                codec.compare(records, 'base', 'candidate')
+        with self.assertRaises(ValueError): codec.compare(self.paired(), 'base', 'base')
+        with self.assertRaises(ValueError): codec.compare([], 'base', 'candidate')
+        records = self.paired()
+        records[0][1]['metrics'] = [m for m in records[0][1]['metrics'] if m['kind'] == 'script']
+        self.assertIn('timing-model=unavailable', codec.compare(records, 'base', 'candidate'))
+
+    def test_paired_cli_reuses_transport_and_rejects_before_printing_comparison(self):
+        rows = []
+        for method, value in (('base', 10), ('candidate', 4)):
+            rows.append(f'M\t{method}\tactive.lookup\tscript\t1\t{value}\t{value}\t100\t0\t0\t1000\n'.encode())
+        with tempfile.TemporaryDirectory() as temp:
+            log = Path(temp)/'log.txt'
+            log.write_text('\n'.join(codec.encode_records(RAW+b''.join(rows), 'CLIENT','Test','r')))
+            args = [str(log), '--side','CLIENT','--script','Test','--run','r','--compare','base','candidate']
+            with contextlib.redirect_stdout(io.StringIO()) as out:
+                status = codec.main(args)
+            self.assertEqual(status, 0, out.getvalue())
+            self.assertIn('delta_us=-6.000', out.getvalue())
+            original = log.read_text()
+            with contextlib.redirect_stdout(io.StringIO()) as out:
+                status = codec.main(args[:-1]+['absent'])
+            self.assertEqual(status, 2)
+            self.assertNotIn('|COMPARE|', out.getvalue())
+            self.assertEqual(log.read_text(), original)
+
     def test_roundtrip_damage_truncation_conflict_and_prefix(self):
         raw = RAW + b'M\tm\tw\tscript\t2\t8000\t4000\t3000\t2\t0\t10000\nP\tm\tw\tscript\t1\t4000\nP\tm\tw\tscript\t2\t4000\n'
         lines = codec.encode_records(raw, 'CLIENT', 'Test', 'r')

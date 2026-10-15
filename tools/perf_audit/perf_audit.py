@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""perf_audit — OPT15, OPT18, OPT19, OPT20. Statically decidable and
-Studio-free. Performance thresholds are advisory; findings are warnings."""
+"""perf_audit — static performance and representation candidates, Studio-free.
+Performance thresholds are advisory; findings are warnings, not measured gains."""
 
 import os
 import sys

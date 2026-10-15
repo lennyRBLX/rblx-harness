@@ -2149,6 +2149,114 @@
         "limits": "InclusiveCPUtags mayincludeotherGUI/editorwork. NoGPU,criticalpath,memory/GC,arbitraryscroll,layout-managerorrich-contentclaim. Exactly24coversalignedstops;partialrows andnonmultiple4gridcounts were nottested.",
         "raw_capture_manifest_sha256": "dc7a013cd995ae62c7dacbe14672059300749c3b756dacc287049fec9ad84d28"
       }
+    },
+    {
+      "category": "constraint",
+      "need": "conditional",
+      "limit_type": "engine",
+      "status": "documented",
+      "confidence": "high",
+      "creator_docs_revision": "031b2f91d3d47274c255f3ed5691c29f792c181d",
+      "recheck": "Recheck the decisive source when relevant Creator Docs, API metadata, engine build, caller, or consuming path changes.",
+      "id": "buffer-layout-copy",
+      "topics": [
+        "representation",
+        "replication"
+      ],
+      "apis": [
+        "buffer",
+        "buffer.create",
+        "buffer.readbits",
+        "buffer.writebits",
+        "RemoteEvent.FireServer",
+        "UnreliableRemoteEvent.FireServer",
+        "UnreliableRemoteEvent.FireClient",
+        "UnreliableRemoteEvent.FireAllClients"
+      ],
+      "context": "Binary data layout and Roblox API/event transfer; ordinary caller access assessed separately",
+      "fact": "Buffers are fixed-size mutable memory. Numeric reads/writes use little-endian byte encoding and zero-based byte offsets; bit APIs use bit offsets and 0..32-bit widths. Out-of-bounds access throws. writebits writes only the low bitCount bits of an unsigned 32-bit value. Roblox APIs/events copy buffers without preserving object identity. Events encode/compress certain types including buffers; UnreliableRemoteEvent drops payloads over 1000 bytes.",
+      "action": "Require field width/range, byte versus bit offsets, explicit overflow policy, and bounded reads. Include transfer copies in peak memory. Measure the actual event path; raw buffer length does not prove on-wire size or event acceptance.",
+      "sources": [
+        {
+          "path": "reference/engine/libraries/buffer.yaml",
+          "excerpt": "When passed through Roblox APIs",
+          "url": "https://github.com/Roblox/creator-docs/blob/031b2f91d3d47274c255f3ed5691c29f792c181d/content/en-us/reference/engine/libraries/buffer.yaml",
+          "sha256": "bb6ec48b6068c30d5876d2efacbe6318ac676521ae186c602f6658045084db8a"
+        },
+        {
+          "path": "reference/engine/classes/UnreliableRemoteEvent.yaml",
+          "excerpt": "encode and compress",
+          "url": "https://github.com/Roblox/creator-docs/blob/031b2f91d3d47274c255f3ed5691c29f792c181d/content/en-us/reference/engine/classes/UnreliableRemoteEvent.yaml",
+          "sha256": "45d932ee9f438465c954b35efcf6861d948a6370a9afda82fb1283a98ff5001f"
+        }
+      ],
+      "exceptions": "Library documentation establishes no elevated MCP permission, shared Actor buffer access, compression ratio, or application budget. No Studio execution was used for this evidence."
+    },
+    {
+      "category": "constraint",
+      "need": "conditional",
+      "limit_type": "engine",
+      "status": "documented",
+      "confidence": "high",
+      "creator_docs_revision": "031b2f91d3d47274c255f3ed5691c29f792c181d",
+      "recheck": "Recheck the decisive source when relevant Creator Docs, API metadata, engine build, caller, or consuming path changes.",
+      "id": "encoding-codec-bounds",
+      "topics": [
+        "representation"
+      ],
+      "apis": [
+        "EncodingService.CompressBuffer",
+        "EncodingService.DecompressBuffer",
+        "EncodingService.GetDecompressedBufferSize",
+        "EncodingService.ComputeStringHash",
+        "EncodingService.ComputeBufferHash",
+        "EncodingService.Base64Encode",
+        "EncodingService.Base64Decode"
+      ],
+      "context": "Application codecs and hashing; access/capabilities and execution phase require separate api access evidence",
+      "fact": "EncodingService provides buffer compression/decompression and binary cryptographic digests. Zstd compression levels are -7..22 inclusive. GetDecompressedBufferSize returns nil for unknown/invalid size; decompression can throw on invalid input, missing size, or size over 1 GB. Base64 conversion returns new buffers; invalid Base64 throws.",
+      "action": "Require an application decompressed-size bound before allocation/decompression; reject nil/oversize sizes and handle codec errors. Measure encoding, decoding, copies, and bytes in the phases performing them. Require deterministic hash input bytes and collision handling when hashes replace equality; no use as password hashing.",
+      "sources": [
+        {
+          "path": "reference/engine/classes/EncodingService.yaml",
+          "excerpt": "GetDecompressedBufferSize",
+          "url": "https://github.com/Roblox/creator-docs/blob/031b2f91d3d47274c255f3ed5691c29f792c181d/content/en-us/reference/engine/classes/EncodingService.yaml",
+          "sha256": "bbb05059a7a441cdd255b4e3f7cb0f25978c2b5f9297f1208662446110ff5ae3"
+        }
+      ],
+      "exceptions": "Safe thread-safety metadata and Security=None do not resolve all caller capabilities or MCP access. Cryptographic digest APIs do not establish hash uniqueness, order preservation, authentication, or a compression benefit."
+    },
+    {
+      "category": "constraint",
+      "need": "conditional",
+      "limit_type": "engine",
+      "status": "documented",
+      "confidence": "high",
+      "creator_docs_revision": "031b2f91d3d47274c255f3ed5691c29f792c181d",
+      "recheck": "Recheck the decisive source when relevant Creator Docs, API metadata, engine build, caller, or consuming path changes.",
+      "id": "datastore-size-compression",
+      "topics": [
+        "persistence",
+        "representation"
+      ],
+      "apis": [
+        "DataStoreService",
+        "GlobalDataStore.SetAsync",
+        "GlobalDataStore.UpdateAsync",
+        "HttpService.JSONEncode"
+      ],
+      "context": "Actual DataStore persistence path: serialized request limits, throughput, and backend storage are distinct",
+      "fact": "The limits guide uses JSONEncode for serialized entry sizing, rounds per-key request throughput up to the next kilobyte, and measures latest-version backend storage after automatic platform compression. It advises avoiding application pre-compression, which adds CPU and may reduce built-in compression effectiveness.",
+      "action": "Use current serialized-size and throughput procedures separately from compressed backend storage. Prefer uncompressed application data for DataStores. Require actual persistence-path evidence for claimed savings or exceptions; raw buffer length, JSON length, and application compression ratios cannot establish backend storage savings. Require versioned decoding, bounded reads, recovery, and compatible migration for changed persisted formats.",
+      "sources": [
+        {
+          "path": "cloud-services/data-stores/error-codes-and-limits.md",
+          "excerpt": "Data stores automatically compress your data before storage",
+          "url": "https://github.com/Roblox/creator-docs/blob/031b2f91d3d47274c255f3ed5691c29f792c181d/content/en-us/cloud-services/data-stores/error-codes-and-limits.md",
+          "sha256": "d445528127e4b843bf6e3992e7b2aea3c292cd73951525387bcb778d752765bd"
+        }
+      ],
+      "exceptions": "Compact schemas/packing and transport compression remain separate decisions. ProfileStore.Mock and local codecs cannot establish production backend storage or throughput savings."
     }
   ]
 }

@@ -349,6 +349,53 @@ end
             self.assertEqual(status, 0, output)
             self.assertNotIn("DATA38", output)
 
+    def test_bit_codec_bounds_and_truncation_are_advisory(self):
+        for source in ('buffer.readbits(b, 0, 33)', 'buffer.writebits(b, 0, -1, 0)',
+                       'buffer.writebits(b, 0, 1.5, 0)', 'buffer.writebits(b, 0, 4, 16)',
+                       'buffer.writebits(b, 0, 0, 1)', 'buffer.writebits(b, 0, 8, -1)',
+                       'buffer.writebits(b, 0, 32, player.UserId)'):
+            status, output = self.scan(source)
+            self.assertEqual(status, 0, output)
+            self.assertIn('DATA38', output)
+        for source in ('buffer.readbits(b, 0, 32)', 'buffer.writebits(b, 0, 0, 0)',
+                       'buffer.writebits(b, 0, 32, 4294967295)', 'buffer.writebits(b, 0, 4, 15)',
+                       'buffer.writebits(b, 0, bits, value)',
+                       'local buffer = custom buffer.writebits(b, 0, 100, 999)'):
+            status, output = self.scan(source)
+            self.assertEqual(status, 0, output)
+            self.assertNotIn('DATA38', output)
+
+    def test_representation_candidates_use_syntax_and_preserve_source(self):
+        cases = [
+            ('local x = table.find(items, wanted)', 'linear search'),
+            ('table.sort(items)', 'full sort'),
+            ('table.sort(items, function(a,b) return key(a) < key(b) end)', 'comparator calls'),
+            ('return byName[prefix .. suffix]', 'computed lookup key'),
+            ('return byId[makeKey(item)]', 'computed lookup key'),
+            ('return EncodingService:CompressBuffer(b, algorithm)', 'conversion call'),
+            ('return buffer.tostring(b)', 'conversion call'),
+        ]
+        for source, subject in cases:
+            with self.subTest(source=source):
+                self.source.write_text(source)
+                with contextlib.redirect_stdout(io.StringIO()) as out, contextlib.redirect_stderr(io.StringIO()) as err:
+                    status = lint_driver.scan('performance', str(ROOT / 'tools/perf_audit/rules'),
+                                              [str(self.source)], fails_open=True)
+                self.assertEqual(status, 0, err.getvalue())
+                self.assertIn('OPT21', out.getvalue())
+                self.assertIn(subject, out.getvalue())
+                self.assertIn('unknown', out.getvalue())
+                self.assertEqual(self.source.read_text(), source)
+        for source in ('-- table.find(items, wanted)\nreturn byId[id]',
+                       'local table = custom table.sort(items)',
+                       'return object.name', 'return "table.sort(items)"'):
+            self.source.write_text(source)
+            with contextlib.redirect_stdout(io.StringIO()) as out, contextlib.redirect_stderr(io.StringIO()) as err:
+                status = lint_driver.scan('performance', str(ROOT / 'tools/perf_audit/rules'),
+                                          [str(self.source)], fails_open=True)
+            self.assertEqual(status, 0, err.getvalue())
+            self.assertNotIn('OPT21', out.getvalue())
+
     def test_owned_global_state_rejected_but_local_names_pass(self):
         for source in ('_G.State = 1', 'shared.State = 1'):
             status, output = self.scan(source)

@@ -1,4 +1,4 @@
 interface:
   display_name: "Roblox Optimize"
-  short_description: "Optimize Roblox code from MicroProfiler evidence"
-  default_prompt: "Use $rblx-optimize to analyze this MicroProfiler dump and optimize the project."
+  short_description: "Assess Roblox CPU, memory, and data representation costs"
+  default_prompt: "Use $rblx-optimize to assess this source, plan, or capture for material performance costs."
