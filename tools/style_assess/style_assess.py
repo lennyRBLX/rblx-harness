@@ -137,6 +137,71 @@ def collect_files(paths, root, ignores):
     return kept
 
 
+def reuse_scope(path, root):
+    """Return the source place and execution side; packages supply both sides."""
+    rel = os.path.relpath(path, root).replace(os.sep, "/").split("/")
+    if rel[:2] == ["shared", "src"]:
+        place, parts = "shared", rel[2:]
+    elif len(rel) > 3 and rel[0] == "places" and rel[2] == "src":
+        place, parts = rel[1], rel[3:]
+    else:
+        return None
+    if parts[0] in ("ServerScriptService", "ServerStorage"):
+        side = "server"
+    elif parts[0] in ("StarterPlayer", "StarterGui", "ReplicatedFirst"):
+        side = "client"
+    elif parts[:2] == ["ReplicatedStorage", "Packages"]:
+        side = "package"
+    else:
+        return None
+    return place, side
+
+
+def reuse_findings(files, root, ignores):
+    """Compare selected functions with accessible owners; never rewrite copies."""
+    root = os.path.abspath(root)
+    selected = {os.path.abspath(f) for f in files if reuse_scope(f, root)}
+    scopes = {reuse_scope(f, root) for f in selected}
+    if not scopes:
+        return [], None
+    roots = [os.path.join(root, "shared", "src"), os.path.join(root, "places")]
+    candidates = []
+    for path in sorted(set(collect_files(roots, root, ignores)) | selected):
+        scope = reuse_scope(path, root)
+        if scope and any(
+            (scope[0] == place or scope[0] == "shared")
+            and (scope[1] == side or side in ("server", "client") and scope[1] == "package")
+            for place, side in scopes
+        ):
+            candidates.append(path)
+    # Prefer package owners; otherwise use stable path/line order.
+    candidates.sort(key=lambda p: (reuse_scope(p, root)[1] != "package",
+                                   reuse_scope(p, root)[0] != "shared", p in selected, p))
+    result = subprocess.run([LUTE, "run", os.path.join(HERE, "reuse.luau")] + candidates,
+                            capture_output=True, text=True)
+    if result.returncode:
+        return None, result.stderr or result.stdout
+    groups, findings = {}, []
+    try:
+        for row in result.stdout.splitlines():
+            index, line, col, key = row.split("\t")
+            path = candidates[int(index) - 1]
+            line, col = int(line), int(col)
+            place, side = reuse_scope(path, root)
+            owners = groups.setdefault(key, [])
+            owner = next((item for item in owners
+                          if (item[3] == "shared" or item[3] == place)
+                          and (item[4] == side or side in ("server", "client") and item[4] == "package")), None)
+            if owner and path in selected and side != "package":
+                location = "%s:%d" % (os.path.relpath(owner[0], root), owner[1])
+                findings.append((path, line, col, "WRIT20", "duplicate function",
+                                 "reuse " + location + "; check state and API ownership"))
+            owners.append((path, line, col, place, side))
+    except (ValueError, IndexError, TypeError) as error:
+        return None, "invalid reuse output: " + str(error)
+    return findings, None
+
+
 def fix_file(path, cfg):
     """fix_pass transform -> --auto-fix -> atomic rename. Returns (ids, error)."""
     fired = set()
@@ -250,6 +315,11 @@ def main(argv):
     if findings is None:
         sys.stderr.write("style_assess: BLOCKED\n\nlint output unparseable: %s\n" % (err or "")[:200])
         return 2
+    reused, err = reuse_findings(files, root, ignores)
+    if reused is None:
+        sys.stderr.write("style_assess: BLOCKED\n\nGATE4|required reuse check failed|%s\n" % err[:200])
+        return 2
+    findings.extend(reused)
     grouped = rule_policy.split_findings(findings)
     blocking = list(grouped["hard"])
     if grouped["auto-fix"]:

@@ -52,6 +52,152 @@ class LuauContracts(unittest.TestCase):
             status = checker.main(args)
         return status, stdout.getvalue() + stderr.getvalue()
 
+    def module_findings(self, source):
+        self.source.write_text(source)
+        findings, error = style.run_lint(style.RULES, style.gen_config(), [str(self.source)])
+        self.assertIsNone(error, error)
+        return [finding for finding in findings if finding[3] == "WRIT1"]
+
+    def test_module_names_include_frozen_typed_and_oop_tables(self):
+        for source in (
+            "const Module = {}\nreturn Module",
+            "local Module = {}\nreturn table.freeze(Module)",
+            "const Module = table.freeze({})\nreturn Module",
+            "const Module = {} :: {}\nreturn (Module)",
+            "const Module = {}\nfunction Module.new() return {} end\nreturn Module",
+        ):
+            with self.subTest(source=source):
+                findings = self.module_findings(source)
+                self.assertEqual(len(findings), 1, findings)
+                self.assertEqual(findings[0][4:], ("Module", "name the module table m"))
+
+    def test_module_dot_methods_report_definitions_calls_and_references(self):
+        for body, count in (
+            ("function m.Run() end", 1),
+            ("m.Run = function() end", 1),
+            ("local function run() end\nm.Run = run", 1),
+            ("const run = function() end\nm.Run = run", 1),
+            ("function m:Run() end\nm.Run()", 1),
+            ("m.Run()", 1),
+            ("function m:Run() end\nconst CALLBACK = m.Run", 1),
+            ("function m.Run() end\nm.Run()", 2),
+            ("function m:Run() end\n(m :: any).Run()", 1),
+            ("function m:Run() end\nm.new = 1\nm.Run()", 1),
+            ("function m:Run() end\nconst Other = {}\nfunction Other.new() end\nm.Run()", 1),
+        ):
+            with self.subTest(body=body):
+                findings = self.module_findings("const m = {}\n" + body + "\nreturn m")
+                self.assertEqual(len(findings), count, findings)
+                self.assertTrue(all(finding[5] == "use : for module methods" for finding in findings))
+        findings = self.module_findings("const m = {Run = function() end}\nreturn m")
+        self.assertEqual(len(findings), 1, findings)
+
+    def test_module_colons_oop_data_and_shadowed_bindings_pass(self):
+        for source in (
+            "const m = {}\nfunction m:Run() end\nm:Run()\nreturn m",
+            "const m = {}\nfunction m.Run() end\nfunction m.new() return {} end\nm.Run()\nreturn m",
+            "const m = {}\nm.new = function() return {} end\nfunction m.Run() end\nreturn m",
+            "const m = {new = function() return {} end, Run = function() end}\nreturn m",
+            "local function create() return {} end\nconst m = {new = create}\nfunction m.Run() end\nreturn m",
+            "const create = function() return {} end\nconst m = {}\nm.new = create\nfunction m.Run() end\nreturn m",
+            "const m = {}\nfunction m:Run() end\nm.State = 1\nprint(m.State)\nreturn m",
+            "const m = {}\nfunction m:Run() end\nconst Other = require('./Other')\nOther.Run()\nreturn m",
+            "const m = {}\nfunction m:Run() end\nlocal function f(m) m.Run() end\nreturn m",
+            "const m = {}\nfunction m:Run() end\ndo const m = {}\nfunction m.Run() end end\nreturn m",
+            "const m = {}\nfunction m:Run() end\nm.Config.Run()\nreturn m",
+            "const m = {}\n-- m.Run()\nconst TEXT = 'm.Run()'\nreturn m",
+            "const m = {}\nfunction m:Run() end\nreturn table.freeze(m)",
+            "const m = table.freeze({State = 1})\nprint(m.State)\nreturn m",
+            "const Other = require('./Other')\nreturn Other",
+            "return function() end",
+        ):
+            with self.subTest(source=source):
+                self.assertEqual(self.module_findings(source), [])
+
+    def reuse_source(self, relative, source):
+        path = self.root / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(source)
+        return str(path)
+
+    def test_reuse_reports_selected_same_side_math_and_api_copies(self):
+        for side in ("ServerScriptService/Services", "StarterPlayer/StarterPlayerScripts/Controllers"):
+            with self.subTest(side=side):
+                owner = self.reuse_source("shared/src/" + side + "/ZOwner.luau",
+                                          "local function clamp(x) return math.clamp(x, 0, 1) end")
+                copy = self.reuse_source("shared/src/" + side + "/ACopy.luau",
+                                         "const helper = function(x)\n-- same math\nreturn math.clamp(x, 0, 1)\nend")
+                findings, error = style.reuse_findings([copy], str(self.root), [])
+                self.assertIsNone(error, error)
+                self.assertEqual(len(findings), 1, findings)
+                self.assertEqual(findings[0][:4], (copy, 1, 16, "WRIT20"))
+                self.assertIn("ZOwner.luau:1", findings[0][5])
+                Path(copy).write_text("local function get(x) return API:Read(x) end")
+                Path(owner).write_text("local function read(x) return API:Read(x) end")
+                findings, error = style.reuse_findings([copy], str(self.root), [])
+                self.assertIsNone(error, error)
+                self.assertEqual(len(findings), 1, findings)
+
+    def test_reuse_respects_sides_places_packages_and_ignores(self):
+        body = "local function scale(x) return x * 2 end"
+        server = self.reuse_source("shared/src/ServerScriptService/A.luau", body)
+        client = self.reuse_source("places/A/src/StarterPlayer/StarterPlayerScripts/A.luau", body)
+        other_place = self.reuse_source("places/B/src/StarterGui/B.luau", body)
+        findings, error = style.reuse_findings([server, client, other_place], str(self.root), [])
+        self.assertIsNone(error, error)
+        self.assertEqual(findings, [])
+        package = self.reuse_source("shared/src/ReplicatedStorage/Packages/Math.luau", body)
+        before = Path(package).read_bytes()
+        findings, error = style.reuse_findings([server, client], str(self.root), [])
+        self.assertIsNone(error, error)
+        self.assertEqual([f[0] for f in findings], [server, client])
+        self.assertTrue(all("Packages/Math.luau:1" in f[5] for f in findings))
+        self.assertEqual(Path(package).read_bytes(), before)
+        findings, error = style.reuse_findings([server, client], str(self.root), ["**/Packages/**"])
+        self.assertIsNone(error, error)
+        self.assertEqual(findings, [])
+
+    def test_reuse_preserves_literals_operators_and_free_bindings(self):
+        owner = self.reuse_source("shared/src/ServerScriptService/A.luau",
+                                  'local function f(x) return API:Read("x", x + 1) end')
+        for body in (
+            'local function f(x) return API:Read(x, x + 1) end',
+            'local function f(x) return API:Read("y", x + 1) end',
+            'local function f(x) return API:Read("x", x - 1) end',
+            'local function f(x) return Other:Read("x", x + 1) end',
+            'local function f(x) end\nlocal function g(x) end',
+            'return require("./A")',
+        ):
+            with self.subTest(body=body):
+                copy = self.reuse_source("shared/src/ServerScriptService/B.luau", body)
+                findings, error = style.reuse_findings([copy], str(self.root), [])
+                self.assertIsNone(error, error)
+                self.assertEqual(findings, [])
+        Path(owner).write_text('local function f() return [[a\nb]] end')
+        copy = self.reuse_source("shared/src/ServerScriptService/B.luau",
+                                  'local function g() -- same text\nreturn [[a\nb]] end')
+        findings, error = style.reuse_findings([copy], str(self.root), [])
+        self.assertIsNone(error, error)
+        self.assertEqual(len(findings), 1, findings)
+
+    def test_reuse_runs_in_style_and_fails_closed_on_parser_errors(self):
+        body = "local function scale(x)\n\treturn x * 2\nend\n"
+        owner = self.reuse_source("shared/src/ServerScriptService/Owner.luau", body)
+        copy = self.reuse_source("shared/src/ServerScriptService/Copy.luau", body)
+        stdout, stderr = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+            status = style.main(["--root", str(self.root), copy])
+        self.assertEqual(status, 0, stdout.getvalue() + stderr.getvalue())
+        self.assertIn("WRIT20|duplicate function|reuse", stdout.getvalue())
+        Path(owner).write_text("local function broken(")
+        findings, error = style.reuse_findings([copy], str(self.root), [])
+        self.assertIsNone(findings)
+        self.assertTrue(error)
+        with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+            status = style.main(["--root", str(self.root), copy])
+        self.assertEqual(status, 2)
+        self.assertIn("GATE4|required reuse check failed", stderr.getvalue())
+
     def test_balanced_profiles_across_branches_and_nested_scopes(self):
         cases = [
             'debug.profilebegin("a")\ndebug.profilebegin("b")\ndebug.profileend()\ndebug.profileend()',
@@ -146,7 +292,8 @@ const function greet()
     local const = 2
     print('hello', X,Y, const)
 end
-const m = {Players = Players,greet = greet,}
+const m = {Players = Players,}
+greet()
 return m
 '''
         status, output = self.scan(source, style, fix=True)

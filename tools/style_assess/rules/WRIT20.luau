@@ -1,5 +1,4 @@
--- WRIT20: collapse parallel tables — never a key-list beside a key-value map
--- of the same keys.
+-- WRIT20: single-source keys; reuse.luau checks same-side function copies.
 local lib = require("../stylelib")
 
 local name = "WRIT20"

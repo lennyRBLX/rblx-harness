@@ -51,6 +51,11 @@ Reuse Argon sourcemaps until mappings, paths, map metadata, or options change; s
 
 Correctness includes OPT15 explicit parallel-scope pairing/serial require, OPT20 profile pairing, and DATA38 literal codec width/range advisories. Flow checks cover direct calls per function; review aliases, helper effects, exceptions, and cancellation. Performance adds advisory labels/possible parallel writes and OPT21 representation candidates. For scans, sorts, computed keys, or codec calls, use the returned location, required comparison, and evidence limits; no finding establishes a material cost. Replication WRIT8 covers reliable and unreliable remotes. Pinned Lute/LSP supports `const`, which the style formatter preserves; no syntax suppression is needed.
 
+Style WRIT20 compares exact function signatures/bodies across same-side source and
+server/package or client/package source in `shared/src` and `places/*/src`; reports selected copies
+with owner locations. Trivia and function names are ignored; renamed bindings,
+partial copies, state equivalence and API ownership need review.
+
 `check project` validates scaffolding; `check harness --case MATCH` selects suite cases. Exit 0 means no blocking result; 2 means a failed check/request; 3 means an unavailable environment where the backend supports it.
 
 ## Test results and captures

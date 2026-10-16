@@ -7,8 +7,10 @@ description: Implement non-GUI Roblox Luau features and plugin logic. Use rblx-g
 
 Follow project `AGENTS.md`; if Roblox rules are absent, read [CORE.md](../../CORE.md).
 
-Inspect owners and callers; resolve project APIs with `types read`. Use
+Inspect owners and callers; reuse same-side math/helpers/APIs and packages on
+server and client (WRIT20). Resolve project APIs with `types read`. Use
 `scaffold module` for new modules and `types write` for data/public types.
+WRIT1: Name module tables `m`; use `:` for methods unless OOP (`m.new()`).
 Use `const` for unreassigned bindings, `local` for mutable bindings, and `elseif`
 for guards with the same return. Separate guards/functions and final branches
 with a blank line; return one-use results directly.
