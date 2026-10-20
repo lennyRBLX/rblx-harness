@@ -13,7 +13,8 @@ server and client (WRIT20). Resolve project APIs with `types read`. Use
 WRIT1: Name module tables `m`; use `:` for methods unless OOP (`m.new()`).
 Use `const` for unreassigned bindings, `local` for mutable bindings, and `elseif`
 for guards with the same return. Separate guards/functions and final branches
-with a blank line; return one-use results directly.
+with a blank line; prefer no blank line between assignments or local declarations
+and a following return. Return one-use results directly.
 
 Load only the applicable guidance:
 
