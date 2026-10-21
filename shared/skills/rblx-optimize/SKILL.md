@@ -10,6 +10,8 @@ Follow project `AGENTS.md`; if Roblox rules are absent, read [CORE.md](../../COR
 For source/plans, run `check source --only performance PATH...`. Return locations,
 candidates, required actions, missing workload inputs and a decisive comparison.
 Static findings establish neither material cost nor gains; no capture is required.
+Never recommend service/controller cleanup or `Destroy` methods, or cleanup or
+repeat-start guards in their `:Start()` callbacks.
 
 Before mechanism benchmarks, establish a material workload problem and separate
 CPU, latency, retained/peak memory and byte budgets. Stop when the target is met
