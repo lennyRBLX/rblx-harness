@@ -1,111 +1,139 @@
---[[
-Payments:
-	Wraps Products, DevProducts, Gamepasses, and all marketplace logic
-	[R DES2]. The receipt contract is ruled, not prose:
+-- Payments owns marketplace calls and profile-backed receipt grants.
+-- Each product has one atomic Profile.Data grant callback. Its mutation and
+-- purchase ID share the same profile save. Acknowledgement waits for that ID in
+-- LastSavedData. Replay protection ends when the bounded ledger evicts the ID.
 
-	DATA21 — grants in ProcessReceipt only: handlers mutate Profile.Data
-	only, PurchaseId & grant save as 1 unit, PurchaseGranted only after the
-	id is in LastSavedData, NotProcessedYet only before any grant. The one
-	exception is the dead-profile hold exit: that grant either died unsaved
-	with the session or rides the final save into the rejoin retry
-	unfinalized — goods and payment converge either way.
+const INFO_NAME = "Passes"
+const PURCHASE_CACHE_MAX = 1000
+const SAVE_RETRY_SECONDS = 30
+const CLEANUP_PLAYER = "Payments.Player"
+const DEFAULT_STATE = { Initialized = false }
 
-	DATA36 — a cached PurchaseId retry returns PurchaseGranted & re-runs no
-	handlers; the cache is an idempotency ledger, evicted only past its
-	recorded bound. Any finite bound leaves a re-grant window past it for a
-	failed-to-record PurchaseGranted — recorded rather than closed.
+const ServerScriptService = game:GetService("ServerScriptService")
+const MarketplaceService = game:GetService("MarketplaceService")
+const ReplicatedStorage = game:GetService("ReplicatedStorage")
+const RunService = game:GetService("RunService")
+const Players = game:GetService("Players")
 
-	GIFTS — receiptInfo carries no recipient and a receipt handler reaches
-	the buyer's profile only, so Gift() records { ProductId, To, At } in
-	Payments.Pending before the prompt, and the receipt handler pops the
-	newest entry matching its ProductId: PlayerData:Send(To, "Gift",
-	{ Uid, Kind, Id, Amount, From }) first, removal only after the send
-	lands. The Uid is the receipt's PurchaseId — the send precedes the
-	grant-save, so a retry after a failed save re-sends the same Uid and
-	dedupe is the recipient's job. No pending match returns false: never
-	route blind; a later retry resolves it or the purchase refunds
-	unprocessed. The project owns OnMessage("Gift", ...) and the block it
-	writes — the handler appends and nothing else (processed() precedes it;
-	a throw drops the message for good), drops any Uid already recorded,
-	caps the set oldest-first like Purchases, and applies afterward: "pass"
-	through GrantGamepass, "entitlement" idempotently, "money" once per Uid
-	— money is additive and a duplicate doubles it. Residual: two
-	same-product gifts that both die unsaved can swap recipients on retry;
-	payloads are per-product, so only "money" doubles — recorded rather
-	than closed.
+const Exclusive = require(ServerScriptService.Modules.Exclusive)
+const Signal = require(ReplicatedStorage.Packages.Signal)
+const EntityCleanup = require(ReplicatedStorage.Packages.EntityCleanup)
+const TableUtil = require(ReplicatedStorage.Packages.TableUtil)
 
-	Concurrency (documented: the same purchase may run on two servers at
-	once) is safe through ProfileStore's single-session guarantee — a grant
-	persists only through the session holder.
+const PlayerData = require(ServerScriptService.Services.PlayerData)
 
-	VERIFY BEFORE PUBLISH: Store-tab test mode first, then a real dev
-	product on a live place — buy once; force a retry (rejoin mid-hold);
-	confirm exactly one grant, PurchaseGranted on the retry, and the receipt
-	status moving Open -> Closed. create_boilerplate --test LIVE.Payments
-	emits the logging shim. A gift adds: buy through Gift() once, force the
-	same retry, confirm exactly one Gift append at the recipient.
-]]
+const PaymentsTypes = require(ReplicatedStorage.Types.Payments)
 
-local INFO_NAME = "Passes"
-local PURCHASE_CACHE_MAX = 1000
-local PENDING_MAX = 100
-local SAVE_RETRY_SECONDS = 30
+const ProcessingPurchases = {}
 
-local GIFT_KINDS = { pass = true, entitlement = true, money = true }
-
-local ServerScriptService = game:GetService("ServerScriptService")
-local MarketplaceService = game:GetService("MarketplaceService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
-local Players = game:GetService("Players")
-
-local EntityCleanup = require(ReplicatedStorage.Packages.EntityCleanup)
-local Exclusive = require(ServerScriptService.Modules.Exclusive)
-local Signal = require(ReplicatedStorage.Packages.Signal)
-
-local PlayerData = require(ServerScriptService.Services.PlayerData)
-local PlayerDataTyped = require(ServerScriptService.Services.PlayerData.Typed)
-
-local m = {
-	Setup = false,
-
-	PlayerOwns = {},
+const m = {
 	Products = {},
 	ValidIDs = {},
 
 	PurchaseCallbacks = {},
-	Gifts = {},
 
 	Owns = Signal.new(),
+	__players = {}
 }
 
 -- privates
-local giftBusy = {}
-
-local function cleanupPlayer(player)
-	m.PlayerOwns[player] = nil
-	giftBusy[player] = nil
+const function getPlayerData(player)
+	return if m:GetState(player) and PlayerData:Valid(player) then PlayerData:Get(player, script.Name) else nil
 end
 
-local function iterPageItems(pages)
-	return coroutine.wrap(function()
-		local pagenum = 1
-		while true do
-			for _, item in pages:GetCurrentPage() do
-				coroutine.yield(item, pagenum)
-			end
-			if pages.IsFinished then
-				break
-			end
+const function cleanupPlayer(player, arguments)
+	const state = arguments[1]
+	if m:GetState(player) ~= state then
+		return
+	end
 
-			pages:AdvanceToNextPageAsync()
-			pagenum += 1
+	m.__players[player] = nil
+end
+
+const function containsPurchase(purchases, purchaseId)
+	for _, id in purchases do
+		if id == purchaseId then
+			return true
+		end
+	end
+
+	return false
+end
+
+const function cachePurchase(profile, purchaseId)
+	-- the id and the grant land in Profile.Data together; bounded,
+	-- oldest-first eviction — an evicted id was already confirmed saved
+	table.insert(profile.Data.Payments.Purchases, purchaseId)
+
+	while #profile.Data.Payments.Purchases > PURCHASE_CACHE_MAX do
+		table.remove(profile.Data.Payments.Purchases, 1)
+	end
+end
+
+const function savedPurchase(profile, purchaseId)
+	const saved = profile.LastSavedData
+	if typeof(saved) ~= "table" or typeof(saved.Payments) ~= "table" or typeof(saved.Payments.Purchases) ~= "table" then
+		return false
+	end
+
+	return containsPurchase(saved.Payments.Purchases, purchaseId)
+end
+
+const function holdForSave(profile, purchaseId)
+	-- hold until the id appears in LastSavedData, waiting on OnAfterSave and
+	-- re-forcing Save(). No clock timeout — the callback may yield
+	-- indefinitely (documented), and holding is what makes the finalize
+	-- imply a durable grant. Only a dead profile ends the hold.
+
+	if savedPurchase(profile, purchaseId) then
+		return true
+	end
+
+	local done = false
+	const connection = profile.OnAfterSave:Connect(function()
+		if savedPurchase(profile, purchaseId) then
+			done = true
 		end
 	end)
+
+	const ok, result = pcall(function()
+		local lastForce = 0
+		while not done and profile:IsActive() do
+			if os.clock() - lastForce >= SAVE_RETRY_SECONDS or lastForce == 0 then
+				lastForce = os.clock()
+				profile:Save()
+			end
+
+			task.wait(0.2)
+		end
+
+		-- the result records even after the player leaves: give the session's
+		-- final save a short grace to confirm, so a departure mid-hold still
+		-- resolves instead of leaving the purchase unresolved
+		const grace = os.clock() + 5
+		while not done and os.clock() < grace do
+			if savedPurchase(profile, purchaseId) then
+				done = true
+			end
+
+			task.wait(0.2)
+		end
+
+		return done or savedPurchase(profile, purchaseId)
+	end)
+	
+	connection:Disconnect()
+
+	if not ok then
+		warn("Payments | save | " .. tostring(result))
+	end
+
+	return ok and result
 end
 
 function m:updatePlayerReplicatedInfo(player)
-	local cache = self.PlayerOwns[player]
+	const data = getPlayerData(player)
+	const cache = data and data.Owns
 	if not cache then
 		return
 	end
@@ -113,183 +141,46 @@ function m:updatePlayerReplicatedInfo(player)
 	Exclusive:Set(player, INFO_NAME, cache)
 end
 
-local function purchaseCached(profile, purchaseId)
-	for _, id in profile.Data.Payments.Purchases do
-		if id == purchaseId then
-			return true
-		end
-	end
-
-	return false
-end
-
-local function cachePurchase(profile, purchaseId)
-	-- the id and the grant land in Profile.Data together; bounded,
-	-- oldest-first eviction — an evicted id was already confirmed saved
-	table.insert(profile.Data.Payments.Purchases, purchaseId)
-	while #profile.Data.Payments.Purchases > PURCHASE_CACHE_MAX do
-		table.remove(profile.Data.Payments.Purchases, 1)
-	end
-end
-
-local function savedPurchase(profile, purchaseId)
-	local saved = profile.LastSavedData
-	if typeof(saved) ~= "table" or typeof(saved.Payments) ~= "table" or typeof(saved.Payments.Purchases) ~= "table" then
-		return false
-	end
-
-	for _, id in saved.Payments.Purchases do
-		if id == purchaseId then
-			return true
-		end
-	end
-
-	return false
-end
-
-local function holdForSave(profile, purchaseId)
-	-- hold until the id appears in LastSavedData, waiting on OnAfterSave and
-	-- re-forcing Save(). No clock timeout — the callback may yield
-	-- indefinitely (documented), and holding is what makes the finalize
-	-- imply a durable grant. Only a dead profile ends the hold.
-	if savedPurchase(profile, purchaseId) then
-		return true
-	end
-
-	local done = false
-	local connection = profile.OnAfterSave:Connect(function()
-		if savedPurchase(profile, purchaseId) then
-			done = true
-		end
-	end)
-
-	local lastForce = 0
-	while not done and profile:IsActive() do
-		if os.clock() - lastForce >= SAVE_RETRY_SECONDS or lastForce == 0 then
-			lastForce = os.clock()
-			profile:Save()
-		end
-		task.wait(0.2)
-	end
-
-	-- the result records even after the player leaves: give the session's
-	-- final save a short grace to confirm, so a departure mid-hold still
-	-- resolves instead of leaving the purchase unresolved
-	local grace = os.clock() + 5
-	while not done and os.clock() < grace do
-		if savedPurchase(profile, purchaseId) then
-			done = true
-		end
-		task.wait(0.2)
-	end
-
-	connection:Disconnect()
-	return done or savedPurchase(profile, purchaseId)
-end
-
-local function giftReceipt(player, receiptInfo)
-	-- deref the definition before the lock: a missing one (unreachable —
-	-- GiftProduct pairs it with this handler) throws without holding it
-	local gift = m.Gifts[receiptInfo.ProductId]
-	local kind, itemId, amount = gift.Kind, gift.Id, gift.Amount
-	local productId = tostring(receiptInfo.ProductId)
-
-	-- one pop+send per buyer at a time: a second same-product receipt
-	-- searching while this one yields in Send would pop against a shifted
-	-- queue and cross recipients
-	while giftBusy[player] do
-		task.wait()
-	end
-
-	if not PlayerData:Valid(player) then
-		return false
-	end
-
-	giftBusy[player] = true
-
-	local pending = PlayerDataTyped.Payments(player).Pending
-	local index = nil
-	for i = #pending, 1, -1 do
-		-- newest first: a cancelled prompt strands its entry, and the latest
-		-- Gift call is the intent this receipt pays for
-		if pending[i].ProductId == productId then
-			index = i
-			break
-		end
-	end
-
-	if not index then
-		giftBusy[player] = nil
-		return false
-	end
-
-	-- send before removal: the Uid is the PurchaseId, so a retry that
-	-- re-runs a sent-but-unsaved receipt re-sends the same Uid and the
-	-- recipient's dedupe absorbs it; removal and the purchase cache then
-	-- save as 1 unit [DATA21]
-	local sent = PlayerData:Send(pending[index].To, "Gift", {
-		Uid = receiptInfo.PurchaseId,
-		Kind = kind,
-		Id = itemId,
-		Amount = amount,
-		From = player.UserId,
-	})
-
-	if not sent then
-		giftBusy[player] = nil
-		return false
-	end
-
-	table.remove(pending, index)
-	giftBusy[player] = nil
-	return true
-end
-
-local function processReceipt(receiptInfo)
-	local player = Players:GetPlayerByUserId(receiptInfo.PlayerId)
-	if not player then
-		-- the player left: nothing is granted and nothing is cached — they
-		-- hold escrow, the purchase stays unresolved, and Roblox retries it
-		-- on their next join. The retry IS the offline queue [R DATA21].
+function m:grantReceipt(receiptInfo)
+	const player = Players:GetPlayerByUserId(receiptInfo.PlayerId)
+	if not player or not PlayerData:Valid(player) then
 		return Enum.ProductPurchaseDecision.NotProcessedYet
 	end
 
-	if not PlayerData:Valid(player) then
-		return Enum.ProductPurchaseDecision.NotProcessedYet
-	end
-
-	local profile = PlayerData:Profile(player)
+	const profile = PlayerData:Profile(player)
 	if not profile or not profile:IsActive() then
 		return Enum.ProductPurchaseDecision.NotProcessedYet
 	end
 
-	local purchaseId = receiptInfo.PurchaseId
-
 	-- a retry of an already-granted receipt never re-runs the handlers
-	if not purchaseCached(profile, purchaseId) then
-		-- every guard that can refuse runs BEFORE the grant: past this point
-		-- the only exits are a confirmed save or a dead profile
-		local handlers = m.PurchaseCallbacks[receiptInfo.ProductId]
-		if handlers then
-			for _, handler in handlers do
-				local success, result = pcall(handler, player, receiptInfo)
-				if not success then
-					warn("Payments.processReceipt | " .. player.Name .. " | " .. tostring(result))
-					return Enum.ProductPurchaseDecision.NotProcessedYet
-				elseif result == false then
-					return Enum.ProductPurchaseDecision.NotProcessedYet
-				end
-			end
+	const purchaseId = receiptInfo.PurchaseId
+	if not containsPurchase(profile.Data.Payments.Purchases, purchaseId) then
+		-- Handlers mutate live profile data. A handler must not partially grant
+		-- before returning false or raising an error.
+		const handlers = self.PurchaseCallbacks[receiptInfo.ProductId]
+		const handler = handlers and handlers[1]
+
+		if not handlers or #handlers ~= 1 or type(handler) ~= "function" then
+			return Enum.ProductPurchaseDecision.NotProcessedYet
+		end
+
+		const success, result = pcall(handler, player, receiptInfo)
+		if not success then
+			warn("Payments.processReceipt | " .. player.Name .. " | " .. tostring(result))
+			return Enum.ProductPurchaseDecision.NotProcessedYet
+		elseif result == false then
+			return Enum.ProductPurchaseDecision.NotProcessedYet
 		end
 
 		cachePurchase(profile, purchaseId)
-		m:OwnsGamepass(player, receiptInfo.ProductId)
-		m:updatePlayerReplicatedInfo(player)
+		self:OwnsGamepass(player, receiptInfo.ProductId)
+		self:updatePlayerReplicatedInfo(player)
 	end
 
 	-- grant only after the mutation is committed [DATA21]: hold, never time
 	-- out — a dead profile is the only other exit, and its final save
 	-- carries the grant into the rejoin retry unfinalized
+
 	if not holdForSave(profile, purchaseId) then
 		return Enum.ProductPurchaseDecision.NotProcessedYet
 	end
@@ -297,23 +188,64 @@ local function processReceipt(receiptInfo)
 	return Enum.ProductPurchaseDecision.PurchaseGranted
 end
 
+const function processReceipt(receiptInfo)
+	const purchaseId = receiptInfo.PurchaseId
+	if ProcessingPurchases[purchaseId] then
+		return Enum.ProductPurchaseDecision.NotProcessedYet
+	end
+
+	ProcessingPurchases[purchaseId] = true
+
+	const ok, decision = pcall(m.grantReceipt, m, receiptInfo)
+	ProcessingPurchases[purchaseId] = nil
+
+	if not ok then
+		warn(`Payments.processReceipt | {tostring(decision)}`)
+		return Enum.ProductPurchaseDecision.NotProcessedYet
+	end
+
+	return decision
+end
+
 -- functions
+function m:GetState(player: Player): PaymentsTypes.RuntimeState?
+	return self.__players[player]
+end
+
 function m:GetProducts()
-	local result = self.Products or {}
+	const result = self.Products or {}
 	if #result > 0 then
 		return result
 	end
 
-	for product in iterPageItems(MarketplaceService:GetDeveloperProductsAsync()) do
-		result[#result + 1] = product
+	const success, products = pcall(function()
+		const fetched = {}
+		const pages = MarketplaceService:GetDeveloperProductsAsync()
+
+		while true do
+			for _, product in pages:GetCurrentPage() do
+				fetched[#fetched + 1] = product
+			end
+
+			if pages.IsFinished then
+				return fetched
+			end
+
+			pages:AdvanceToNextPageAsync()
+		end
+	end)
+
+	if not success then
+		warn("Payments.GetProducts | " .. tostring(products))
+		return result
 	end
 
-	self.Products = result
-	return result
+	self.Products = products
+	return products
 end
 
 function m:GetProduct(name)
-	local products = self:GetProducts()
+	const products = self:GetProducts()
 	for _, product in products do
 		if product.Name == name then
 			return product
@@ -328,7 +260,7 @@ function m:ValidProduct(id)
 		return true
 	end
 
-	local products = self:GetProducts()
+	const products = self:GetProducts()
 	for _, product in products do
 		if product.ProductId == id then
 			self.ValidIDs[id] = true
@@ -343,15 +275,9 @@ function m:OwnsGamepass(player, id)
 	assert(typeof(player) == "Instance" and player:IsA("Player"), "Payments.OwnsGamepass | player must be an instance and a player")
 	assert(typeof(id) == "number", "Payments.OwnsGamepass | id must be a number")
 
-	local cache = self.PlayerOwns[player]
-	if not cache and PlayerData then
-		local payData = PlayerData:Valid(player) and PlayerDataTyped.Payments(player)
-		if payData then
-			cache = payData.Owns
-			self.PlayerOwns[player] = cache
-			EntityCleanup:Add(player, cleanupPlayer, nil, "Payments.cleanupPlayer")
-		end
-	end
+	const state = self:GetState(player)
+	const data = getPlayerData(player)
+	const cache = data and data.Owns
 
 	if cache and cache[tostring(id)] then
 		return true
@@ -371,7 +297,8 @@ function m:OwnsGamepass(player, id)
 	end
 
 	-- removing unowned gamepasses would cause gifts to be deleted
-	if cache and result then
+	const live = getPlayerData(player)
+	if cache and result and self:GetState(player) == state and live and live.Owns == cache and player.Parent == Players then
 		self.Owns:Fire(player, id)
 		cache[tostring(id)] = true
 	end
@@ -379,72 +306,33 @@ function m:OwnsGamepass(player, id)
 	return result
 end
 
-function m:GrantGamepass(player, id)
-	-- the grant IS the Owns entry [additive, never cleared]: Roblox has no
-	-- server-side gamepass grant, so a gifted pass exists only here and
-	-- OwnsGamepass honors it without a marketplace call
-	assert(typeof(player) == "Instance" and player:IsA("Player"), "Payments.GrantGamepass | player must be an instance and a player")
-	assert(typeof(id) == "number", "Payments.GrantGamepass | id must be a number")
-
-	self:OwnsGamepass(player, 0) -- lazy-inits the cache without a marketplace call
-	local cache = self.PlayerOwns[player]
-	if not cache then
-		return false
-	end
-
-	local key = tostring(id)
-	if cache[key] then
-		return true
-	end
-
-	cache[key] = true
-	self.Owns:Fire(player, id)
-	self:updatePlayerReplicatedInfo(player)
-	return true
-end
-
 function m:OnPurchase(id, callback)
-	if not self.PurchaseCallbacks[id] then
-		self.PurchaseCallbacks[id] = {}
+	assert(type(callback) == "function", "Payments.OnPurchase | callback must be a function")
+
+	const callbacks = self.PurchaseCallbacks[id]
+	assert(not callbacks or #callbacks == 0 or (#callbacks == 1 and callbacks[1] == callback), "Payments.OnPurchase | each product requires one atomic grant callback")
+
+	if callbacks and callbacks[1] == callback then
+		return
 	end
 
-	local callbacks = self.PurchaseCallbacks[id]
-	callbacks[#callbacks + 1] = callback
+	self.PurchaseCallbacks[id] = { callback }
 end
 
 function m:RemoveOnPurchase(id, callback)
-	local callbacks = self.PurchaseCallbacks[id]
+	const callbacks = self.PurchaseCallbacks[id]
 	if callbacks then
-		local index = table.find(callbacks, callback)
+		const index = table.find(callbacks, callback)
 		if index then
 			table.remove(callbacks, index)
 		end
 	end
 end
 
-function m:GiftProduct(productId, gift)
-	-- boot-time on every server: a retry can land where Gift() never ran,
-	-- and the payload must be a pure function of the ProductId — Pending
-	-- carries the recipient only
-	assert(typeof(productId) == "number", "Payments.GiftProduct | productId must be a number")
-	assert(typeof(gift) == "table", "Payments.GiftProduct | gift must be a table")
-	assert(GIFT_KINDS[gift.Kind], "Payments.GiftProduct | Kind must be \"pass\", \"entitlement\" or \"money\"")
-	if gift.Kind == "money" then
-		assert(typeof(gift.Amount) == "number", "Payments.GiftProduct | money gifts need a numeric Amount")
-	elseif gift.Kind == "pass" then
-		assert(typeof(gift.Id) == "number", "Payments.GiftProduct | pass gifts need a numeric gamepass Id")
-	else
-		assert(gift.Id ~= nil, "Payments.GiftProduct | entitlement gifts need an Id")
-	end
-	assert(self.Gifts[productId] == nil, "Payments.GiftProduct | duplicate definition for " .. productId)
-
-	self.Gifts[productId] = gift
-	self:OnPurchase(productId, giftReceipt)
-end
-
 function m:PromptPurchase(player, id)
 	if not id then
 		return false
+
 	elseif self:ValidProduct(id) then
 		return pcall(MarketplaceService.PromptProductPurchase, MarketplaceService, player, id)
 	else
@@ -452,61 +340,55 @@ function m:PromptPurchase(player, id)
 	end
 end
 
-function m:Gift(player, productId, recipientUserId)
-	assert(typeof(player) == "Instance" and player:IsA("Player"), "Payments.Gift | player must be an instance and a player")
-	assert(typeof(productId) == "number", "Payments.Gift | productId must be a number")
-	assert(typeof(recipientUserId) == "number", "Payments.Gift | recipientUserId must be a number")
-	assert(self.Gifts[productId], "Payments.Gift | no GiftProduct definition for " .. productId)
-
-	if not PlayerData:Valid(player) then
-		return false
+function m:playerAdded(player)
+	if player.Parent ~= Players then
+		return
 	end
 
-	local payData = PlayerDataTyped.Payments(player)
+	local state = self:GetState(player)
+	if not state then
+		state = TableUtil.Copy(DEFAULT_STATE, true)
+		self.__players[player] = state
 
-	-- the entry precedes the prompt: the receipt may land before
-	-- PromptProductPurchase even returns
-	table.insert(payData.Pending, {
-		ProductId = tostring(productId),
-		To = recipientUserId,
-		At = os.time(),
-	})
-
-	-- bounded like Purchases: cancelled prompts strand entries, and
-	-- evicting oldest-first drops strays or turns a live receipt into a
-	-- no-match refund — never a wrong send
-	while #payData.Pending > PENDING_MAX do
-		table.remove(payData.Pending, 1)
+		EntityCleanup:Add(player, cleanupPlayer, { state }, CLEANUP_PLAYER)
 	end
 
-	return (self:PromptPurchase(player, productId))
-end
-
-function m:SetupPlayer(player)
-	while not PlayerData:Valid(player) and player:IsDescendantOf(Players) do
-		task.wait()
+	if not getPlayerData(player) then
+		return
 	end
 
-	self:OwnsGamepass(player, 0)
+	if not state.Initialized then
+		state.Initialized = true
+		self:OwnsGamepass(player, 0)
+	end
+
 	self:updatePlayerReplicatedInfo(player)
 end
 
 function m:Start()
-	if self.Setup then
-		return self
-	end
-
-	self.Setup = true
-
+	PlayerData.Ready:Connect(function(player)
+		self:playerAdded(player)
+	end)
+	
+	PlayerData.Released:Connect(function(player)
+		const state = self:GetState(player)
+		if not state or PlayerData:Valid(player) then
+			return
+		end
+		
+		EntityCleanup:Remove(player, CLEANUP_PLAYER)
+		cleanupPlayer(player, { state })
+	end)
+	
 	for _, player in Players:GetPlayers() do
-		task.spawn(self.SetupPlayer, self, player)
+		task.spawn(self.playerAdded, self, player)
 	end
-
+	
+	Players.PlayerAdded:Connect(function(player)
+		self:playerAdded(player)
+	end)
+	
 	MarketplaceService.ProcessReceipt = processReceipt
-
-	return self
 end
-
--- events
 
 return m
