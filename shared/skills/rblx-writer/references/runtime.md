@@ -3,9 +3,15 @@
 Use [engine evidence](engine.md) for streaming, signals, replication, persistence,
 module caches and API thread safety.
 
-- Connect lifecycle/tag signals before enumeration. Make setup idempotent; handle
-  existing players/characters and removal during setup. Subscribe readiness waiters
-  without missing prior completion or immediate delivery.
+- Connect lifecycle/tag signals before enumeration. Handle existing
+  players/characters and removal during setup. Subscribe readiness waiters without
+  missing prior completion or immediate delivery.
+- Make repeatable attachment setup idempotent. For services and controllers started
+  once by their startup owner, rely on that lifecycle contract. Add startup guards
+  only when repeated startup is supported or can occur.
+- Define named callbacks used only by `Start` inside `Start`. Use the captured
+  `self` where owner access is needed. Connect the callback before invoking it
+  directly for existing state.
 - Separate require from Start/init. Keep paths static and acyclic; check prefixes,
   replication readiness and engine/project resolver support. `.luaurc` aliases alone
   do not prove engine support.
