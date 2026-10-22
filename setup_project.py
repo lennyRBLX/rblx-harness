@@ -525,6 +525,10 @@ def install(project, manifest):
             replace_regular=True,
         )
     if "services" in assets:
+        linked["types"] = link_tree(
+            os.path.join(project, "rblx-harness", "packages", "ReplicatedStorage", "Types"),
+            os.path.join(project, "shared", "src", "ReplicatedStorage", "Types"),
+        )
         linked["services"] = link_tree(
             os.path.join(project, "rblx-harness", "packages", "ServerScriptService", "Services"),
             os.path.join(project, "shared", "src", "ServerScriptService", "Services"),

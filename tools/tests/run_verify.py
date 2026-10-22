@@ -469,6 +469,9 @@ def _():
         require(open(movement, encoding="utf-8").read() == existing_controller, "existing controller was replaced")
         require(os.path.islink(os.path.join(root, "shared", "src", "ReplicatedStorage", "Packages", "Signal.luau")), "package link absent")
         require(os.path.islink(os.path.join(root, "shared", "src", "ServerScriptService", "Services", "Payments.luau")), "service link absent")
+        player_data_type = os.path.join(root, "shared", "src", "ReplicatedStorage", "Types", "PlayerData.luau")
+        require(os.path.islink(player_data_type), "PlayerData runtime type link absent")
+        require(os.path.isfile(player_data_type), "PlayerData runtime type link is broken")
         effects = os.path.join(root, "shared", "src", "StarterPlayer", "StarterPlayerScripts", "Controllers", "Effects", "init.luau")
         require(os.path.islink(effects), "controller link absent")
         require(os.path.isdir(os.path.join(root, "plugins")), "plugins folder absent")
@@ -510,6 +513,9 @@ def _():
 
         custom_readme = "# Existing documentation\n"
         write(readme_path, custom_readme)
+        os.unlink(player_data_type)
+        custom_player_data_type = "export type RuntimeState = { Custom: boolean }\nreturn {}\n"
+        write(player_data_type, custom_player_data_type)
         shutil.rmtree(os.path.join(root, ".agents"))
         shutil.rmtree(os.path.join(root, ".codex"))
         shutil.rmtree(os.path.join(root, ".claude"))
@@ -526,6 +532,7 @@ def _():
         require(os.path.isfile(os.path.join(root, ".claude", "settings.json")), "setup did not recreate .claude")
         require(not os.path.lexists(os.path.join(root, ".agents", "skills", "rblx-new-game")), "setup retained rblx-new-game")
         require(open(readme_path, encoding="utf-8").read() == custom_readme, "setup replaced an existing README")
+        require(open(player_data_type, encoding="utf-8").read() == custom_player_data_type, "setup replaced an existing PlayerData type")
         os.makedirs(os.path.join(root, ".serena"))
         write(os.path.join(root, ".serena", "project.yml"), "project_name: game\n")
         require_ignored_local_state(root)
@@ -636,6 +643,12 @@ def _():
 @case("Collisions package assignment and tracking lifecycle")
 def _():
     result = run([PY, os.path.join(ROOT, "tools", "tests", "test_collision_package.py")])
+    require(result.returncode == 0, result.stdout + result.stderr)
+
+
+@case("PlayerData scaffold departure cleanup and optional packages")
+def _():
+    result = run([PY, os.path.join(ROOT, "tools", "tests", "test_scaffold_entry.py")])
     require(result.returncode == 0, result.stdout + result.stderr)
 
 

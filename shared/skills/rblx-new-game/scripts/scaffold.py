@@ -67,7 +67,18 @@ end
 return m
 """
 
-SERVER_ENTRY = """local ServerScriptService = game:GetService("ServerScriptService")
+SERVER_ENTRY = """const ServerScriptService = game:GetService("ServerScriptService")
+const ReplicatedStorage = game:GetService("ReplicatedStorage")
+const Players = game:GetService("Players")
+
+const packages = ReplicatedStorage:FindFirstChild("Packages")
+const cleanupModule = packages and packages:FindFirstChild("EntityCleanup")
+if cleanupModule then
+\tconst EntityCleanup = require(cleanupModule)
+\tPlayers.PlayerRemoving:Connect(function(player)
+\t\tEntityCleanup:Cleanup(player)
+\tend)
+end
 
 local roots = { ServerScriptService.Services }
 local placeServices = ServerScriptService:FindFirstChild("PlaceServices")
