@@ -11,17 +11,21 @@ Inspect owners and callers; reuse same-side math/helpers/APIs and packages on
 server and client (WRIT20). Resolve project APIs with `types read`. Use
 `scaffold module` for new modules and `types write` for data/public types.
 WRIT1: Name module tables `m`; use `:` for methods unless OOP (`m.new()`).
-Use multiline formatting for populated `m` tables. Order declarations: configuration
-constants; services and service-derived values; runtime dependencies; type
-dependencies; cyclic dependency declarations and aliases; local types; module
-table `m`. Preserve required dependency initialization order.
+Use multiline formatting for populated `m` tables. Put private properties first
+inside `m`, followed by public properties and signals. Order declarations:
+configuration constants; services and service-derived values; runtime dependencies;
+type dependencies; cyclic dependency declarations and aliases; local types; module
+table `m`. Within each block, sort top-level `const`/`local` declarations from
+visually longest to shortest. Keep dependent declarations in later blocks to
+preserve initialization order. Combine related declarations when they fit clearly
+on one line.
 
 Use `const` for unreassigned bindings, `local` for mutable bindings, and `elseif`
-for guards with the same return. Separate logical groups of declarations,
-validation, state changes and subsequent operations with blank lines. Separate
-guards/functions and final branches with a blank line; prefer no blank line between
-assignments or local declarations and a following return. Place `-- privates` and
-`-- functions` directly above their first declaration.
+for guards with the same return. Keep statements for one operation together: no
+blank lines between a binding and its guard, a warning and its return, or consecutive
+mutations for that operation. Separate independent operations and function
+declarations with blank lines. Place `-- privates` and `-- functions` directly above
+their first declaration.
 
 Keep simple calls, assertions, errors and multiple assignments on one line. For
 multiline table arguments, keep the call prefix and opening brace together; place
@@ -33,7 +37,8 @@ condition chains.
 
 Inline single-use argument tables when an intermediate name adds no meaning.
 Retain explicit typing where it provides a required static contract. Return
-one-use results directly.
+one-use results directly. Inline functions used once unless a required public
+contract needs the function.
 
 Load only the applicable guidance:
 
@@ -42,7 +47,7 @@ Load only the applicable guidance:
 | Engine access/behavior | [engine.md](references/engine.md) |
 | Types, collections, text | [luau.md](references/luau.md) |
 | Codecs, remotes, HTTP | [network.md](references/network.md) |
-| Startup, async services, Actors, assets | [runtime.md](references/runtime.md) |
+| Lifecycle, tasks, Signals, registered work, PlayerData, Actors, assets | [runtime.md](references/runtime.md) |
 | GUI controls, settings, progress, errors, Undo | `rblx-gui` |
 | Test selection/source | `rblx-test` |
 | Requested delegation | [handoffs](../rblx-plan/references/delegation.md) |

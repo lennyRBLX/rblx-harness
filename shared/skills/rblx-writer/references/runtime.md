@@ -9,9 +9,12 @@ module caches and API thread safety.
 - Make repeatable attachment setup idempotent. For services and controllers started
   once by their startup owner, rely on that lifecycle contract. Add startup guards
   only when repeated startup is supported or can occur.
-- Define named callbacks used only by `Start` inside `Start`. Use the captured
-  `self` where owner access is needed. Connect the callback before invoking it
-  directly for existing state.
+- Keep callbacks owned by `Start` inside `Start`. Name a callback when it is both
+  connected and invoked directly for existing state; connect it before invocation.
+  Use the captured `self` where owner access is needed.
+- Use `task.spawn(function() ... end)` directly when no task handle is needed.
+- Use Signals for notifications. Use explicit `Add`/`Remove` APIs for registered
+  work.
 - Separate require from Start/init. Keep paths static and acyclic; check prefixes,
   replication readiness and engine/project resolver support. `.luaurc` aliases alone
   do not prove engine support.
@@ -24,8 +27,11 @@ module caches and API thread safety.
 - Pair `debug.profilebegin/end` within one function across branches/loops. Close
   profiles after protected calls before handling/propagating errors. Review
   cancellation and indirect effects separately.
-- Reuse the persistence/session-lock owner. Keep transforms repeatable; coordinate
-  leave/shutdown saves. Bound retries with backoff/jitter, cancellation and deadlines;
+- Access owned PlayerData through `getPlayerData`. Keep session profiles and
+  persistence operations inside PlayerData. Do not repeat validity checks without
+  an intervening yield or state change.
+- Keep persistence transforms repeatable; coordinate leave/shutdown saves. Bound
+  retries with backoff/jitter, cancellation and deadlines;
   resolve ambiguous success before retrying non-idempotent work. MemoryStore is
   temporary; messaging is notification. Query current quotas.
 - Check EditableImage/EditableMesh permissions and budgets; handle creation failure

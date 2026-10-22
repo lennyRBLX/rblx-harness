@@ -1,4 +1,5 @@
 const CLEANUP_PLAYER = "PlayerData.Player"
+const SAVE_RETRY_SECONDS = 30
 const DEFAULT_STATE = {}
 
 const ServerScriptService = game:GetService("ServerScriptService")
@@ -20,7 +21,6 @@ const StoreOwner = ProfileStore.New("PlayerData", {})
 const Store = if IsStudio then StoreOwner.Mock else StoreOwner
 const Defaults = if IsStudio then Development else Default
 const Profiles, PendingProfiles = {}, {}
-const MessageHandlers = {}
 const Setups = {
 	Pre = {},
 	Post = {}
@@ -30,9 +30,11 @@ const Setups = {
 export type Data = typeof(Default)
 
 const m = {
+	__players = {},
+	
+	OnMessage = Signal.new(),
 	Ready = Signal.new(),
-	Released = Signal.new(),
-	__players = {}
+	Released = Signal.new()
 }
 
 -- privates
@@ -53,36 +55,6 @@ end
 
 const function ownerOf(errorId)
 	return string.match(errorId, "^([^.]+)%.")
-end
-
-const function runSetups(phase, player, data)
-	for _, entry in table.clone(Setups[phase]) do
-		if not entry.alive then
-			continue
-		end
-
-		const owner = ownerOf(entry.errorId)
-		const subtree = owner and data[owner] or nil
-		const success, problem = pcall(entry.fn, player, subtree)
-		if not success then
-			warn(entry.errorId .. " | " .. player.Name .. " | " .. tostring(problem))
-		end
-	end
-end
-
-const function dispatchMessage(player, message, processed)
-	if typeof(message) ~= "table" or not MessageHandlers[message.Kind] then
-		warn("PlayerData.message | " .. player.Name .. " | no handler for kind '" .. tostring(typeof(message) == "table" and message.Kind) .. "'")
-		return
-	end
-
-	processed()
-
-	const entry = MessageHandlers[message.Kind]
-	const success, problem = pcall(entry.fn, player, message.Data)
-	if not success then
-		warn(entry.name .. " | " .. player.Name .. " | " .. tostring(problem))
-	end
 end
 
 const function cleanupPlayer(player, arguments)
@@ -118,7 +90,8 @@ function m:playerAdded(player)
 
 	self.__players[player] = state
 	EntityCleanup:Add(player, cleanupPlayer, { state }, CLEANUP_PLAYER)
-	state.LoadTask = coroutine.create(function()
+
+	task.spawn(function()
 		const success, problem = pcall(function()
 			const function current()
 				return self.__players[player] == state and state.Token == token and player:IsDescendantOf(Players)
@@ -149,11 +122,6 @@ function m:playerAdded(player)
 					return
 				end
 
-				const success, problem = pcall(EntityCleanup.Remove, EntityCleanup, player, CLEANUP_PLAYER)
-				if not success then
-					warn("PlayerData.cleanup | " .. player.Name .. " | " .. tostring(problem))
-				end
-
 				if player:IsDescendantOf(Players) then
 					player:Kick("PlayerData | session ended elsewhere, rejoin")
 				end
@@ -161,7 +129,7 @@ function m:playerAdded(player)
 
 			state.Connection = sessionConnection
 
-			const function releaseStale()
+			const function endSession()
 				sessionConnection:Disconnect()
 
 				if state.Connection == sessionConnection then
@@ -176,7 +144,7 @@ function m:playerAdded(player)
 			end
 
 			if not current() then
-				releaseStale()
+				endSession()
 				return
 			end
 
@@ -184,46 +152,76 @@ function m:playerAdded(player)
 				profile.Data = fix({}, Defaults)
 			end
 
-			runSetups("Pre", player, profile.Data)
+			for _, entry in table.clone(Setups.Pre) do
+				if not entry.alive then
+					continue
+				end
+
+				const owner = ownerOf(entry.errorId)
+				const subtree = owner and profile.Data[owner] or nil
+				const success, problem = pcall(entry.fn, player, subtree)
+
+				if not success then
+					warn(entry.errorId .. " | " .. player.Name .. " | " .. tostring(problem))
+				end
+			end
+
 			if not current() then
-				releaseStale()
+				endSession()
 				return
 			end
 
 			fix(profile.Data, Defaults)
-			runSetups("Post", player, profile.Data)
 
-			profile:MessageHandler(function(message, processed)
-				if self.__players[player] == state and Profiles[player] == profile then
-					dispatchMessage(player, message, processed)
+			for _, entry in table.clone(Setups.Post) do
+				if not entry.alive then
+					continue
 				end
-			end)
+
+				const owner = ownerOf(entry.errorId)
+				const subtree = owner and profile.Data[owner] or nil
+				const success, problem = pcall(entry.fn, player, subtree)
+
+				if not success then
+					warn(entry.errorId .. " | " .. player.Name .. " | " .. tostring(problem))
+				end
+			end
 
 			if not current() or not profile:IsActive() then
-				releaseStale()
+				endSession()
 				return
 			end
 
 			PendingProfiles[player], state.Token = nil, nil
 			Profiles[player] = profile
-			self.Ready:Fire(player)
+
+			profile:MessageHandler(function(message, processed)
+				if self.__players[player] ~= state or Profiles[player] ~= profile then
+					return
+				end
+
+				if typeof(message) ~= "table" or typeof(message.Kind) ~= "string" or message.Kind == "" or typeof(message.Data) ~= "table" then
+					warn("PlayerData.message | " .. player.Name .. " | invalid message")
+					return
+				end
+
+				processed()
+				self.OnMessage:Fire(player, message.Kind, message.Data)
+			end)
+
+			if self.__players[player] == state and Profiles[player] == profile and profile:IsActive() then
+				self.Ready:Fire(player)
+			end
 		end)
 
-		state.LoadTask = nil
-
 		if not success then
-			if self.__players[player] == state then
-				const removed, removalProblem = pcall(EntityCleanup.Remove, EntityCleanup, player, CLEANUP_PLAYER)
-				if not removed then
-					warn("PlayerData.cleanup | " .. player.Name .. " | " .. tostring(removalProblem))
-				end
+			if self.__players[player] == state and player.Parent == Players then
+				player:Kick("Player data could not load. Please join another server.")
 			end
 
 			warn("PlayerData | load | " .. tostring(problem))
 		end
 	end)
-
-	task.spawn(state.LoadTask)
 end
 
 -- functions
@@ -235,32 +233,18 @@ function m:AddSetup(phase, fn, errorId)
 	assert(phase == "Pre" or phase == "Post", "PlayerData.AddSetup | phase must be \"Pre\" or \"Post\"")
 	assert(typeof(fn) == "function", "PlayerData.AddSetup | fn must be a function")
 	assert(typeof(errorId) == "string" and ownerOf(errorId), "PlayerData.AddSetup | errorId must be \"Service.method\"")
-
-	const entry = { fn = fn, errorId = errorId, alive = true }
-	table.insert(Setups[phase], entry)
-
-	return function()
-		entry.alive = false
-
-		const index = table.find(Setups[phase], entry)
-		if index then
-			table.remove(Setups[phase], index)
-		end
-	end
+	table.insert(Setups[phase], { fn = fn, errorId = errorId, alive = true })
 end
 
-function m:OnMessage(kind, fn, name)
-	assert(typeof(kind) == "string" and kind ~= "", "PlayerData.OnMessage | kind must be a string")
-	assert(typeof(fn) == "function", "PlayerData.OnMessage | fn must be a function")
-	assert(typeof(name) == "string" and name ~= "", "PlayerData.OnMessage | name must be \"Service.handler\"")
-	assert(not MessageHandlers[kind], "PlayerData.OnMessage | duplicate handler for kind '" .. kind .. "'")
+function m:RemoveSetup(phase, fn)
+	assert(phase == "Pre" or phase == "Post", "PlayerData.RemoveSetup | phase must be \"Pre\" or \"Post\"")
+	assert(typeof(fn) == "function", "PlayerData.RemoveSetup | fn must be a function")
 
-	const entry = { fn = fn, name = name }
-	MessageHandlers[kind] = entry
-
-	return function()
-		if MessageHandlers[kind] == entry then
-			MessageHandlers[kind] = nil
+	for index = #Setups[phase], 1, -1 do
+		const entry = Setups[phase][index]
+		if entry.fn == fn then
+			entry.alive = false
+			table.remove(Setups[phase], index)
 		end
 	end
 end
@@ -274,7 +258,7 @@ function m:Send(userId, kind, data)
 		warn("PlayerData.Send | " .. tostring(userId) .. " | " .. tostring(problem))
 	end
 
-	return success
+	return success and problem == true
 end
 
 function m:Valid(player)
@@ -295,8 +279,62 @@ function m:Get(player, owner)
 	return serviceData
 end
 
-function m:Profile(player)
-	return Profiles[player]
+function m:AwaitSave(player, owner, predicate)
+	assert(typeof(owner) == "string" and owner ~= "", "PlayerData.AwaitSave | owner must be script.Name")
+	assert(typeof(predicate) == "function", "PlayerData.AwaitSave | predicate must be a function")
+
+	const profile = Profiles[player]
+	if not profile or not profile:IsActive() then
+		return false
+	end
+
+	const function saved()
+		const data = profile.LastSavedData
+		const subtree = typeof(data) == "table" and data[owner] or nil
+		return subtree and predicate(subtree) or false
+	end
+
+	if saved() then
+		return true
+	end
+
+	local done = false
+	const connection = profile.OnAfterSave:Connect(function()
+		if saved() then
+			done = true
+		end
+	end)
+
+	const success, result = pcall(function()
+		local lastForce = 0
+		while not done and profile:IsActive() do
+			if lastForce == 0 or os.clock() - lastForce >= SAVE_RETRY_SECONDS then
+				lastForce = os.clock()
+				profile:Save()
+			end
+
+			task.wait(0.2)
+		end
+
+		const grace = os.clock() + 5
+		while not done and os.clock() < grace do
+			if saved() then
+				done = true
+			end
+
+			task.wait(0.2)
+		end
+
+		return done or saved()
+	end)
+
+	connection:Disconnect()
+
+	if not success then
+		warn("PlayerData.AwaitSave | " .. player.Name .. " | " .. tostring(result))
+	end
+
+	return success and result
 end
 
 function m:View(userId)
@@ -313,7 +351,7 @@ function m:Start()
 	for _, player in Players:GetPlayers() do
 		task.spawn(self.playerAdded, self, player)
 	end
-
+	
 	Players.PlayerAdded:Connect(function(player)
 		self:playerAdded(player)
 	end)
