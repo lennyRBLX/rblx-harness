@@ -23,9 +23,11 @@ on one line.
 Use `const` for unreassigned bindings, `local` for mutable bindings, and `elseif`
 for guards with the same return. Keep statements for one operation together: no
 blank lines between a binding and its guard, a warning and its return, or consecutive
-mutations for that operation. Separate independent operations and function
-declarations with blank lines. Place `-- privates` and `-- functions` directly above
-their first declaration.
+mutations for that operation. Keep related declarations adjacent to the assertion,
+loop, or return that immediately uses them. Separate independent operations,
+completed guards, and function declarations with blank lines. Do not require blank
+lines before `elseif` or `else`. Place `-- privates` and `-- functions` directly
+above their first declaration.
 
 Keep simple calls, assertions, errors and multiple assignments on one line. For
 multiline table arguments, keep the call prefix and opening brace together; place
