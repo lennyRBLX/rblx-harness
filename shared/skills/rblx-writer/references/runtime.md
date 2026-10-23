@@ -9,15 +9,6 @@ module caches and API thread safety.
 - Make repeatable attachment setup idempotent. For services and controllers started
   once by their startup owner, rely on that lifecycle contract. Add startup guards
   only when repeated startup is supported or can occur.
-- Register owned cleanup helpers with `EntityCleanup:Add`. Leave automatic lifecycle
-  dispatch to `Server.server.luau` and `Client.client.luau`; do not call
-  `EntityCleanup:Remove` or duplicate that dispatch in services, controllers, or
-  their children. Never wrap any EntityCleanup API call in `pcall` or `xpcall`,
-  including through closures or method references.
-- Define owner operations at module scope, including operations called only during
-  startup. Keep short signal adapters inline in `Start()` and call owner methods
-  through the captured `self`. When passing a colon method to `task.spawn`, pass
-  its receiver explicitly.
 - Keep callbacks owned by `Start` inside `Start`. Name a callback when it is both
   connected and invoked directly for existing state; connect it before invocation.
   Use the captured `self` where owner access is needed.

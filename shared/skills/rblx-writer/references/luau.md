@@ -22,10 +22,6 @@
   for shared timelines. Treat client timestamps as untrusted.
 - Use `error(message, 2)` for caller contract failures. Protected-call errors are
   unknown values; traceback handlers must not yield.
-- When passing a colon method to `pcall`, pass its receiver explicitly. Use
-  protected calls where failures have defined handling or owned state must be
-  released after failure. Do not wrap cleanup calls in `pcall` solely to discard
-  errors.
 - Reuse project Signal/Trove/Retry packages. Keep metatable/newproxy patterns out
   of owned game code (WRIT18).
 
