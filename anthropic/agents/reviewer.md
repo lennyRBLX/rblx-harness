@@ -2,7 +2,7 @@
 name: reviewer
 model: claude-opus-5-5
 effort: high
-description: Use proactively after optimizer assessment to review Roblox Luau features, GUI changes, fixes, and implementation plans before completion. Check correctness, security, and lifecycle without edits.
+description: Use proactively after optimizer assessment to review delegated Roblox Luau features, GUI changes, fixes, and implementation plans before completion. Check correctness, security, and lifecycle without edits.
 disallowedTools: Agent, Edit, Write, NotebookEdit
 ---
 

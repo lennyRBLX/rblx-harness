@@ -26,9 +26,10 @@ def load(name, relative):
 setup = load("claude_setup", "setup_project.py")
 adapter = load("claude_hook_adapter", "anthropic/hooks/adapter.py")
 permissions = load("claude_permissions", "anthropic/setup/permissions_harness.py")
-AGENT_FILES = ["debugger.md", "optimizer.md", "researcher.md", "reviewer.md"]
+AGENT_FILES = ["debugger.md", "implementer.md", "optimizer.md", "researcher.md", "reviewer.md"]
 AGENT_PROFILES = {
     "debugger.md": ("claude-opus-5-5", "xhigh"),
+    "implementer.md": ("inherit", None),
     "optimizer.md": ("claude-opus-5-5", "high"),
     "researcher.md": ("haiku", None),
     "reviewer.md": ("claude-opus-5-5", "high"),
@@ -63,7 +64,7 @@ class SettingsTest(Fixture):
         self.assertEqual(document["permissions"], {
             "deny": ["Edit(**/.luaurc)"],
             "allow": ["Agent(custom)", "Agent(researcher)", "Agent(debugger)",
-                      "Agent(optimizer)", "Agent(reviewer)"],
+                      "Agent(optimizer)", "Agent(reviewer)", "Agent(implementer)"],
         })
         self.assertEqual(document["env"], {
             "MAX_MCP_OUTPUT_TOKENS": "9000", "CUSTOM": "1", "BASH_MAX_OUTPUT_LENGTH": "24000",
@@ -74,7 +75,7 @@ class SettingsTest(Fixture):
         existing = json.dumps({
             "env": {"BASH_MAX_OUTPUT_LENGTH": "1000", "MAX_MCP_OUTPUT_TOKENS": "2000"},
             "permissions": {"allow": ["Agent(researcher)", "Agent(debugger)",
-                                      "Agent(optimizer)", "Agent(reviewer)"]},
+                                      "Agent(optimizer)", "Agent(reviewer)", "Agent(implementer)"]},
         })
         self.assertEqual(gatelib.merge_project_claude_settings(existing, self.canonical), existing)
 
@@ -112,7 +113,7 @@ class SettingsTest(Fixture):
             self.assertEqual(installed, first_settings)
             self.assertEqual(json.loads(installed)["permissions"]["allow"], [
                 "Agent(custom)", "Agent(researcher)", "Agent(debugger)",
-                "Agent(optimizer)", "Agent(reviewer)",
+                "Agent(optimizer)", "Agent(reviewer)", "Agent(implementer)",
             ])
             self.assertTrue(gatelib.required_claude_agents_status(str(self.root))[0])
             self.assertTrue((self.root / ".claude/skills/rblx-writer/SKILL.md").is_file())
@@ -128,12 +129,10 @@ class AgentTest(Fixture):
                 denied = {tool.strip() for tool in fields["disallowedTools"].split(",")}
                 self.assertEqual(fields["name"], name[:-3])
                 self.assertTrue(fields["description"] and body)
-                # Claude Code delegates automatically from this description phrase.
-                self.assertIn("Use proactively", fields["description"])
                 self.assertEqual((fields["model"], fields.get("effort")), AGENT_PROFILES[name])
                 self.assertNotIn("tools", fields)
                 self.assertIn("Agent", denied)
-                if name != "debugger.md":
+                if name not in ("debugger.md", "implementer.md"):
                     self.assertLessEqual({"Edit", "Write", "NotebookEdit"}, denied)
 
     def test_status_rejects_delegating_or_absent_agent(self):
@@ -178,22 +177,23 @@ class HookMigrationTest(Fixture):
         path = self.write(".claude/settings.json", json.dumps(document))
         setup.copy_claude_support(str(self.root))
         migrated = json.loads(path.read_text())
-        self.assertEqual(migrated["hooks"], {"Stop": [{"hooks": [custom]}]})
+        self.assertEqual(migrated["hooks"].get("Stop"), [{"hooks": [custom]}])
+        self.assertEqual(set(migrated["hooks"]), {"Stop", "SubagentStop", "SessionEnd"})
         self.assertEqual(migrated["custom"], "retained")
         self.assertEqual(migrated["permissions"]["deny"], document["permissions"]["deny"])
         self.assertEqual(migrated["permissions"]["allow"], [
-            "Agent(researcher)", "Agent(debugger)", "Agent(optimizer)", "Agent(reviewer)",
+            "Agent(researcher)", "Agent(debugger)", "Agent(optimizer)", "Agent(reviewer)", "Agent(implementer)",
         ])
         saved = path.read_bytes()
         setup.copy_claude_support(str(self.root))
         self.assertEqual(path.read_bytes(), saved)
 
-    def test_all_retired_events_remove_the_hooks_key(self):
+    def test_all_retired_events_are_replaced_by_cleanup_events(self):
         events = ("PreToolUse", "Stop", "SessionStart", "PreCompact", "SubagentStart", "SubagentStop", "UserPromptSubmit")
         document = {"hooks": {event: [{"hooks": [self.retired(event)]}] for event in events}}
         path = self.write(".claude/settings.json", json.dumps(document))
         setup.copy_claude_support(str(self.root))
-        self.assertNotIn("hooks", json.loads(path.read_text()))
+        self.assertEqual(set(json.loads(path.read_text())["hooks"]), {"SubagentStop", "SessionEnd"})
 
     def test_custom_wrapper_and_other_event_are_untouched(self):
         handler = self.retired("Stop")

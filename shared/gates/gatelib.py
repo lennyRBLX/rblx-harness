@@ -19,12 +19,13 @@ CORPUS_REFRESH = os.path.join(CACHE, "corpus-refresh.json")
 CORPUS_MAX_AGE = 86400
 PROJECT_HARNESS_DIR = "rblx-harness"
 PROJECT_HARNESS_URL = "https://github.com/lennyRBLX/rblx-harness.git"
-REQUIRED_CODEX_AGENTS = ("researcher", "optimizer", "reviewer", "debugger")
+REQUIRED_CODEX_AGENTS = ("researcher", "optimizer", "reviewer", "debugger", "implementer")
 REQUIRED_CLAUDE_AGENT_PROFILES = {
     "researcher": ("haiku", None),
     "optimizer": ("claude-opus-5-5", "high"),
     "reviewer": ("claude-opus-5-5", "high"),
     "debugger": ("claude-opus-5-5", "xhigh"),
+    "implementer": ("inherit", None),
 }
 REQUIRED_SKILLS = ("rblx-writer", "rblx-gui", "rblx-debug", "rblx-optimize", "rblx-plan")
 

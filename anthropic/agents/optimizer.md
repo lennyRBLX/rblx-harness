@@ -2,7 +2,7 @@
 name: optimizer
 model: claude-opus-5-5
 effort: high
-description: Use proactively before reviewer for Roblox features, GUI changes, fixes, and plans; assess CPU, memory, representation, storage, transport, and MicroProfiler evidence without edits.
+description: Use proactively before reviewer for delegated Roblox features, GUI changes, fixes, and plans; assess CPU, memory, representation, storage, transport, and MicroProfiler evidence without edits.
 disallowedTools: Agent, Edit, Write, NotebookEdit
 ---
 

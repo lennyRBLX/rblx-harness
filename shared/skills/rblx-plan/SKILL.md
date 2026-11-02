@@ -20,4 +20,4 @@ cite them and mark proposals. Use `types read` for public project APIs and
 Merge settled Decisions, Unresolved and Pre-implementation tests into steps;
 remove resolved rows and empty tables. Use `rblx-test` for test decisions and
 its [procedure](../rblx-test/references/procedure.md) when planning execution.
-For requested delegation, use [handoffs](references/delegation.md).
+For task splits that benefit from subagents, use [handoffs](references/delegation.md).

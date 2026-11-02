@@ -12,7 +12,7 @@ import sys
 
 
 HARNESS = os.path.dirname(os.path.abspath(__file__))
-AGENTS = ("researcher", "optimizer", "reviewer", "debugger")
+AGENTS = ("researcher", "optimizer", "reviewer", "debugger", "implementer")
 PROJECT_SKILLS = ("rblx-writer", "rblx-gui", "rblx-debug", "rblx-optimize", "rblx-plan", "rblx-test")
 HARNESS_SKILLS = PROJECT_SKILLS + ("rblx-new-game",)
 NEW_GAME_SKILL = os.path.join(HARNESS, "shared", "skills", "rblx-new-game")
@@ -274,7 +274,66 @@ def copy_codex_support(project, harness_checkout=False):
     with open(os.path.join(HARNESS, "openai", "config", "project.toml"), encoding="utf-8") as handle:
         canonical = handle.read()
     write_text(config_path, gatelib.merge_project_codex_config(existing, canonical))
+    install_coord_hooks(project, "codex")
     link_skills(os.path.join(project, ".agents", "skills"), harness_checkout)
+
+
+def coord_hook_entry(script, interpreter=sys.executable):
+    argv = [interpreter, "-B", script, "hook"]
+    if os.name == "nt":
+        import base64
+        expression = "& " + " ".join("'" + arg.replace("'", "''") + "'" for arg in argv)
+        command = "powershell.exe -NoProfile -EncodedCommand " + base64.b64encode(expression.encode("utf-16le")).decode()
+    else:
+        command = shlex.join(argv)
+    return {"hooks": [{"type": "command", "command": command, "timeout": 5}]}
+
+
+def installed_coord_hook(entry):
+    try:
+        argv = shlex.split(entry["hooks"][0]["command"])
+    except (KeyError, IndexError, TypeError, ValueError):
+        return False
+    if os.name == "nt" and argv[:3] == ["powershell.exe", "-NoProfile", "-EncodedCommand"] and len(argv) == 4:
+        import base64
+        try:
+            expression = base64.b64decode(argv[3], validate=True).decode("utf-16le")
+            argv = [value.replace("''", "'") for value in re.findall(r"'((?:[^']|'')*)'", expression)]
+        except (ValueError, UnicodeError):
+            return False
+    python = os.path.basename(argv[0].replace("\\", "/")) if argv else ""
+    return (len(argv) == 4 and argv[1] == "-B" and argv[3] == "hook"
+            and re.fullmatch(r"python(?:[0-9]+(?:\.[0-9]+)*)?(?:\.exe)?", python, re.IGNORECASE)
+            and argv[2].replace("\\", "/").endswith("/tools/coord.py")
+            and entry == coord_hook_entry(argv[2], argv[0]))
+
+
+def install_coord_hooks(project, host):
+    """Merge only the two cleanup events; preserve custom handlers and settings."""
+    path = os.path.join(project, ".codex", "hooks.json") if host == "codex" else os.path.join(project, ".claude", "settings.json")
+    try:
+        with open(path, encoding="utf-8") as handle:
+            existing = handle.read()
+    except FileNotFoundError:
+        existing = ""
+    document = json.loads(existing) if existing.strip() else {}
+    if not isinstance(document, dict) or not isinstance(document.get("hooks", {}), dict):
+        fail("project hooks must contain an object")
+    hooks = document.setdefault("hooks", {})
+    entry = coord_hook_entry(os.path.join(HARNESS, "tools", "coord.py"))
+    changed = False
+    for event in ("SubagentStop", "SessionEnd"):
+        entries = hooks.get(event, [])
+        if not isinstance(entries, list) or any(not isinstance(item, dict) or not isinstance(item.get("hooks"), list) for item in entries):
+            fail("project hook entries must contain hooks arrays")
+        retained = [item for item in entries if not installed_coord_hook(item)]
+        if entry not in retained:
+            retained.append(entry)
+        if retained != entries:
+            hooks[event] = retained
+            changed = True
+    if changed:
+        write_json(path, document)
 
 
 def command_policy_entry(policy):
@@ -382,6 +441,7 @@ def copy_claude_support(project, harness_checkout=False):
         canonical = handle.read()
     migrated = remove_retired_claude_hooks(existing)
     write_text(settings_path, gatelib.merge_project_claude_settings(migrated, canonical))
+    install_coord_hooks(project, "claude")
     link_skills(os.path.join(claude, "skills"), harness_checkout)
 
 

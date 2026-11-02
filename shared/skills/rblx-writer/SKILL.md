@@ -50,7 +50,7 @@ Load only the applicable guidance:
 | Lifecycle, tasks, Signals, registered work, PlayerData, Actors, assets | [runtime.md](references/runtime.md) |
 | GUI controls, settings, progress, errors, Undo | `rblx-gui` |
 | Test selection/source | `rblx-test` |
-| Requested delegation | [handoffs](../rblx-plan/references/delegation.md) |
+| Beneficial subagent task split | [handoffs](../rblx-plan/references/delegation.md) |
 
 Review authority, lifecycle and affected performance. Check settled edits with
 the smallest decisive check. For changed profile/parallel scopes, run

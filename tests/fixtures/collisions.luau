@@ -1,53 +1,71 @@
--- C01: Does tracking release listeners and reject stale queued assignments?
--- Native doubles exercise module logic, not Roblox physics or signal behavior.
+-- C01: Do registry replacements, motion transfers and removal release owned callbacks?
+-- Controlled query hits and queued callbacks test ownership, not engine behavior.
 return function(loadPackage)
 	const signals = {}
 	const function signal()
-		const listeners = {}
-		const pending = {}
+		const listeners, pending = {}, {}
 		const event = {}
 		function event:Connect(callback)
-			const connection = { Connected = true }
-			function connection:Disconnect()
-				self.Connected = false
-			end
+			const connection = {Connected = true}
+			function connection:Disconnect() self.Connected = false end
 			listeners[connection] = callback
 			return connection
 		end
 		function event:Fire(value)
 			for connection, callback in listeners do
-				if connection.Connected then
-					table.insert(pending, { connection, callback, value })
-				end
+				if connection.Connected then table.insert(pending, {callback, value}) end
 			end
 		end
 		function event:Flush()
+			-- Stress record ownership by invoking callbacks captured before disconnect.
 			while #pending > 0 do
 				const item = table.remove(pending, 1)
-				if item[1].Connected then
-					item[2](item[3])
-				end
+				item[1](item[2])
 			end
 		end
 		function event:Count()
 			local count = 0
-			for connection in listeners do
-				if connection.Connected then count += 1 end
-			end
+			for connection in listeners do if connection.Connected then count += 1 end end
 			return count
 		end
 		table.insert(signals, event)
 		return event
 	end
 
+	const Vector3 = {}
+	const vectorMethods = {}
+	const vectorMeta = {__index = vectorMethods}
+	function Vector3.new(x, y, z)
+		return setmetatable({_type = "Vector3", X = x, Y = y, Z = z}, vectorMeta)
+	end
+	function vectorMeta.__add(a, b) return Vector3.new(a.X + b.X, a.Y + b.Y, a.Z + b.Z) end
+	function vectorMeta.__sub(a, b) return Vector3.new(a.X - b.X, a.Y - b.Y, a.Z - b.Z) end
+	function vectorMeta.__mul(a, b) return Vector3.new(a.X * b, a.Y * b, a.Z * b) end
+	function vectorMethods:Dot(b) return self.X * b.X + self.Y * b.Y + self.Z * b.Z end
+	const function cframe(x)
+		const frame = {
+			_type = "CFrame", Position = Vector3.new(x, 0, 0),
+			XVector = Vector3.new(1, 0, 0), YVector = Vector3.new(0, 1, 0), ZVector = Vector3.new(0, 0, 1),
+		}
+		function frame:GetComponents() return self.Position.X, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1 end
+		return frame
+	end
+	const Enum = {PartType = {Block = "Block", Ball = "Ball"}, RaycastFilterType = {Include = "Include", Exclude = "Exclude"}}
+	const OverlapParams = {}
+	function OverlapParams.new()
+		return {
+			_type = "OverlapParams", FilterType = Enum.RaycastFilterType.Exclude,
+			FilterDescendantsInstances = {}, MaxParts = 0, Tolerance = 0,
+			RespectCanCollide = false, BruteForceAllSlow = false, CollisionGroup = "Default",
+		}
+	end
 	const function instance(class, parent)
 		const object = {
-			_instance = true, Parent = parent, children = {}, CollisionGroup = "Default",
-			DescendantAdded = signal(), Destroying = signal(),
+			_type = "Instance", Parent = parent, Destroying = signal(), properties = {},
+			Shape = Enum.PartType.Block, CFrame = cframe(0), Size = Vector3.new(2, 2, 2),
+			CanQuery = true, CollisionGroup = "Default",
 		}
-		function object:IsA(name)
-			return class == name or (name == "BasePart" and class == "Part")
-		end
+		function object:IsA(name) return class == name end
 		function object:IsDescendantOf(ancestor)
 			local current = self.Parent
 			while current do
@@ -56,123 +74,125 @@ return function(loadPackage)
 			end
 			return false
 		end
-		function object:GetDescendants()
-			const result = {}
-			const function visit(root)
-				for _, child in root.children do
-					table.insert(result, child)
-					visit(child)
-				end
-			end
-			visit(self)
-			return result
+		function object:GetPropertyChangedSignal(name)
+			if not self.properties[name] then self.properties[name] = signal() end
+			return self.properties[name]
 		end
-		if parent then table.insert(parent.children, object) end
 		return object
 	end
-
-	const game = instance("DataModel")
-	const workspace = instance("Workspace", game)
-	const groups = { Default = true }
-	local registrations = 0
-	local server = true
-	local collidable = true
-	function workspace:IsCollisionGroupRegistered(name) return groups[name] == true end
-	function workspace:RegisterCollisionGroup(name)
-		assert(not groups[name])
-		groups[name] = true
-		registrations += 1
+	const workspace = instance("Workspace")
+	workspace.DescendantRemoving = signal()
+	local engineHits, queryError = {}, false
+	function workspace:GetPartBoundsInBox()
+		if queryError then error("query failure") end
+		return table.clone(engineHits)
 	end
-	function workspace:CollisionGroupSetCollidable(first, second, value)
-		assert(groups[first] and groups[second])
-		collidable = value
-	end
-	const tagged = {}
-	const added = signal()
-	const removed = signal()
-	const collection = {}
-	function collection:HasTag(root) return tagged[root] == true end
-	function collection:GetTagged()
-		const result = {}
-		for root in tagged do table.insert(result, root) end
-		return result
-	end
-	function collection:GetInstanceAddedSignal() return added end
-	function collection:GetInstanceRemovedSignal() return removed end
-	const services = {
-		Workspace = workspace, CollectionService = collection,
-		RunService = { IsServer = function() return server end },
-	}
-	function game:GetService(name) return assert(services[name]) end
+	const game = {}
+	function game:GetService(name) assert(name == "Workspace"); return workspace end
 	const module = loadPackage(game, function(value)
-		return if type(value) == "table" and value._instance then "Instance" else typeof(value)
-	end)
-	assert(registrations == 0, "require must not register groups")
-	module:Register("Actors")
-	module:Register("Actors")
-	module:Register("Default")
-	assert(registrations == 1)
-	module:SetCollidable("Actors", "Actors", false)
-	assert(not collidable)
-	assert(not pcall(module.SetCollidable, module, "Actors", "Missing", true))
-	assert(not pcall(module.Register, module, ""))
-	server = false
-	assert(not pcall(module.Register, module, "Client"))
-	server = true
-
-	const root = instance("Model", workspace)
-	const child = instance("Part", root)
-	const nested = instance("Folder", root)
-	const grandchild = instance("Part", nested)
-	const stop = module:Track(root, "Actors")
-	assert(child.CollisionGroup == "Actors" and grandchild.CollisionGroup == "Actors")
-	const late = instance("Part", root)
-	root.DescendantAdded:Fire(late)
-	root.DescendantAdded:Flush()
-	assert(late.CollisionGroup == "Actors")
-	const stale = instance("Part", root)
-	root.DescendantAdded:Fire(stale)
-	stale.Parent = nil
-	root.DescendantAdded:Flush()
-	assert(stale.CollisionGroup == "Default", "removed descendants must be ignored")
-	const queued = instance("Part", root)
-	root.DescendantAdded:Fire(queued)
-	stop()
-	stop()
-	root.DescendantAdded:Flush()
-	assert(queued.CollisionGroup == "Default")
-	assert(child.CollisionGroup == "Actors", "stop must retain assignments")
-
-	const taggedRoot = instance("Model", workspace)
-	const taggedPart = instance("Part", taggedRoot)
-	tagged[taggedRoot] = true
-	const stopTag = module:BindTag("Actors", "Actors")
-	assert(taggedPart.CollisionGroup == "Actors")
-	added:Fire(taggedRoot)
-	added:Flush()
-	assert(taggedRoot.DescendantAdded:Count() == 1, "duplicate tag delivery must not duplicate tracking")
-	tagged[taggedRoot] = nil
-	removed:Fire(taggedRoot)
-	removed:Flush()
-	const afterRemoval = instance("Part", taggedRoot)
-	taggedRoot.DescendantAdded:Fire(afterRemoval)
-	taggedRoot.DescendantAdded:Flush()
-	assert(afterRemoval.CollisionGroup == "Default")
-	tagged[taggedRoot] = true
-	added:Fire(taggedRoot)
-	added:Flush()
-	assert(afterRemoval.CollisionGroup == "Actors")
-	stopTag()
-	stopTag()
-	const destroyRoot = instance("Model", workspace)
-	module:Track(destroyRoot, "Actors")
-	destroyRoot.Destroying:Fire()
-	destroyRoot.Destroying:Flush()
-	const brokenRoot = instance("Model", workspace)
-	function brokenRoot:GetDescendants() error("fixture setup failure") end
-	assert(not pcall(module.Track, module, brokenRoot, "Actors"))
-	for _, event in signals do
-		assert(event:Count() == 0, "tracking leaked a connection")
+		return if type(value) == "table" and value._type then value._type else typeof(value)
+	end, Vector3, Enum, OverlapParams)
+	const function expect(query, expected)
+		const actual = query(cframe(0), Vector3.new(10, 10, 10))
+		assert(#actual == #expected, "wrong membership count")
+		const seen = {}
+		for _, part in actual do
+			assert(not seen[part] and table.find(expected, part), "duplicate or unregistered hit")
+			seen[part] = true
+		end
+		return actual
 	end
+	const function connections(expected)
+		local count = 0
+		for _, event in signals do count += event:Count() end
+		if expected ~= nil then assert(count == expected, "leaked or duplicate callbacks") end
+		return count
+	end
+	connections(0)
+	const first = instance("Part", workspace)
+	const second = instance("Part", workspace)
+	const unregistered = instance("Part", first)
+	engineHits = {first, second, first, unregistered}
+	module.Register(first, "Static")
+	module.Register(second, "Dynamic")
+	expect(module.StaticGetPartsIn, {first})
+	expect(module.DynamicGetPartsIn, {second})
+	const owned = connections()
+
+	module.Register(first, "Static")
+	connections(owned)
+	assert(first.Destroying:Count() == 1)
+	assert(not pcall(module.Register, first, "invalid"))
+	expect(module.StaticGetPartsIn, {first})
+	connections(owned)
+	module.SetMotion(first, "Dynamic")
+	expect(module.StaticGetPartsIn, {})
+	expect(module.DynamicGetPartsIn, {first, second})
+	for _, event in first.properties do assert(event:Count() == 0) end
+	assert(connections() < owned, "motion transfer retained static callbacks")
+	module.SetMotion(second, "Static")
+	second.CFrame = cframe(20)
+	module.Refresh(second)
+	second:GetPropertyChangedSignal("CFrame"):Fire()
+	second:GetPropertyChangedSignal("CFrame"):Flush()
+	expect(module.StaticGetPartsIn, {second})
+	connections(owned)
+	const result = expect(module.DynamicGetPartsIn, {first})
+	table.clear(result)
+	expect(module.DynamicGetPartsIn, {first})
+
+	-- A delayed removal belongs to the old registration, not its replacement.
+	workspace.DescendantRemoving:Fire(first)
+	module.Register(first, "Dynamic")
+	workspace.DescendantRemoving:Flush()
+	expect(module.DynamicGetPartsIn, {first})
+	connections(owned)
+	workspace.DescendantRemoving:Fire(first)
+	first.Parent = nil
+	workspace.DescendantRemoving:Flush()
+	expect(module.DynamicGetPartsIn, {})
+	const retained = connections()
+	first.Parent = workspace
+	expect(module.DynamicGetPartsIn, {})
+	assert(not pcall(module.SetMotion, first, "Dynamic"))
+	module.Register(first, "Dynamic")
+	expect(module.DynamicGetPartsIn, {first})
+
+	-- Queries also prune departures before an event is delivered.
+	first.Parent = nil
+	expect(module.DynamicGetPartsIn, {})
+	first.Parent = workspace
+	expect(module.DynamicGetPartsIn, {})
+	module.Register(first, "Dynamic")
+	first.Destroying:Fire()
+	first.Destroying:Flush()
+	expect(module.DynamicGetPartsIn, {})
+	module.Unregister(first)
+	connections(retained)
+	second.Shape = Enum.PartType.Ball
+	assert(not pcall(module.Refresh, second))
+	expect(module.StaticGetPartsIn, {})
+	connections(0)
+
+	second.Shape = Enum.PartType.Block
+	module.Register(first, "Dynamic")
+	module.Register(second, "Static")
+	queryError = true
+	assert(not pcall(module.DynamicGetPartsIn, cframe(0), Vector3.new(10, 10, 10)))
+	queryError = false
+	expect(module.DynamicGetPartsIn, {first})
+	second:GetPropertyChangedSignal("CFrame"):Fire()
+	workspace.DescendantRemoving:Fire(first)
+	module.Clear()
+	module.Clear()
+	second:GetPropertyChangedSignal("CFrame"):Flush()
+	workspace.DescendantRemoving:Flush()
+	connections(0)
+	expect(module.StaticGetPartsIn, {})
+	expect(module.DynamicGetPartsIn, {})
+	module.Register(first, "Dynamic")
+	expect(module.DynamicGetPartsIn, {first})
+	module.Clear()
+	connections(0)
 	print("C01 pass")
 end

@@ -24,7 +24,7 @@ environments with equivalent results or accepted error bounds.
 | Benchmarks/comparisons | [measurement.md](references/measurement.md), `rblx-test` |
 | Captures | `profile frames`, `profile luau`; [capture procedure](../rblx-test/references/captures.md) |
 | Engine decisions | [engine.md](../rblx-writer/references/engine.md) |
-| Requested delegation | [handoffs](../rblx-plan/references/delegation.md) |
+| Beneficial subagent task split | [handoffs](../rblx-plan/references/delegation.md) |
 
 Route edits through the implementation skill, then review. Changed instrumentation
 requires `check source --only correctness PATH...`.

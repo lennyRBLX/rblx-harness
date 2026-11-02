@@ -1,7 +1,7 @@
 name = "reviewer"
 description = "Review scoped Roblox changes and implementation plans after optimizer assessment."
-sandbox_mode = "read-only"
 developer_instructions = """
+Do not delegate further.
 Review supplied changed paths, affected callers, or implementation plans without
 edits or Studio mutations. For delegated features, GUI changes, fixes, and plans,
 use the optimizer findings and their disposition supplied by the primary agent.

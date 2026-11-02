@@ -92,7 +92,8 @@ command = "custom"
             self.assertEqual(skill.read_text(), "custom instructions\n")
             self.assertEqual(config.read_text(), 'tool_output_token_limit = 9000\n')
             self.assertTrue(gatelib.required_codex_agents_status(str(self.root))[0])
-            self.assertFalse((self.root / ".codex/hooks.json").exists())
+            hooks = json.loads((self.root / ".codex/hooks.json").read_text())["hooks"]
+            self.assertEqual(set(hooks), {"SubagentStop", "SessionEnd"})
 
     def test_command_policy_retirement_preserves_custom_hooks_and_metadata(self):
         custom = {"matcher": "Bash", "hooks": [{"type": "command", "command": "echo custom"}]}
@@ -100,8 +101,10 @@ command = "custom"
         path = self.write(".codex/hooks.json", json.dumps({"description": "user", "hooks": {"PreToolUse": [retired, custom]}}))
         for _ in range(2):
             setup.copy_codex_support(str(self.root))
-            self.assertEqual(json.loads(path.read_text()),
-                             {"description": "user", "hooks": {"PreToolUse": [custom]}})
+            document = json.loads(path.read_text())
+            self.assertEqual(document["description"], "user")
+            self.assertEqual(document["hooks"].pop("PreToolUse"), [custom])
+            self.assertEqual(set(document["hooks"]), {"SubagentStop", "SessionEnd"})
 
     def test_moved_policy_removes_only_exact_generated_entry(self):
         previous = setup.command_policy_entry("/previous folder/openai/hooks/command_policy.py")
@@ -112,16 +115,15 @@ command = "custom"
         entries = json.loads((self.root / ".codex/hooks.json").read_text())["hooks"]["PreToolUse"]
         self.assertEqual(entries, [custom])
 
-    def test_retired_policy_removes_empty_file_but_preserves_user_metadata(self):
+    def test_retired_policy_replacement_preserves_user_metadata(self):
         retired = setup.command_policy_entry("/old/openai/hooks/command_policy.py")
         for metadata in ({}, {"description": "user"}):
             path = self.write(".codex/hooks.json", json.dumps(dict(metadata, hooks={"PreToolUse": [retired]})))
             for _ in range(2):
                 setup.copy_codex_support(str(self.root))
-                if metadata:
-                    self.assertEqual(json.loads(path.read_text()), dict(metadata, hooks={}))
-                else:
-                    self.assertFalse(path.exists())
+                document = json.loads(path.read_text())
+                self.assertEqual(set(document.pop("hooks")), {"SubagentStop", "SessionEnd"})
+                self.assertEqual(document, metadata)
 
 
 class HookMigrationTest(Fixture):

@@ -15,5 +15,6 @@ Missing, partial or corrupt results cannot pass; decode before display limits.
 | Task | Load |
 |---|---|
 | Prepare/run tests; readiness, metrics, collection, cleanup | [procedure.md](references/procedure.md) |
+| Active-session iteration; deciding whether Play/Stop is needed | [hot-reload.md](references/hot-reload.md) |
 | MicroProfiler capture or frame-time claim | [captures.md](references/captures.md) |
 | Output source or collectors | [buffer.md](references/buffer.md) |

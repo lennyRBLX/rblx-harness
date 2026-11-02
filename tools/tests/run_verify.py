@@ -19,7 +19,7 @@ DEPENDENCY = os.path.join(ROOT, "shared", "skills", "rblx-new-game", "scripts", 
 PROJECT_GATE = os.path.join(ROOT, "tools", "project_gate", "project_gate.py")
 PERMISSIONS = os.path.join(ROOT, "openai", "setup", "permissions_harness.py")
 CLAUDE_PERMISSIONS = os.path.join(ROOT, "anthropic", "setup", "permissions_harness.py")
-CLAUDE_AGENT_FILES = ["debugger.md", "optimizer.md", "researcher.md", "reviewer.md"]
+CLAUDE_AGENT_FILES = ["debugger.md", "implementer.md", "optimizer.md", "researcher.md", "reviewer.md"]
 SUBMODULE_NAME = "rblx-harness"
 SUBMODULE_URL = "https://github.com/lennyRBLX/rblx-harness.git"
 
@@ -63,11 +63,14 @@ def harness_fixture(directory):
         "shared/test_support",
         "tools/api_dump",
         "tools/context_pack.py",
+        "tools/coord.py",
         "tools/harness.py",
         "tools/session_audit.py",
         "tools/studio_output.py",
         "tools/test_buffer.py",
         "tools/studio_rpc.py",
+        "tools/studio_source.py",
+        "tools/hot_reload",
         "tools/studio_mcp_launcher.py",
         "tools/create_boilerplate",
         "tools/data_write",
@@ -152,7 +155,7 @@ def case(name):
 CASES = []
 
 
-@case("repository surface is seven skills and four agents for Codex and Claude Code")
+@case("repository surface is seven skills and five agents for Codex and Claude Code")
 def _():
     skills = sorted(
         name for name in os.listdir(os.path.join(ROOT, "shared", "skills"))
@@ -164,7 +167,7 @@ def _():
         for name in os.listdir(os.path.join(ROOT, "openai", "agents"))
         if name.endswith(".toml")
     )
-    require(agents == ["debugger", "optimizer", "researcher", "reviewer"], agents)
+    require(agents == ["debugger", "implementer", "optimizer", "researcher", "reviewer"], agents)
     claude_agents = sorted(name for name in os.listdir(os.path.join(ROOT, "anthropic", "agents")) if name.endswith(".md"))
     require(claude_agents == CLAUDE_AGENT_FILES, claude_agents)
     require(os.path.isfile(os.path.join(ROOT, "anthropic", "config", "settings.json")), "Claude settings are absent")
@@ -193,15 +196,16 @@ def _():
         require("setup-harness|READY|hosts=codex,claude|" in result.stdout, result.stdout)
         require(os.path.isfile(os.path.join(root, ".codex", "config.toml")), "Codex config is absent")
         require(sorted(os.listdir(os.path.join(root, ".codex", "agents"))) == [
-            "debugger.toml", "optimizer.toml", "researcher.toml", "reviewer.toml",
+            "debugger.toml", "implementer.toml", "optimizer.toml", "researcher.toml", "reviewer.toml",
         ], "Codex agent set")
-        require(not os.path.exists(os.path.join(root, ".codex", "hooks.json")), "setup installed Codex hooks")
+        hooks = json.load(open(os.path.join(root, ".codex", "hooks.json"), encoding="utf-8"))["hooks"]
+        require(set(hooks) == {"SubagentStop", "SessionEnd"}, "Codex cleanup events")
         require(not os.path.exists(os.path.join(root, ".claude", "rules")), "Claude rules folder")
         settings = json.load(open(os.path.join(root, ".claude", "settings.json"), encoding="utf-8"))
-        require("hooks" not in settings, "setup installed Claude hooks")
+        require(set(settings["hooks"]) == {"SubagentStop", "SessionEnd"}, "Claude cleanup events")
         require(settings["env"]["MAX_MCP_OUTPUT_TOKENS"] == "6000", settings)
         require(settings["permissions"]["allow"] == [
-            "Agent(researcher)", "Agent(debugger)", "Agent(optimizer)", "Agent(reviewer)",
+            "Agent(researcher)", "Agent(debugger)", "Agent(optimizer)", "Agent(reviewer)", "Agent(implementer)",
         ], settings)
         require(sorted(os.listdir(os.path.join(root, ".claude", "agents"))) == CLAUDE_AGENT_FILES, "Claude agent set")
         for skill in ("rblx-debug", "rblx-gui", "rblx-new-game", "rblx-optimize", "rblx-plan", "rblx-test", "rblx-writer"):
@@ -278,7 +282,7 @@ def _():
     require(parsed["custom"]["value"] == 7, merged)
     require(parsed["env"] == {"MAX_MCP_OUTPUT_TOKENS": "9000", "BASH_MAX_OUTPUT_LENGTH": "24000"}, merged)
     require(parsed["permissions"]["allow"] == [
-        "Agent(researcher)", "Agent(debugger)", "Agent(optimizer)", "Agent(reviewer)",
+        "Agent(researcher)", "Agent(debugger)", "Agent(optimizer)", "Agent(reviewer)", "Agent(implementer)",
     ], merged)
     repeated = gatelib.merge_project_claude_settings(merged, canonical)
     require(repeated == merged, "Claude settings merge is not byte-stable")
@@ -486,7 +490,7 @@ def _():
         require("git submodule update --init --recursive" in readme, readme)
         require("python3 rblx-harness/setup_project.py --project . --from-state" in readme, readme)
         require(len(readme.splitlines()) <= 10, "generated README is not minimal")
-        require(sorted(os.path.splitext(name)[0] for name in os.listdir(os.path.join(root, ".codex", "agents"))) == ["debugger", "optimizer", "researcher", "reviewer"], "agent set")
+        require(sorted(os.path.splitext(name)[0] for name in os.listdir(os.path.join(root, ".codex", "agents"))) == ["debugger", "implementer", "optimizer", "researcher", "reviewer"], "agent set")
         require(sorted(os.listdir(os.path.join(root, ".claude", "agents"))) == CLAUDE_AGENT_FILES, "Claude agent set")
         require(not os.path.exists(os.path.join(root, ".claude", "rules")), "Claude rules folder")
         for skill in ("rblx-writer", "rblx-gui", "rblx-debug", "rblx-optimize", "rblx-plan", "rblx-test"):
@@ -622,6 +626,12 @@ def _():
     require(result.returncode == 0, result.stdout + result.stderr)
 
 
+@case("local ATC overlap, concurrent scope leases and lifecycle cleanup")
+def _():
+    result = run([PY, os.path.join(ROOT, "tools", "tests", "test_coord.py")])
+    require(result.returncode == 0, result.stdout + result.stderr)
+
+
 @case("native Claude Code settings, agents, hook migration, and permission profile")
 def _():
     result = run([PY, os.path.join(ROOT, "tools", "tests", "test_native_claude.py")])
@@ -640,9 +650,15 @@ def _():
     require(result.returncode == 0, result.stdout + result.stderr)
 
 
-@case("Collisions package assignment and tracking lifecycle")
+@case("Collisions package registry ownership and lifecycle")
 def _():
     result = run([PY, os.path.join(ROOT, "tools", "tests", "test_collision_package.py")])
+    require(result.returncode == 0, result.stdout + result.stderr)
+
+
+@case("hot reload and source persistence refuse stale state and preserve callers")
+def _():
+    result = run([PY, os.path.join(ROOT, "tools", "tests", "test_hot_reload.py")])
     require(result.returncode == 0, result.stdout + result.stderr)
 
 

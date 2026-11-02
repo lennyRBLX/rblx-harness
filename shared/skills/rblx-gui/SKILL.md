@@ -19,6 +19,6 @@ modules and `rblx-writer` for non-GUI logic.
 | Unicode slicing | [luau.md](../rblx-writer/references/luau.md) |
 | Unresolved appearance/input | [visual-tests.md](references/visual-tests.md) |
 | Prior research scope | [coverage.md](references/coverage.md) |
-| Requested delegation | [handoffs](../rblx-plan/references/delegation.md) |
+| Beneficial subagent task split | [handoffs](../rblx-plan/references/delegation.md) |
 
 Inspect simple text/spacing edits directly. Logs cannot prove visual acceptance.

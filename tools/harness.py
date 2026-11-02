@@ -39,11 +39,22 @@ Correctness includes profile/parallel pairing and literal codec advisories;
 replication includes unreliable remotes. Performance includes representation
 candidates; findings are advisory, not measured gains. Style accepts const bindings.""",
     "inspect": """inspect read --file PATH[:FIRST:LAST] [--file PATH ...]
-inspect diff --path PATH [--path PATH ...] [--base REF]
+inspect diff --path PATH [--path PATH ...] [--base REF] [--overlap]
 Both accept --max-chars N, --since PACK, and --no-cache. Full evidence is saved
 outside the repository unless --no-cache is selected. Truncation is reported.
+--overlap tests local worktrees using temporary indexes/objects; conflict or
+unknown coverage exits 2. Clean textual merges do not prove compatible behavior.
 inspect session --project NAME --output REPORT_STEM
 Session audit reads local rollouts; visible payload estimates are not billing.""",
+    "coord": """coord begin --owner ID --path PATH [--path PATH ...] [--parent ID] [--pid PID]
+coord check [--path PATH ...] [--owner ID --lease N] [--overlap] [--base REF]
+coord end --owner ID --lease N
+Owner defaults to CODEX_THREAD_ID or CLAUDE_CODE_SESSION_ID. Begin atomically
+reserves scopes in this worktree; check validates/renews a token or lists owners.
+State is shared through Git's common directory. Expiry means unknown, never free.
+--pid binds a known long-lived owner process for crash recovery. Cleanup hooks
+release completed agents/sessions. Leases coordinate cooperating writers; they
+do not sandbox tools. --ttl SECONDS sets begin expiry (30..3600; default 300).""",
     "profile": """profile capture baseline|collect --help
 profile results LOG --side SIDE --script NAME --run ID [--compare BASE CANDIDATE]
 profile frames CAPTURE_STEM [--downloads DIR]
@@ -56,7 +67,12 @@ studio output --studio-id ID --side SIDE --script NAME --run ID [--wait SECONDS]
 studio output --studio-id ID [--since SNAPSHOT] [--contains TEXT]
 studio output --input LOG [--since SNAPSHOT] [--contains TEXT]
 studio boot [--project FILE] [--console-log FILE] [--play-seconds N]
+studio reload bootstrap|patch|undo|status|poll --side Server|Client --session ID --output FILE
+studio source snapshot|persist --side Edit|Server|Client --path-file JSON --output FILE
 studio map | census | clean [--delete]
+Reload/source generate commands offline; execute through the selected Studio
+connector under existing authorization. Persist requires stopped Edit. Use the
+backend --help for source snapshots, revisions and audited patch inputs.
 Output reads logs. Boot starts/stops Play unless a saved log is supplied. Map
 writes place mappings; census inspects instances. Clean only scans unless --delete
 is supplied. Use the selected environment and existing execution authorization.
@@ -80,6 +96,9 @@ ROUTES = {
     ("inspect", "read"): ("tools/context_pack.py", "--root"),
     ("inspect", "diff"): ("tools/context_pack.py", "--root"),
     ("inspect", "session"): ("tools/session_audit.py", None),
+    ("coord", "begin"): ("tools/coord.py", "--root"),
+    ("coord", "check"): ("tools/coord.py", "--root"),
+    ("coord", "end"): ("tools/coord.py", "--root"),
     ("profile", "capture"): ("tools/frame_census/capture.py", None),
     ("profile", "frames"): ("tools/frame_census/frame_census.py", "--root"),
     ("profile", "luau"): ("tools/luau_hotspot/luau_hotspot.py", None),
@@ -87,6 +106,8 @@ ROUTES = {
     ("profile", "results"): ("tools/test_buffer.py", None),
     ("studio", "output"): ("tools/studio_output.py", None),
     ("studio", "boot"): ("tools/boot_smoke/boot_smoke.py", "--root"),
+    ("studio", "reload"): ("tools/hot_reload/hot_reload.py", None),
+    ("studio", "source"): ("tools/studio_source.py", None),
     ("studio", "map"): ("tools/place_map/place_map.py", "--root"),
     ("studio", "census"): ("tools/map_census/map_census.py", "--root"),
     ("studio", "clean"): ("tools/rig_clean/rig_clean.py", "--root"),
@@ -106,6 +127,8 @@ def command_for(family, action, args, root):
     """Resolve a fixed backend, preserving argv elements and input boundaries."""
     relative, root_flag = ROUTES[(family, action)]
     forwarded = list(args)
+    if family == "coord":
+        forwarded.insert(0, action)
     if family == "inspect" and action in ("read", "diff"):
         # context_pack has global flags before its subparser.
         options, remaining = [], []
@@ -186,7 +209,8 @@ def main(argv=None):
         parser.print_help()
         return 0
     args = options.arguments
-    if not args or args == ["--help"] or args[-1:] == ["--help"]:
+    backend_help = options.family == "studio" and args[:1] in (["reload"], ["source"])
+    if not args or args == ["--help"] or (args[-1:] == ["--help"] and not backend_help):
         print(HELP[options.family])
         return 0
     family = options.family

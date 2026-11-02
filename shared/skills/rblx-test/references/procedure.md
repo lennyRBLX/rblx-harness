@@ -8,8 +8,11 @@ source during comparisons; preserve prior revisions after repairs.
 - Keep drivers under `tests/<Place>/<side>/`, Argon-mapped to
   ServerScriptService.Tests or StarterPlayerScripts.Tests. Mount
   `shared/test_support` beside each authored side; the test owns fixtures.
-- Prepare source/invocation in stopped Edit. Use Studio MCP Play/Stop and
-  `studio output`; no Computer Use/screenshots for this procedure.
+- Prepare persistent Studio source and new test drivers/invocation in stopped
+  Edit. Before restarting an authorized active session for supported iteration,
+  use [hot reload](hot-reload.md). Its temporary bridge/candidates may run during
+  Play; permanent gameplay source writes wait for Edit. Use Studio MCP Play/Stop
+  and `studio output`; no Computer Use/screenshots for this procedure.
 - Save run ID, source hashes, build, caller, Workspace/Studio settings, focus,
   seed and options once in run artifacts; mark unknowns.
 - Present outstanding human settings/actions together. Wait for confirmed readiness

@@ -190,7 +190,7 @@
       "limit_type": "engine",
       "context": "Source authoring and editor APIs",
       "fact": "ScriptEditorService is restricted to Studio plugins and Command Bar. Source properties can require PluginOrOpenCloud capabilities even when read/write Security is None.",
-      "action": "Query access for the exact class/member and caller. For GetService, distinguish pcall success from a non-nil service; record method access only when attempted. Author all source in stopped Edit under the project rule. Do not use editor APIs as a runtime source-edit route.",
+      "action": "Query access for the exact class/member and caller. For GetService, distinguish pcall success from a non-nil service; record method access only when attempted. Keep persistent Studio authoring in stopped Edit. Authorized hot reload may stage audited temporary bridge/candidate source through a supported Studio connector; game code still cannot use editor APIs. Follow rblx-test's hot-reload reference and verify the existing consumer on each affected side.",
       "sources": [
         {
           "path": "reference/engine/classes/ScriptEditorService.yaml",

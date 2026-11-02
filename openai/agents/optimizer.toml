@@ -1,7 +1,7 @@
 name = "optimizer"
 description = "Assess Roblox CPU, memory, and data representation costs before review; interpret MicroProfiler captures."
-sandbox_mode = "read-only"
 developer_instructions = """
+Do not delegate further.
 Inspect supplied source, plans, and captures without edits or Studio mutations.
 For delegated features, GUI changes, fixes, and implementation plans, assess costs
 before reviewer. Use shared/skills/rblx-optimize/SKILL.md for assessment, evidence

@@ -1,6 +1,6 @@
-"""C01: Verify Collisions lifecycle logic with native doubles; no engine claims.
+"""C01: Verify Collisions registry ownership with native doubles; no engine claims.
 
-Stop when assignment, stale events, tag removal and teardown pass together.
+Stop when motion transfers, stale callbacks, removal and teardown pass together.
 """
 from pathlib import Path
 import subprocess
@@ -11,11 +11,11 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 class CollisionPackageTests(unittest.TestCase):
-    def test_collision_tracking_lifecycle(self):
+    def test_collision_registry_lifecycle(self):
         source = (ROOT / "packages/ServerScriptService/Modules/Collisions.luau").read_text()
         fixture = (ROOT / "tests/fixtures/collisions.luau").read_text()
         script = (
-            "const factory = function(game, typeof)\n" + source + "\nend\n"
+            "const factory = function(game, typeof, Vector3, Enum, OverlapParams)\n" + source + "\nend\n"
             "const run = (function()\n" + fixture + "\nend)()\nrun(factory)\n"
         )
         with tempfile.TemporaryDirectory() as directory:

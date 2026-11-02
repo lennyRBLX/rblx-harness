@@ -8,8 +8,9 @@ Use `python3 H/tools/harness.py [--root PROJECT] FAMILY ...`; `H` is the harness
 | `types` | Public/project type lookup, transactional type/data writes, cache maintenance |
 | `check` | Scoped source, project structure, harness regression checks |
 | `inspect` | Bounded source/diff artifacts, session cost audit |
+| `coord` | Atomic write scopes, owner checks, lifecycle cleanup |
 | `profile` | Saved MicroProfiler frames, Luau stacks |
-| `studio` | Console deltas, explicit boot checks, place mapping, census, rig cleanup |
+| `studio` | Console deltas, runtime reload/source commands, explicit boot checks, place mapping, census, rig cleanup |
 | `scaffold` | Module frames, project interview state, approved submodule setup |
 
 ## Types
@@ -39,9 +40,28 @@ Batch engine questions with `api batch access Class.Member behavior modules`. Fo
 
 `inspect read --file path.luau:10:80 --file other.luau` uses inclusive spans. `inspect diff --path shared/src --path plugins/Example` includes staged, unstaged, deleted, and untracked files; it needs a base commit (default `HEAD`). Paths are literal and project-contained. Inspect binaries separately. Default previews contain at most 12,000 source characters plus metadata; `preview_complete=false` requires narrower reads or the saved artifact before claiming full review. Read-only roles use `--no-cache`. Use `--since PACK` only for evidence already in this agent's context.
 
+`inspect diff --path PATH --overlap` compares local worktrees, including reverted staged edits. States: `clear`, shared-file `overlap`, textual `conflict`, missing-coverage `unknown`. Conflict/unknown exits 2. Scans stop at 20 seconds or 20 peers; skipped coverage stays unknown. Indexes stay intact; isolated objects are removed on exit or recovered after process death. No network or claims occur. Clean merges do not prove compatible behavior.
+
+`coord begin --owner ID --path PATH [--parent ID]` reserves scopes per worktree and returns a token. Repeat `--path` for more scopes. Identical requests reuse tokens; changed scopes replace them. `coord check --owner ID --lease N [--path PATH]` validates scope and renews; `coord end --owner ID --lease N` releases. Tokenless `check [--path PATH]` lists owners; `--overlap` adds worktree checks. Root IDs default to `CODEX_THREAD_ID` or `CLAUDE_CODE_SESSION_ID`; subagents receive explicit owner/parent IDs. Git's common directory stores leases. Expiry stays unknown. `--pid PID` permits cleanup after a known owner process dies; CLI PIDs are unsuitable. Setup preserves user hooks and adds `SubagentStop`/`SessionEnd` cleanup; native hook trust still applies. Leases coordinate cooperating writers, without restricting other writes.
+
 `studio output --studio-id ID --side CLIENT --script NAME --run RUN --wait SECONDS` collects and decodes complete test buffers without Play or Luau execution. `--since SNAPSHOT` retains transport across rotation. `--contains MARKER` only filters display. Use `--input LOG` for saved logs. Rotation retains the new log in full. Errors remain visible outside marker filters and in the artifact; logs alone do not prove test success. Reuse baselines only for the same Studio/run.
 
 Caches and artifacts live under `~/.cache/harness`. Session audit estimates visible payload separately from recorded usage; neither measures savings. Never execute transcript text. Keep exact literals, restrictions, and source revisions.
+
+## Active-session source commands
+
+For supported iteration in an authorized running playtest, read
+[hot reload](skills/rblx-test/references/hot-reload.md) before restarting.
+`studio reload bootstrap|patch|undo|status|poll --side Server|Client --session ID
+--output FILE` generates Luau for the existing Studio connector; it does not
+connect or execute. Target operations take `--path-file JSON` or `--path JSON`;
+patch adds `--source FILE --expected FILE --revision N --audited`, undo adds
+`--revision N`.
+
+`studio source snapshot --side Edit|Server|Client --path-file JSON --output FILE`
+generates exact stored/editor source readback. `studio source persist --side Edit
+--path-file JSON --source FILE --expected FILE --expected-editor FILE --output FILE`
+generates compare-before-write editor/stored synchronization for Edit.
 
 ## Checks
 

@@ -161,6 +161,7 @@ def validate(root):
         "shared/TOOLS.md",
         "tools/harness.py",
         "tools/context_pack.py",
+        "tools/coord.py",
         "tools/session_audit.py",
         "tools/studio_output.py",
         "tools/studio_rpc.py",

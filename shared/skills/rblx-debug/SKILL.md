@@ -15,5 +15,7 @@ Follow project `AGENTS.md`; if Roblox rules are absent, read [CORE.md](../../COR
 
 Load [engine.md](../rblx-writer/references/engine.md) for engine decisions,
 [probes.md](references/probes.md) for unresolved runtime questions, and `rblx-test`
-for diagnostics or acceptance tests. Obtain probe results before dependent work.
-For requested delegation, use [handoffs](../rblx-plan/references/delegation.md).
+for diagnostics or acceptance tests. For supported iteration in an authorized
+active playtest, load [hot reload](../rblx-test/references/hot-reload.md) before
+stopping/restarting. Obtain probe results before dependent work.
+For task splits that benefit from subagents, use [handoffs](../rblx-plan/references/delegation.md).
