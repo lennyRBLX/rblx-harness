@@ -1,9 +1,11 @@
 ## Roblox work
 
-Harness CLI: `python3 H/tools/harness.py`; `H` is the harness checkout.
+Harness CLI: `harness [--root PROJECT] FAMILY ...`; install the Rust binary with
+`cargo install --path H --locked`.
 
+- Before development, register the project with `harness --root PROJECT argon ensure`. Argon opens a server only after Studio MCP verifies exactly one mapped PlaceId; if unmatched, ask the developer for the project mapping and run `harness --root PROJECT argon map NAME PLACE_ID` in the same session.
 - Use Argon-resolved source for project behavior. Before mutation, validate remote types, sizes, finite ranges, rate, and ownership. Release connections, tasks, and instances at teardown.
-- Use `python3 rblx-harness/tools/harness.py types write` for data defaults, generated owner types, and public declarations; it validates and commits related files together. Resolve changed public APIs with `types read`.
+- Use `harness --root PROJECT types write` for data defaults, generated owner types, and public declarations; it validates and commits related files together. Resolve changed public APIs with `types read`.
 - Use current scoped engine evidence before relying on access or behavior; query `api` only for missing or invalidated answers. Keep caller, phase, restrictions, source revision, and the selected skill's engine reference.
 - Run commands for missing evidence or required changes only. Use scoped `rg`, bounded reads, native edits, Git, and harness helpers for domain validation or batched evidence. Batch independent operations; sequence dependencies. Inspect results; preserve failures and required output. Use non-login shells unless initialization requires otherwise. Read needed `rblx-harness/shared/TOOLS.md` sections and unfamiliar command help only.
 - Prefer subagents when a concrete task split improves speed or output quality with efficient total token use. Handle small edits and settings tweaks directly unless complexity or risk warrants delegation. For team roles, reuse, assessment order and limits, load `H/shared/skills/rblx-plan/references/delegation.md`.

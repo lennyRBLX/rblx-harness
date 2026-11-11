@@ -14,7 +14,7 @@ dependencies, authority, lifecycle, and acceptance evidence; distinguish proposa
 from implemented behavior.
 Check remote arguments, ownership, replication, data/type consistency, lifecycle,
 and concrete performance risks. Use native Git and source tools; resolve the
-harness root for tools/harness.py inspect when bounded artifacts help.
+ harness root for `harness inspect` when bounded artifacts help.
 For engine decisions, read shared/skills/rblx-writer/references/engine.md.
 Return actionable findings with path:line, impact, evidence, and a correction.
 If none remain, say so. Reuse valid checks; name the uncovered risk before

@@ -1,17 +1,26 @@
 # Harness commands
 
-Use `python3 H/tools/harness.py [--root PROJECT] FAMILY ...`; `H` is the harness checkout. Put `--root` before the family. `FAMILY --help` loads that family's usage. Native search, scoped reads, edits, and Git remain available.
+Install the Rust binary with `cargo install --path H --locked`, then use `harness [--root PROJECT] FAMILY ...`. Put `--root` before the family. Family and subcommand help is available with `--help`. Native search, scoped reads, edits, and Git remain available.
+
+Both `setup --harness` and `setup --project` install the pinned Lute 1.0.0,
+Argon 2.0.29, and Luau LSP 1.70.1 binaries into the harness checkout's
+`tools/bin`. Archives come from their upstream GitHub releases and are
+SHA-256-verified before extraction. Downloads need network access; supported
+automatic targets are macOS arm64, Linux arm64/x86_64, and Windows x86_64.
 
 | Family | Operations |
 |---|---|
 | `api` | Batched engine access, inventory, behavior, Creator Docs lookup |
 | `types` | Public/project type lookup, transactional type/data writes, cache maintenance |
+| `data-write` | Direct validated paired PlayerData writes; `types write` is preferred |
 | `check` | Scoped source, project structure, harness regression checks |
 | `inspect` | Bounded source/diff artifacts, session cost audit |
 | `coord` | Atomic write scopes, owner checks, lifecycle cleanup |
 | `profile` | Saved MicroProfiler frames, Luau stacks |
 | `studio` | Console deltas, runtime reload/source commands, explicit boot checks, place mapping, census, rig cleanup |
+| `argon` | Automatic Argon serving, status, shutdown, verified project → PlaceId mapping |
 | `scaffold` | Module frames, project interview state, approved submodule setup |
+| `setup` | Host integration, permissions, hook migration |
 
 ## Types
 
@@ -32,7 +41,7 @@ Use `types write --request-file request.json` or `types write --request -` with 
 
 Type scopes: `public`, `service`, `controller`. Actions: `create`, `update`, `move`, `delete`; pass `owner` and `type_name`. Create/update need one declaration. Public declarations are exported; service/controller declarations are local. Optional `place` selects a place; `module` selects an owner's child module. Move needs `from` with source scope/owner/module/place. `--parent` forces type destinations into an owned project directory.
 
-Data operations use `scope: data`, `owner`, `field_path`, and create/update/delete. Create/update need separate Luau literals in `default_value` and `development_value`; delete needs neither. Generated data cannot use `--parent`. The writer validates the batch, journals prior files, and restores them on failure. `data_write.py` is the paired-data backend, not the preferred agent entry point. `types cache recover` may restore journaled files.
+Data operations use `scope: data`, `owner`, `field_path`, and create/update/delete. Create/update need separate Luau literals in `default_value` and `development_value`; delete needs neither. Generated data cannot use `--parent`. The writer validates the batch, journals prior files, and restores them on failure. `harness data-write` retains the direct paired-data interface; use `types write` for journaled batch transactions and recovery.
 
 ## Evidence
 
@@ -62,6 +71,25 @@ patch adds `--source FILE --expected FILE --revision N --audited`, undo adds
 generates exact stored/editor source readback. `studio source persist --side Edit
 --path-file JSON --source FILE --expected FILE --expected-editor FILE --output FILE`
 generates compare-before-write editor/stored synchronization for Edit.
+
+## Argon
+
+`argon ensure [--project NAME --port PORT]` registers the root and starts one
+user-level watcher. Setup also starts it. `argon status` reports MCP, PlaceId,
+server, connection, and port state; `argon stop` closes its servers. On a
+developer-confirmed mapping, use `argon map NAME PLACE_ID`; it requires Studio
+MCP and checks the ID against the open universe before updating the managed
+`AGENTS.md` places block. The watcher retries without restarting the agent.
+
+Only Edit-mode places with one matching project map are served. MCP loss, place
+changes, and ambiguous/unmapped places stop or block syncing. Argon owns both
+sync directions and reconnects through its existing Studio plugin; configure
+that plugin on the port reported by `argon status`. The harness never installs
+the plugin. Host is `localhost`; ports start at 8000 and remain unique per
+canonical project path in `~/.argon/harness/ports.json`, outside temporary caches.
+Only the CLI is updated on supervisor startup and every 24 hours with `argon update cli`; default
+verbosity is normal and notifications are off. The existing Argon global config
+file remains untouched.
 
 ## Checks
 
