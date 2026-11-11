@@ -281,3 +281,101 @@ fn hot_reload_and_source_persistence_refuse_stale_state_and_preserve_callers() {
         assert_eq!(fs::read(&output).unwrap(), original);
     }
 }
+
+#[test]
+fn studio_rpc_targets_each_call_without_global_activation() {
+    use rblx_harness::studio::StudioRpc;
+    use serde_json::{json, Value};
+    let tmp = tempfile::tempdir().unwrap();
+    let script = tmp.path().join("mcp.py");
+    let log = tmp.path().join("calls.jsonl");
+    fs::write(&script, r#"import json, sys
+scenario, log = sys.argv[1:]
+reads = 0
+for line in sys.stdin:
+    req = json.loads(line)
+    if 'id' not in req: continue
+    result = {}
+    if req['method'] == 'tools/call':
+        p = req['params']; name = p['name']; a = p['arguments']
+        with open(log, 'a') as f: f.write(json.dumps(p) + '\n')
+        text = ''
+        if name == 'list_roblox_studios':
+            ids = ['other', 'target'] if scenario != 'ambiguous' else ['target', 'duplicate']
+            text = json.dumps([{'id': i, 'name': i, 'mode': 'Edit'} for i in ids])
+        elif name == 'execute_luau' and a.get('studio_id') in ['other', 'target', 'duplicate']:
+            sid = a['studio_id']; code = a['code']
+            if 'JSONEncode' in code:
+                text = json.dumps({'place_id': 123, 'universe_id': 456, 'name': sid})
+            elif code == 'return game.PlaceId':
+                if sid == 'target': reads += 1
+                text = str(999 if sid == 'other' or scenario == 'wrong' or (scenario == 'changed' and reads > 1) else 123)
+            else: text = '<<RIGS 0\n\nRIGS>>'
+        else:
+            print(json.dumps({'id': req['id'], 'error': {'message': 'unsupported or untargeted tool: ' + name}}), flush=True)
+            continue
+        result = {'content': [{'type': 'text', 'text': text}]}
+    print(json.dumps({'id': req['id'], 'result': result}), flush=True)
+"#).unwrap();
+    let command = |scenario: &str| {
+        format!(
+            "/usr/bin/python3 '{}' '{}' '{}'",
+            script.display(),
+            scenario,
+            log.display()
+        )
+    };
+    let mut rpc = StudioRpc::new(Some(&command("identity")), 2).unwrap();
+    assert_eq!(rpc.list_studios().unwrap().len(), 2);
+    assert_eq!(
+        rpc.read_place_identity("target").unwrap(),
+        json!({"place_id":123,"universe_id":456,"name":"target"})
+    );
+    drop(rpc);
+    fs::write(tmp.path().join("AGENTS.md"), "<!-- BEGIN rblx-harness project guidance -->\n## places\n\nmain|123\n<!-- END rblx-harness project guidance -->\n").unwrap();
+    for (scenario, expected) in [
+        ("selected", None),
+        ("ambiguous", Some("ambiguous-studio")),
+        ("wrong", Some("wrong-place")),
+        ("changed", Some("wrong-place")),
+    ] {
+        let output = run(&[
+            "--root",
+            tmp.path().to_str().unwrap(),
+            "studio",
+            "clean",
+            "--mcp-cmd",
+            &command(scenario),
+        ]);
+        let text = String::from_utf8_lossy(&output.stdout);
+        if let Some(cause) = expected {
+            assert_eq!(output.status.code(), Some(3), "{scenario}: {text}");
+            assert!(text.contains(cause), "{scenario}: {text}");
+        } else {
+            assert!(
+                output.status.success(),
+                "{text}{}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+        }
+    }
+    let calls: Vec<Value> = fs::read_to_string(log)
+        .unwrap()
+        .lines()
+        .map(|l| serde_json::from_str(l).unwrap())
+        .collect();
+    assert!(calls.iter().all(|c| c["name"] != "set_active_studio"));
+    assert!(calls
+        .iter()
+        .filter(|c| c["name"] != "list_roblox_studios")
+        .all(|c| c["arguments"]["studio_id"].is_string()));
+    let execution = calls
+        .iter()
+        .find(|c| {
+            c["arguments"]["code"]
+                .as_str()
+                .is_some_and(|s| s.contains("<<RIGS"))
+        })
+        .expect("selected Studio executes scan");
+    assert_eq!(execution["arguments"]["studio_id"], "target");
+}

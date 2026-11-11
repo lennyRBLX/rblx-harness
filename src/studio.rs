@@ -416,7 +416,6 @@ impl StudioRpc {
         Ok(result)
     }
     pub fn read_place_identity(&mut self, id: &str) -> Result<Value> {
-        self.call("set_active_studio", json!({"studio_id":id}), Some(id))?;
         let code="local h = game:GetService(\"HttpService\") return h:JSONEncode({place_id = game.PlaceId, universe_id = game.GameId, name = game.Name})";
         let raw = self.call(
             "execute_luau",
@@ -450,7 +449,6 @@ impl StudioRpc {
         let mut seen = Vec::new();
         for s in studios {
             let id = s["id"].as_str().unwrap_or("").to_string();
-            self.call("set_active_studio", json!({"studio_id":id}), Some(&id))?;
             if let Ok(raw) = self.call(
                 "execute_luau",
                 json!({"code":"return game.PlaceId","datamodel_type":"Edit"}),
@@ -468,7 +466,6 @@ impl StudioRpc {
             bail!("ambiguous-studio: Close other Roblox Studio places, keep the project place open, then retry.")
         }
         if let Some((id, pid)) = found.pop() {
-            self.call("set_active_studio", json!({"studio_id":id}), Some(&id))?;
             let confirm = self.call(
                 "execute_luau",
                 json!({"code":"return game.PlaceId","datamodel_type":"Edit"}),
