@@ -8,7 +8,7 @@ symlink support, are required.
 Install the command from the repository root, then initialize this checkout:
 
 ```sh
-cargo install --path . --locked
+./tools/cargo-clean.sh install --path . --locked
 harness setup --harness
 ```
 
@@ -28,8 +28,18 @@ From a project root with this repository at `rblx-harness` and a `manifest.json`
 run:
 
 ```sh
-cargo install --path rblx-harness --locked
+rblx-harness/tools/cargo-clean.sh install --path . --locked
 harness setup --project . --from-state
 ```
 
 This installs the same Codex and Claude Code support in the project.
+
+## Build cleanup
+
+Use `./tools/cargo-clean.sh` instead of `cargo` for this checkout, for example
+`./tools/cargo-clean.sh build` or `./tools/cargo-clean.sh run -- check harness`.
+The wrapper runs from the repository root and automatically runs `cargo clean`
+after the command finishes, including failures. It respects `CARGO_TARGET_DIR`
+and `--target-dir`. Installed executables remain available; binaries and caches
+under the build directory are removed, so subsequent builds recompile.
+Direct `cargo` commands bypass this wrapper and do not automatically clean.

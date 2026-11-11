@@ -1,6 +1,6 @@
 # Harness commands
 
-Install the Rust binary with `cargo install --path H --locked`, then use `harness [--root PROJECT] FAMILY ...`. Put `--root` before the family. Family and subcommand help is available with `--help`. Native search, scoped reads, edits, and Git remain available.
+Install the Rust binary with `H/tools/cargo-clean.sh install --path . --locked`, then use `harness [--root PROJECT] FAMILY ...`. The wrapper runs from the harness root and cleans build artifacts afterward; use it for development Cargo commands too. Put `--root` before the family. Family and subcommand help is available with `--help`. Native search, scoped reads, edits, and Git remain available.
 
 Both `setup --harness` and `setup --project` install the pinned Lute 1.0.0,
 Argon 2.0.29, and Luau LSP 1.70.1 binaries into the harness checkout's

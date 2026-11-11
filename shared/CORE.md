@@ -1,7 +1,7 @@
 ## Roblox work
 
 Harness CLI: `harness [--root PROJECT] FAMILY ...`; install the Rust binary with
-`cargo install --path H --locked`.
+`H/tools/cargo-clean.sh install --path . --locked` (cleans build artifacts afterward).
 
 - Before development, register the project with `harness --root PROJECT argon ensure`. Argon opens a server only after Studio MCP verifies exactly one mapped PlaceId; if unmatched, ask the developer for the project mapping and run `harness --root PROJECT argon map NAME PLACE_ID` in the same session.
 - Use Argon-resolved source for project behavior. Before mutation, validate remote types, sizes, finite ranges, rate, and ownership. Release connections, tasks, and instances at teardown.

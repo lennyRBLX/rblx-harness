@@ -11,7 +11,11 @@ unrelated user configuration during setup.
 
 Apply command, check, and evidence rules from `shared/CORE.md`.
 
-List commands with `harness --help` (or `cargo run -- --help` during development).
-Run `cargo run -- check harness --case MATCH` for affected behavior; use the full
+Use `./tools/cargo-clean.sh` in place of `cargo` for builds, installs, runs, and
+checks; it runs `cargo clean` afterward, including on failure. Build artifacts
+are removed, so use `install` when a persistent executable is needed.
+
+List commands with `harness --help` (or `./tools/cargo-clean.sh run -- --help` during development).
+Run `./tools/cargo-clean.sh run -- check harness --case MATCH` for affected behavior; use the full
 suite for broad harness changes. Package source is a supplied asset; a harness
 configuration change does not require a Studio run.
