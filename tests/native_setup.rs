@@ -150,6 +150,32 @@ fn harness_setup_rebuilds_ignored_codex_and_claude_code_support_and_all_source_s
 }
 
 #[test]
+fn project_setup_installs_shared_rules_and_preserves_tool_reference() {
+    let dir = project();
+    let root = dir.path();
+    put(root, "AGENTS.md", "# Local instructions\n\nKeep this.\n");
+
+    setup(root);
+
+    let agents = read(root, "AGENTS.md");
+    for section in ["## Writing", "## Tools", "## Modules"] {
+        assert!(agents.contains(section), "missing {section}");
+    }
+    assert!(agents.ends_with("# Local instructions\n\nKeep this.\n"));
+    assert!(read(root, "CLAUDE.md").contains("@AGENTS.md"));
+
+    let tools = read(root, "TOOLS.md");
+    assert!(tools.contains("rblx-harness/TOOLS.md#conventions"));
+    let customized = format!("{tools}\n## Project tool\n");
+    put(root, "TOOLS.md", &customized);
+
+    setup(root);
+
+    assert_eq!(read(root, "AGENTS.md"), agents);
+    assert_eq!(read(root, "TOOLS.md"), customized);
+}
+
+#[test]
 fn codex_config_merge_preserves_custom_tables() {
     let dir = project();
     let root = dir.path();

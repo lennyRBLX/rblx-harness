@@ -32,7 +32,8 @@ rblx-harness/tools/cargo-clean.sh install --path . --locked
 harness setup --project . --from-state
 ```
 
-This installs the same Codex and Claude Code support in the project.
+Setup refreshes the shared rules in `AGENTS.md` and creates a project `TOOLS.md`
+if missing. Claude Code imports the same rules.
 
 ## Build cleanup
 

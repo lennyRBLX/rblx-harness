@@ -3,9 +3,10 @@
 Use [engine evidence](engine.md) for streaming, signals, replication, persistence,
 module caches and API thread safety.
 
-- Connect lifecycle/tag signals before enumeration. Handle existing
-  players/characters and removal during setup. Subscribe readiness waiters without
-  missing prior completion or immediate delivery.
+- Follow the [module startup rules](../../../CORE.md#modules) for players.
+  Connect other lifecycle and tag signals before enumeration. Handle removal
+  during setup and subscribe readiness waiters without missing prior completion
+  or immediate delivery.
 - Make repeatable attachment setup idempotent. For services and controllers started
   once by their startup owner, rely on that lifecycle contract. Add startup guards
   only when repeated startup is supported or can occur.
@@ -16,8 +17,7 @@ module caches and API thread safety.
   through closures or method references.
 - Define owner operations at module scope, including operations called only during
   startup. Keep short signal adapters inline in `Start()` and call owner methods
-  through the captured `self`. Connect adapters before invoking owner methods for
-  existing state.
+  through the captured `self`.
 - Call `task.spawn` directly when no task handle is needed. When passing a colon
   method, pass its receiver explicitly.
 - Use Signals for notifications. Use explicit `Add`/`Remove` APIs for registered

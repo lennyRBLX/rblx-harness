@@ -9,7 +9,9 @@ Use official Codex and Claude Code configuration and skill discovery. Keep proje
 instructions short and load task details through skill references. Preserve
 unrelated user configuration during setup.
 
-Apply command, check, and evidence rules from `shared/CORE.md`.
+Apply the shared [command, check, and evidence rules](shared/CORE.md),
+[Writing](shared/CORE.md#writing), [Tools](shared/CORE.md#tools), and
+[Modules](shared/CORE.md#modules) rules. See [TOOLS.md](TOOLS.md) for commands.
 
 Use `./tools/cargo-clean.sh` in place of `cargo` for builds, installs, runs, and
 checks; it runs `cargo clean` afterward, including on failure. Build artifacts

@@ -1,5 +1,7 @@
 # Harness commands
 
+Tool entries use the [shared conventions](../TOOLS.md#conventions).
+
 Install the Rust binary with `H/tools/cargo-clean.sh install --path . --locked`, then use `harness [--root PROJECT] FAMILY ...`. The wrapper runs from the harness root and cleans build artifacts afterward; use it for development Cargo commands too. Put `--root` before the family. Family and subcommand help is available with `--help`. Native search, scoped reads, edits, and Git remain available.
 
 Both `setup --harness` and `setup --project` install the pinned Lute 1.0.0,

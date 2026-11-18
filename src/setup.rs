@@ -4,6 +4,7 @@ use std::{
     collections::{BTreeMap, BTreeSet},
     ffi::OsString,
     fs,
+    io::{ErrorKind, Write},
     path::{Path, PathBuf},
     process::Command,
 };
@@ -748,7 +749,20 @@ fn render(project: &Path, manifest: &Value, places: &[String], assets: &[String]
         )
     };
     put(&path, &out)?;
-    Ok(())
+
+    let tools = project.join("TOOLS.md");
+    if fs::symlink_metadata(&tools).is_ok() {
+        return Ok(());
+    }
+    let mut starter = tempfile::NamedTempFile::new_in(project)?;
+    starter.write_all(include_bytes!("../shared/skills/rblx-new-game/TOOLS.md"))?;
+    match starter.persist_noclobber(&tools) {
+        Ok(_) => Ok(()),
+        Err(error) if error.error.kind() == ErrorKind::AlreadyExists => Ok(()),
+        Err(error) => {
+            Err(error.error).with_context(|| format!("cannot create {}", tools.display()))
+        }
+    }
 }
 fn ensure_toolchain(root: &Path) -> Result<()> {
     if std::env::var("RBLX_HARNESS_TESTING").as_deref() != Ok("1") {
