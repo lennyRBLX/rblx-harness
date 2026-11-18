@@ -158,6 +158,8 @@ fn project_setup_installs_shared_rules_and_preserves_tool_reference() {
     setup(root);
 
     let agents = read(root, "AGENTS.md");
+    let rule = "Do not edit `rblx-harness/` from this project. Propose all harness changes as prompts to run in the `rblx-harness/` project itself.";
+    assert!(agents.contains(rule));
     for section in ["## Writing", "## Tools", "## Modules"] {
         assert!(agents.contains(section), "missing {section}");
     }
@@ -169,10 +171,18 @@ fn project_setup_installs_shared_rules_and_preserves_tool_reference() {
     let customized = format!("{tools}\n## Project tool\n");
     put(root, "TOOLS.md", &customized);
 
+    let local_prefix = "# More local instructions\n\nKeep this too.\n\n";
+    let legacy_agents = agents.replace(&format!("{rule}\n\n"), "");
+    put(root, "AGENTS.md", &format!("{local_prefix}{legacy_agents}"));
+
     setup(root);
 
-    assert_eq!(read(root, "AGENTS.md"), agents);
+    let upgraded_agents = format!("{local_prefix}{agents}");
+    assert_eq!(read(root, "AGENTS.md"), upgraded_agents);
     assert_eq!(read(root, "TOOLS.md"), customized);
+
+    setup(root);
+    assert_eq!(read(root, "AGENTS.md"), upgraded_agents);
 }
 
 #[test]
