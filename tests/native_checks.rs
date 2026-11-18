@@ -41,7 +41,7 @@ fn names(dir: &Path, extension: Option<&str>) -> Vec<String> {
 }
 
 #[test]
-fn repository_surface_is_seven_skills_and_five_agents_for_codex_and_claude_code() {
+fn repository_surface_is_eight_skills_and_five_agents_for_codex_and_claude_code() {
     let root = root();
     assert!(root.join("Cargo.toml").is_file());
     assert!(root.join("src/main.rs").is_file());
@@ -54,6 +54,7 @@ fn repository_surface_is_seven_skills_and_five_agents_for_codex_and_claude_code(
             "rblx-new-game",
             "rblx-optimize",
             "rblx-plan",
+            "rblx-review",
             "rblx-test",
             "rblx-writer"
         ]

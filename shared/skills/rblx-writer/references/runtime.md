@@ -25,12 +25,23 @@ module caches and API thread safety.
 - Separate require from Start/init. Keep paths static and acyclic; check prefixes,
   replication readiness and engine/project resolver support. `.luaurc` aliases alone
   do not prove engine support.
-- Select frame callbacks by phase. Own render-priority unbinding. Property signals
-  supply no value; read it. Distinguish ValueBase.Changed, Instance.Changed, exact
-  class lookup and inheritance.
+- Use a change signal when it meets the consumer's timing and ordering requirements.
+  Select frame callbacks by required phase and own render-priority unbinding.
+  Property signals supply no value; read it. Distinguish ValueBase.Changed,
+  Instance.Changed, exact class lookup and inheritance.
+- Resolve repeatedly used Instances once per valid lifetime. Refresh references at
+  respawn, replacement, or stream-in and release them on removal. Coalesce writes
+  only when consumers tolerate the resulting notifications, order and freshness.
+  Run cosmetic motion on clients when they can reconstruct it from shared inputs.
+  Keep gameplay outcomes with their authoritative owner.
+- When setup can run off-tree, finish the properties and descendants required by
+  observers before parenting the root into the live tree.
 - Pair explicit `task.desynchronize()` with `task.synchronize()` before every exit.
   Parallel callbacks need no opener; synchronize before unsafe APIs, including reads.
   Require dependencies in serial. Phase changes are not a nested stack.
+- Use Actor messages for discrete work items and results. Treat ordinary table
+  payloads as copies. Use `SharedTable` when Actors need shared mutable state and
+  have explicit write ownership or synchronization.
 - Pair `debug.profilebegin/end` within one function across branches/loops. Close
   profiles after protected calls before handling/propagating errors. Review
   cancellation and indirect effects separately.
@@ -42,8 +53,9 @@ module caches and API thread safety.
   resolve ambiguous success before retrying non-idempotent work. MemoryStore is
   temporary; messaging is notification. Query current quotas.
 - Check EditableImage/EditableMesh permissions and budgets; handle creation failure
-  and release resources. Reuse buffers; batch drawing when measured useful. Preload
-  essential assets and check status. Use private seeded Random streams for determinism.
+  and release resources. Reuse buffers; batch drawing when measured useful.
+  At startup, preload only assets needed for loading or spawn and check status.
+  Use private seeded Random streams for determinism.
 
 For changed parallel/profile scopes, run `check source --only correctness PATH...`.
 OPT15/OPT20 follow direct calls and structural flow, not aliases, helper effects,

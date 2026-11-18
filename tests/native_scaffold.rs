@@ -346,6 +346,10 @@ fn full_scaffold_links_assets_and_preserves_existing_module_bytes() {
     }
     assert!(f.root.join("plugins").is_dir());
     assert!(f.root.join(".claude/settings.json").is_file());
+    let agents = fs::read_to_string(f.root.join("AGENTS.md")).unwrap();
+    assert!(agents.lines().any(|line| line == "@TOOLS.md"));
+    assert!(f.root.join("TOOLS.md").is_file());
+    assert_eq!(fs::read(f.root.join("CLAUDE.md")).unwrap(), b"@AGENTS.md\n");
     let map = json_file(&f.root, "Match.project.json");
     assert_eq!(
         map["tree"]["ServerScriptService"]["PlaceServices"]["$path"],

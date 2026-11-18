@@ -1,30 +1,32 @@
 ---
 name: rblx-optimize
-description: Assess Roblox source, plans, and MicroProfiler captures for CPU, memory, storage, and transport costs.
+description: Assess Roblox performance in source, plans, or profiler captures. Use for hot paths, frame cost, memory, storage, or transport.
 ---
 
 # Roblox performance
 
-Follow project `AGENTS.md`; if Roblox rules are absent, read [CORE.md](../../CORE.md).
+Follow project `AGENTS.md` or fall back to [CORE.md](../../CORE.md).
 
-For source/plans, run `check source --only performance PATH...`. Return locations,
-candidates, required actions, missing workload inputs and a decisive comparison.
-Static findings establish neither material cost nor gains; no capture is required.
-Never recommend service/controller cleanup or `Destroy` methods, or cleanup or
-repeat-start guards in their `:Start()` callbacks.
+For existing code, identify the workload and affected budget. Reduce work or
+frequency, then batch engine calls or use an equivalent cheaper API. Tune Luau
+last. Stop when the workload meets its budget.
 
-Before mechanism benchmarks, establish a material workload problem and separate
-CPU, latency, retained/peak memory and byte budgets. Stop when the target is met
-or no material problem remains. Claim gains only for comparable workloads and
-environments with equivalent results or accepted error bounds.
+Run `check source --only performance PATH...` when source is available. Report
+locations, applicable rules, actions, behavior risks and the smallest decisive
+check. Use static evidence to identify candidates. Use workload evidence for
+cost or gain claims. Follow the [runtime contracts](../rblx-writer/references/runtime.md)
+for service and controller lifetime or instrumentation changes.
 
-| Work | Guidance/tool |
+| Work | Guidance |
 |---|---|
-| Cost candidates | [luau-costs.md](references/luau-costs.md) |
-| Benchmarks/comparisons | [measurement.md](references/measurement.md), `rblx-test` |
-| Captures | `profile frames`, `profile luau`; [capture procedure](../rblx-test/references/captures.md) |
-| Engine decisions | [engine.md](../rblx-writer/references/engine.md) |
-| Beneficial subagent task split | [handoffs](../rblx-plan/references/delegation.md) |
+| Per-frame work, engine calls, physics, rendering, replication, parallel work | [Engine and platform costs](references/engine-costs.md) |
+| Independent parts, articulated assemblies, bones, runtime meshes | [Mesh deformation and rigid movement](references/mesh-deformation.md) |
+| Hot Luau loops, allocation, strings, native code generation | [Luau hot paths](references/luau-costs.md) |
+| Packed fields, numeric arrays, remote and storage formats | [Compact formats](references/formats.md) |
+| Lookup keys, scans, indexes, sorting, spatial hashes | [Keys and access patterns](references/keys.md) |
+| Profiler selection, benchmarks, and gain claims | [Performance evidence](references/measurement.md) |
+| Engine access and behavior | [Engine evidence](../rblx-writer/references/engine.md) |
+| Subagent assignments | [Delegation](../rblx-plan/references/delegation.md) |
 
-Route edits through the implementation skill, then review. Changed instrumentation
-requires `check source --only correctness PATH...`.
+Route edits through [implementation](../rblx-writer/SKILL.md) and independent
+review through [review](../rblx-review/SKILL.md).

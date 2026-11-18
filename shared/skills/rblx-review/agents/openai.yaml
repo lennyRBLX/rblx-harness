@@ -1,0 +1,4 @@
+interface:
+  display_name: "Roblox Review"
+  short_description: "Review Roblox changes and implementation plans"
+  default_prompt: "Use $rblx-review to find actionable regressions in this Roblox change."

@@ -1,12 +1,10 @@
 # Tools
 
-Command reference for project tools in `tools/`.
-
 ## Conventions
 
 `*` · R · command notation.
 
-Use the [shared tokens](rblx-harness/TOOLS.md#conventions).
+Use the [harness tokens](rblx-harness/TOOLS.md#conventions).
 
 ## harness
 
@@ -16,4 +14,4 @@ Use the [shared tokens](rblx-harness/TOOLS.md#conventions).
 |---|---|
 | `harness --help` | List command families |
 
-- [Command reference](rblx-harness/shared/TOOLS.md) covers workflows, flags, and limits.
+- See the [harness command reference](rblx-harness/TOOLS.md) for flags and limits.

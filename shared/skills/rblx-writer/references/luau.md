@@ -11,9 +11,11 @@
   not an iterator.
 - Use `#` for dense arrays; count sparse tables explicitly and use `next(t) == nil`
   for dictionary emptiness. Remove backwards, or revisit swap-removed indices.
-- `table.create(n, tableValue)` aliases the fill table. `table.clear` retains
-  capacity and affects aliases. Distinguish cached nil from a miss; bound pools
-  and reset reused state. Use stacks/loops for unbounded traversal.
+- Reserve `table.create(n, fillTable)` for shared references. Create a distinct
+  table per slot when entries need independent state.
+  Use `table.clear` to reset owned scratch tables and retain capacity when alias
+  behavior allows it. Distinguish cached nil from a miss. Bound pools and reset
+  reused state. Use stacks or loops for unbounded traversal.
 - Use plain `string.find(..., 1, true)` for literals; escape external pattern input.
   Use format for precision, interpolation for substitution, `table.concat` for bulk.
 - Distinguish bytes, codepoints and graphemes. Validate external UTF-8, handle

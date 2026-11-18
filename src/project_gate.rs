@@ -213,7 +213,7 @@ pub fn validate(root: &Path) -> Vec<String> {
     for p in [
         "Cargo.lock",
         "Cargo.toml",
-        "shared/TOOLS.md",
+        "TOOLS.md",
         "src/main.rs",
         "src/lib.rs",
         "src/api.rs",

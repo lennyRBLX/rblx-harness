@@ -131,6 +131,7 @@ fn harness_setup_rebuilds_ignored_codex_and_claude_code_support_and_all_source_s
         "rblx-new-game",
         "rblx-optimize",
         "rblx-plan",
+        "rblx-review",
         "rblx-test",
         "rblx-writer",
     ] {
@@ -158,13 +159,17 @@ fn project_setup_installs_shared_rules_and_preserves_tool_reference() {
     setup(root);
 
     let agents = read(root, "AGENTS.md");
+    for host in [".agents", ".claude"] {
+        assert!(root.join(host).join("skills/rblx-review/SKILL.md").is_file());
+    }
     let rule = "Do not edit `rblx-harness/` from this project. Propose all harness changes as prompts to run in the `rblx-harness/` project itself.";
     assert!(agents.contains(rule));
     for section in ["## Writing", "## Tools", "## Modules"] {
         assert!(agents.contains(section), "missing {section}");
     }
     assert!(agents.ends_with("# Local instructions\n\nKeep this.\n"));
-    assert!(read(root, "CLAUDE.md").contains("@AGENTS.md"));
+    assert!(agents.lines().any(|line| line == "@TOOLS.md"));
+    assert_eq!(read(root, "CLAUDE.md"), "@AGENTS.md\n");
 
     let tools = read(root, "TOOLS.md");
     assert!(tools.contains("rblx-harness/TOOLS.md#conventions"));
@@ -172,17 +177,32 @@ fn project_setup_installs_shared_rules_and_preserves_tool_reference() {
     put(root, "TOOLS.md", &customized);
 
     let local_prefix = "# More local instructions\n\nKeep this too.\n\n";
-    let legacy_agents = agents.replace(&format!("{rule}\n\n"), "");
+    let legacy_agents = agents
+        .replace(&format!("{rule}\n\n"), "")
+        .replace("@TOOLS.md\n\n", "");
     put(root, "AGENTS.md", &format!("{local_prefix}{legacy_agents}"));
+    let legacy_claude = "<!-- BEGIN rblx-harness Claude Code import -->\n@AGENTS.md\n\nDelegate specialist work to the matching project subagent; do not perform it inline.\n<!-- END rblx-harness Claude Code import -->\n";
+    put(root, "CLAUDE.md", legacy_claude);
 
     setup(root);
 
     let upgraded_agents = format!("{local_prefix}{agents}");
     assert_eq!(read(root, "AGENTS.md"), upgraded_agents);
     assert_eq!(read(root, "TOOLS.md"), customized);
+    assert_eq!(read(root, "CLAUDE.md"), "@AGENTS.md\n");
 
+    let custom_claude = "\n## Claude instructions\n\nKeep this too.\n";
+    put(
+        root,
+        "CLAUDE.md",
+        &format!("{legacy_claude}{custom_claude}"),
+    );
+    setup(root);
+    let upgraded_claude = format!("@AGENTS.md\n{custom_claude}");
+    assert_eq!(read(root, "CLAUDE.md"), upgraded_claude);
     setup(root);
     assert_eq!(read(root, "AGENTS.md"), upgraded_agents);
+    assert_eq!(read(root, "CLAUDE.md"), upgraded_claude);
 }
 
 #[test]

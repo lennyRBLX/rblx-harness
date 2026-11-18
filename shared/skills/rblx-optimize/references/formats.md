@@ -1,22 +1,39 @@
 # Compact formats
 
-Compare through the consuming path; retain precision, inspection, recovery and
-migration needs. Large machine-processed data/maps are candidates; inspected
-PlayerData can favor readable fields. Neither category has a fixed exclusion.
-Use [network.md](../../rblx-writer/references/network.md) for codec correctness.
+Compare through the consuming path. Preserve precision, inspection, recovery and
+migration. Consider compact formats for large machine-processed data and readable
+fields for PlayerData people inspect. Follow the [codec rules](../../rblx-writer/references/network.md).
 
 | Candidate | Required comparison/contract |
 |---|---|
-| Fixed widths | Ranges, signedness, offsets, endianness, overflow; actual bytes including headers/padding |
-| Dictionary IDs | Low cardinality; include dictionary bytes, lifetime, updates and decode cost. Hashes cannot replace reversible mappings. |
-| Bit packing | Narrow ranges; masks, cross-byte access, bounded reads. Compare block-local widths/exceptions when outliers inflate width. |
-| Varints/ZigZag | Mostly small magnitudes, ZigZag for signed values; may exceed fixed widths for large values. Bound decode length/overflow. |
-| Quantization | Range, resolution, rounding, overflow and accepted error. Nearest step s gives ≤s/2 error within range, excluding overflow/FP error. Test boundaries and consumer; scale/range changes may require re-encoding. Fixed widths permit random access/independent updates. |
-| Deltas | Base, resets/checkpoints, dependency bounds, updates, reconstruction. Lossless only with exact arithmetic/no overflow. Smaller magnitudes do not shrink fixed fields. Chains need prefix reconstruction; checkpoints trade bytes for access. Updates may affect neighbors/suffix; quantized chains need propagated error bounds. |
-| Compression | Encode/decode, scratch/copies, output bytes, random access/updates; compare blocks including headers/checkpoints. For supported trained dictionaries, include distribution/version cost and held-out data. Keep data packed if consumers can use it; small/already compressed inputs may not benefit. |
+| Fixed widths | Set range, signedness, offsets, byte order and overflow policy. Count headers and padding. Use fixed widths for random access or independent updates. |
+| Dictionary IDs | Use for low cardinality. Include dictionary bytes, lifetime, updates and decode cost. Keep a reversible mapping. |
+| Bit packing | Use for narrow ranges. Check masks, cross-byte access and bounds. Compare block widths or exceptions when outliers inflate width. |
+| Varints and ZigZag | Use for mostly small magnitudes. Use ZigZag for signed values. Check large values against fixed-width sizes and bound decoding. |
+| Quantization | Set range, step, rounding, overflow and error bounds. Nearest rounding gives ≤ half a step within range, excluding floating-point error. Test boundary values and consumers. Recheck encodings when scale or range changes. |
+| Deltas | Set the base, resets and dependency bounds. Require exact arithmetic without overflow for lossless coding. Check encoded widths, prefix reconstruction, checkpoint bytes and effects on neighbors or the suffix. Check propagated error for quantized chains. |
+| Compression | Measure encode/decode, scratch, copies, headers, checkpoints and access or update cost. Include dictionary distribution and version costs and test held-out data. Keep data packed when consumers can use it. Check small and already compressed inputs. |
 
 For persisted changes, require versioned bounded decoding, recovery, proportional
 migration, old/new fixtures and declared error checks before stored-data changes.
+
+## Luau buffer defaults
+
+- In a hot codec, pack adjacent fixed-width bit fields that share a byte-aligned
+  8-, 16- or 32-bit word using `bit32` shifts and `bor` on validated fields. Write
+  the word once with a typed accessor. Read it once and use `bit32.extract`.
+  Verify byte equivalence when preserving the layout. Use `buffer.readbits` and
+  `buffer.writebits` for dynamic widths or when clearer on a cold path. Split wider
+  fixed records across words when the layout allows it. Use typed accessors for
+  byte-aligned fields. Combine neighboring byte writes only where fewer calls
+  matter in the deployment mode and the byte layout stays equivalent.
+- Keep ordinary arrays as tables, especially read-heavy interpreted paths. Use a
+  buffer at the needed width for large dense numeric data when memory or encoded
+  bytes drive the choice. Check deployed read and write throughput separately for
+  hot paths and include conversion, GC, retained memory and transfer copies. Use
+  `buffer.copy`, `buffer.fill` and `buffer.writestring` for bulk byte operations.
+- Keep named booleans for ordinary objects. Pack flags when the stored or encoded
+  size of many flags matters.
 
 Mechanism sources: [quantization](https://github.com/KhronosGroup/glTF/blob/main/extensions/2.0/Khronos/KHR_mesh_quantization/README.md),
 [integer/delta packing](https://arxiv.org/abs/1209.2137),

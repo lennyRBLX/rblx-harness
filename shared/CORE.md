@@ -7,7 +7,7 @@ Harness CLI: `harness [--root PROJECT] FAMILY ...`; install the Rust binary with
 - Use Argon-resolved source for project behavior. Before mutation, validate remote types, sizes, finite ranges, and ownership. Release owned connections, tasks, and instances when their lifetime ends.
 - Use `harness --root PROJECT types write` for data defaults, generated owner types, and public declarations; it validates and commits related files together. Resolve changed public APIs with `types read`.
 - Use current scoped engine evidence before relying on access or behavior; query `api` only for missing or invalidated answers. Keep caller, phase, restrictions, source revision, and the selected skill's engine reference.
-- Run commands for missing evidence or required changes only. Use scoped `rg`, bounded reads, native edits, Git, and harness helpers for domain validation or batched evidence. Batch independent operations; sequence dependencies. Inspect results; preserve failures and required output. Use non-login shells unless initialization requires otherwise. Read needed `rblx-harness/shared/TOOLS.md` sections and unfamiliar command help only.
+- Run commands for missing evidence or required changes. Use scoped `rg`, bounded reads, native edits, Git, and harness helpers. Batch independent operations and sequence dependencies. Inspect results. Preserve failures and required output. Use non-login shells unless initialization requires otherwise. Read only relevant `rblx-harness/TOOLS.md` sections and command help.
 - Prefer subagents when a concrete task split improves speed or output quality with efficient total token use. Handle small edits and settings tweaks directly unless complexity or risk warrants delegation. For team roles, reuse, assessment order and limits, load `H/shared/skills/rblx-plan/references/delegation.md`.
 - For Studio checks, use the user's selected environment and existing execution authorization; otherwise obtain the human result. Prepare persistent Studio source and new test drivers/invocation in stopped Edit mode. For supported iteration in an authorized active session, use rblx-test's hot-reload reference. Use shared test support and its independent collection pipelines. Report passed, failed, reused, unrun, and skipped checks accurately.
 - Select each test by one decision, question, stable ID and stopping condition. Start with the broadest useful measurement; remove prerequisites that cannot affect the decision. Required checks remain required. After edits settle, run the smallest decisive check. Test unresolved behavior only, not prose or implementation-mirroring assertions. Reuse valid findings and documented engine facts; keep authored-algorithm correctness separate. Permit necessary measurement repeats, failure reproductions and checks affected by source or workload changes. Run full suites for broad changes or explicit requests only.
@@ -24,8 +24,7 @@ Harness CLI: `harness [--root PROJECT] FAMILY ...`; install the Rust binary with
 ## Tools
 
 - Write non-Luau tools in Rust under `tools/`. Extend an existing tool before adding one.
-- List each tool in the root [TOOLS.md](TOOLS.md) beside `tools/`.
-- Use `## <name>`, a `` `path` · access · purpose. `` line, a `| Cmd | Effect |` table, then flag and limit bullets. Use the Conventions tokens from the harness `TOOLS.md`. Keep entries technical and short. Link shared rules.
+- List each tool in root `TOOLS.md`. Use `## <name>`, a `` `path` · access · purpose. `` line, a `| Cmd | Effect |` table, then flag and limit bullets. Use the Conventions tokens and link shared rules.
 
 ## Modules
 

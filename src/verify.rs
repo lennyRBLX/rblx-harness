@@ -3,7 +3,7 @@ use std::{ffi::OsString, path::Path, process::Command};
 
 const CASES: &[&str] = &[
     "Studio RPC targets each call without global activation",
-    "repository surface is seven skills and five agents for Codex and Claude Code",
+    "repository surface is eight skills and five agents for Codex and Claude Code",
     "harness setup rebuilds ignored Codex and Claude Code support and all source skills",
     "project setup installs shared rules and preserves tool reference",
     "Codex config merge preserves custom tables",

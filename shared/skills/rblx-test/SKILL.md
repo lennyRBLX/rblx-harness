@@ -1,20 +1,19 @@
 ---
 name: rblx-test
-description: Select, write, or run Roblox tests and validation.
+description: Select, write, or run Roblox tests. Use for Studio verification, test results, or profiler captures.
 ---
 
 # Roblox tests
 
-Follow project `AGENTS.md`; if Roblox rules are absent, read [CORE.md](../../CORE.md).
+Follow project `AGENTS.md` or fall back to [CORE.md](../../CORE.md).
 
-Apply CORE test-selection and evidence rules. Keep test source under `tests/`;
-author only the required execution side. Use shared `TestSupport` lifecycle and
-codec. New output uses its buffer protocol and runtime prefix, never JSON.
-Missing, partial or corrupt results cannot pass; decode before display limits.
+Test only the affected execution sides. Use shared `TestSupport` for lifecycle
+and output. Decode the full result before applying display limits or reporting a pass.
 
 | Task | Load |
 |---|---|
-| Prepare/run tests; readiness, metrics, collection, cleanup | [procedure.md](references/procedure.md) |
-| Active-session iteration; deciding whether Play/Stop is needed | [hot-reload.md](references/hot-reload.md) |
-| MicroProfiler capture or frame-time claim | [captures.md](references/captures.md) |
-| Output source or collectors | [buffer.md](references/buffer.md) |
+| Test source, readiness, metrics, collection, cleanup | [Execution](references/procedure.md) |
+| Choose and compare performance measurements | [Performance evidence](../rblx-optimize/references/measurement.md) |
+| Active-session iteration or Play/Stop | [Hot reload](references/hot-reload.md) |
+| MicroProfiler capture or frame-time claim | [Captures](references/captures.md) |
+| Output format or collectors | [Buffer protocol](references/buffer.md) |

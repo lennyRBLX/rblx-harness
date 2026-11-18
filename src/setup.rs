@@ -23,6 +23,7 @@ const SKILLS: &[&str] = &[
     "rblx-debug",
     "rblx-optimize",
     "rblx-plan",
+    "rblx-review",
     "rblx-test",
 ];
 const ORDER: &[&str] = &["packages", "services", "controllers", "plugins"];
@@ -714,9 +715,7 @@ fn render(project: &Path, manifest: &Value, places: &[String], assets: &[String]
     }
     let path = project.join("CLAUDE.md");
     let existing = text(&path);
-    let canonical = fs::read_to_string(h.join("CLAUDE.md"))?;
-    let canonical = canonical.trim();
-    let block = format!("{}\n{}\n{}", CB, canonical, CE);
+    let import = "@AGENTS.md";
     let out = if existing.contains(CB) || existing.contains(CE) {
         if existing.matches(CB).count() != 1
             || existing.matches(CE).count() != 1
@@ -726,27 +725,18 @@ fn render(project: &Path, manifest: &Value, places: &[String], assets: &[String]
         }
         let a = existing.find(CB).unwrap();
         let b = existing.find(CE).unwrap() + CE.len();
-        format!("{}{}{}", &existing[..a], block, &existing[b..])
-    } else if existing.contains(canonical) {
+        let (before, after) = (&existing[..a], &existing[b..]);
+        if before.trim().is_empty() && after.trim().is_empty() {
+            format!("{import}\n")
+        } else {
+            format!("{before}{import}{after}")
+        }
+    } else if existing.trim().is_empty() {
+        format!("{import}\n")
+    } else if existing.lines().any(|line| line.trim() == import) {
         existing
-    } else if let Some(m) = regex::Regex::new(r"(?m)^[ \t]*@AGENTS\.md[ \t]*$")?.find(&existing) {
-        format!(
-            "{}{}{}",
-            &existing[..m.start()],
-            block,
-            &existing[m.end()..]
-        )
     } else {
-        format!(
-            "{}{}{}\n",
-            block,
-            if existing.trim().is_empty() {
-                ""
-            } else {
-                "\n\n"
-            },
-            existing.trim()
-        )
+        format!("{import}\n\n{existing}")
     };
     put(&path, &out)?;
 

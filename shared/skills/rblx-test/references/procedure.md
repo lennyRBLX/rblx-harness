@@ -26,6 +26,8 @@ capture-waiting → collection → completion. `State`, `WorkloadState`, `Profil
 and `CollectionState` are independent attributes. `Cancel` ends work; bound
 readiness, execution, capture continuation and collection deadlines. Callbacks must
 yield within their bound; Luau cannot preempt non-yielding callbacks.
+Split long benchmark runs into complete cases within the connector's deadline.
+After a timeout, check the existing run state before retrying.
 
 Own instances, connections, tasks and restoration callbacks through context;
 release once in reverse order on all exits. Restore properties only while they

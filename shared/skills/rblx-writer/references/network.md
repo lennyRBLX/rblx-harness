@@ -5,25 +5,32 @@ Keep existing Event/owner APIs. For engine-dependent limits, use
 
 ## Codecs
 
-- Specify packet ID/version, widths, units, length limits and trailing-byte policy.
-  Decode fully before committing state.
-- Require integer, nonnegative offsets/lengths and `offset + width <= buffer.len(b)`.
+- Specify packet ID/version, widths, byte/bit order, units, length limits and
+  trailing-byte policy. Decode fully before committing state.
+- Require nonnegative integers for zero-based offsets and lengths. Check
+  `offset + width` against `buffer.len(b)` for byte access and
+  `buffer.len(b) * 8` for bit access. Match the typed buffer accessors' little-endian
+  order when exchanging bytes, or convert to the external format's order.
   Bound strings, counts, allocations and loops. Grow writers from positive capacity
   to a fixed maximum; zero must not loop forever.
-- Reject nonfinite/out-of-range values before integer writes or quantization.
-  Match signedness/precision. Preserve UserIds with f64 or lossless mappings;
-  use strings for external integers beyond exact double range.
-- `bit32` is 32-bit. Bound varints by width; reject excess continuation and final
-  overflow bits. A u32 varint cannot hold large IDs.
+- Reject nonfinite or out-of-schema inputs. Reject fractions for exact integer
+  fields and round quantized fields explicitly. Validate encoded range and
+  signedness before writing. Preserve UserIds with f64 or lossless mappings.
+  Use strings for external integers beyond exact double range.
+- Validate packed fields before combining them so excess bits cannot spill into
+  adjacent fields. Bound varints by width and reject excess continuation and final
+  overflow bits. Use a width that can hold the full ID range.
 - Check boundary round trips, truncation, malformed lengths and overflow. Declare
   quantization error; preserve CFrame axes unless the schema permits loss.
   Use project IDs/names for durable enums.
 
 ## Transport
 
+- Use `UnreliableRemoteEvent` only when the protocol tolerates loss and reordering.
+  Keep the complete payload within the current engine limit. Sequence replaceable
+  state updates and discard stale ones. Restore full state when unreliable deltas
+  depend on prior packets.
 - Bound batch counts/bytes and per-player queues; clear queues on leave.
-  Sequence disposable updates; restore full state when unreliable deltas depend
-  on prior packets. Query current payload limits.
 - Use operation IDs and idempotent purchase/save handlers. Replace blocking
   InvokeClient dependencies with bounded requests, deadlines and disconnect cleanup.
 - Validate runtime payloads despite typed wrappers; a generic remote name alone

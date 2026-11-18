@@ -29,7 +29,7 @@ complexity or risk warrants delegation.
   scopes and owner/parent IDs. `coord end` releases completed work; native hooks
   release ended agents/sessions. Expiry stays unknown. Integration reuses a current
   `inspect diff --overlap` result until relevant inputs change. See
-  [tool fields](../../../TOOLS.md#evidence).
+  [tool fields](../../../../TOOLS.md#evidence).
 - Share exact paths, APIs, literals, restrictions, open questions and valid
   findings/checks with their scope and revisions. Avoid duplicate work and rerun
   only affected or required checks. Return concise findings, references, check
