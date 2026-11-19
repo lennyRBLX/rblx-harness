@@ -5,11 +5,9 @@ description: Build or connect native and React Luau GUI, including Studio plugin
 
 # Roblox GUI
 
-Follow project `AGENTS.md`; if Roblox rules are absent, read [CORE.md](../../CORE.md).
+Follow project `AGENTS.md` and use the [shared rules](../../CORE.md) when it lacks Roblox guidance.
 
-Inspect GUI owners, stack, devices and behavior. Give each layout/animated
-property one owner; release it at teardown. Use `scaffold module gui` for new
-modules and `rblx-writer` for non-GUI logic.
+Inspect GUI owners, stack, devices and behavior. Give each layout/animated property one owner; release it at teardown. Use `scaffold module gui` for new modules and `rblx-writer` for non-GUI logic.
 
 | Decision | Load/action |
 |---|---|

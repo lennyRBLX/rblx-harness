@@ -1,0 +1,28 @@
+# FastCluster updates
+
+## Author rendered rigs
+
+- When only pose or rigid placement changes, use the matching [movement path](mesh-deformation.md). Keep mesh assets, bind names, rest frames, joint endpoints and cage geometry stable during ordinary animation. Preserve animation phase, physics, ownership and replication.
+- When only the final shape or outfit matters, compute it first. Prepare mesh, accessory and clothing properties before binding when lifecycle allows. Apply a complete appearance when customization changes it. Coalesce remaining live edits per cluster before its next render update when consumers can skip intermediate states. A resize and restore can still dirty geometry. When implementing avatar scaling through Humanoid values, verify effective dimensions on the intended peer. When many independent rigs update together, spread whole-rig changes only if their latency allows it and the peak frame improves.
+- When pixels alone change, keep the supported `EditableImage` bound and update its pixels. Measure upload and memory separately. When a mesh needs per-vertex edits, prepare them off-tree when possible. Bound `EditableMesh` channel and topology edits, including an unused vertex addition, can rebuild geometry. If a live mesh must move through storage, budget for binding it again.
+- When a fade can stay within one effective transparency class, avoid repeated crossings between opaque, translucent and invisible. Keep required endpoint behavior and account for `LocalTransparencyModifier`. For a persistent `Highlight` effect, style or toggle it on the same target when possible. Retargeting can rebuild even while disabled.
+- Keep frequently changed bookkeeping in Luau or on the owning model when its consumers permit. Metadata on a bound `SpecialMesh` or a `MeshPart` directly under a watched part can dirty geometry. When an effect is local to one rig, change that rig's appearance and keep the shared material definition stable. Configure settings that reset render membership, such as effective lighting style, outside repeated visual updates.
+
+## Diagnose a capture
+
+Start at `Prepare/UpdatePrepare/updateInvalidatedFastClusters` for Humanoids and skinned meshes. Ordinary instanced parts have `updateInstancedClusters`. Locate the affected rig or render group and estimate how many clusters it spans. Interpret the deepest scopes in the same action window.
+
+| Scope | Interpretation |
+|---|---|
+| Invalidation or `updateEntity` | Work was requested or examined. A queued entry can be clean, take a cached path, or tear down an empty cluster. |
+| `updateInstanceData` or `updateCompositeTextureMaterials` | Cached refresh was attempted. Check for a geometry fallback in the same frame. |
+| `updateGeometry` | Geometry was checked. A skeleton-only change can reuse its mapping. |
+| `finalizeSkinningAndEntities` | Candidate marker for the ordinary full rebuild. Confirm marker coverage with a known geometry change. |
+| `finishUpdatingGeometry` or a fixture-specific geometry completion diagnostic | Geometry processing finished. Check procedural-avatar and mesh-failure paths separately when classifying the build. |
+
+- Trace each tool, tween, script or replicated action to the effective property, pose or membership change in the rendering process. Confirm actual part dimensions after a scale-value edit and client arrival after a streaming request. Check both owners for reparenting or spatial migration. Compare intact rigs and standalone skinned meshes using representative starting positions and moves. Migration depends on grouping and classification. `BulkMoveTo` can reduce setter overhead while still moving parts between groups. For Studio tools, isolate selection and history actions that can change the captured workload.
+- Match the actual object, binding and starting state. Body, accessory, surface and decal tints can use different paths. When fading, compare crossings and within-class writes using effective transparency. For skeleton changes, inspect linked joints, matching bones and connected constraint endpoints or their attachment ancestors. For clothing, use the populated cage setup and confirm deformation separately from invalidation. For materials, count actual users of a named variant or the affected base material.
+- Compare idle, the original action and the candidate on the rendering client for gameplay. Match camera position, avatar count and asset state. Use a resize on the same bound mesh as a positive control when marker coverage is uncertain. Verify the visual result and keep the action start and subsequent frames until work settles. For an outfit, capture first equip, warm equip and subsequent live edits as separate cases. Check load success separately from a renderer wake-up.
+- Report full builds per action, affected clusters and their part/vertex counts where observable, and worst-frame and scope durations. Record rig, mode, build and coverage for quiet results. Isolate the fixture before assigning process-wide counts to a rig. Time animation, skinning, physics, UI and particles in their own scopes when relevant. Use matched target timings for cost and savings claims. Follow [performance evidence](measurement.md).
+
+Use the [renderer evidence](fast-cluster-evidence.md) to look up a specific property, choose a discriminating control, interpret incomplete captures, or trace work into later frames. Confirm decision-critical behavior against the target runtime, feature configuration and rig. [Roblox MicroProfiler tags](https://create.roblox.com/docs/performance-optimization/microprofiler/tag-table)

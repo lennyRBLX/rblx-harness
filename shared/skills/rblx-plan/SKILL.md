@@ -5,19 +5,10 @@ description: Create or update Roblox implementation plans with owners, contracts
 
 # Roblox plans
 
-Follow project `AGENTS.md`; if Roblox rules are absent, read [CORE.md](../../CORE.md).
+Follow project `AGENTS.md` and use the [shared rules](../../CORE.md) when it lacks Roblox guidance.
 
-Keep the user's format and required Plan Mode wrapper. Use [PLAN.md](../../PLAN.md)
-as a template, not state. Write a plan file only when requested or needed for
-coordination; use native planning/progress tools when available.
+Keep the user's format and required Plan Mode wrapper. Use [PLAN.md](../../PLAN.md) as a template, not state. Write a plan file only when requested or needed for coordination; use native planning/progress tools when available.
 
-State the outcome and dependency-ordered, verifiable steps: stable ID, owner,
-paths, change, status and acceptance evidence. Add signatures, data flow,
-authority, lifecycle and Luau types only where needed. Inspect existing contracts;
-cite them and mark proposals. Use `types read` for public project APIs and
-[engine.md](../rblx-writer/references/engine.md) for engine decisions.
+State the outcome and dependency-ordered, verifiable steps: stable ID, owner, paths, change, status and acceptance evidence. Add signatures, data flow, authority, lifecycle and Luau types only where needed. Inspect existing contracts; cite them and mark proposals. Use `types read` for public project APIs and [engine.md](../rblx-writer/references/engine.md) for engine decisions.
 
-Merge settled Decisions, Unresolved and Pre-implementation tests into steps;
-remove resolved rows and empty tables. Use `rblx-test` for test decisions and
-its [procedure](../rblx-test/references/procedure.md) when planning execution.
-For task splits that benefit from subagents, use [handoffs](references/delegation.md).
+Merge settled Decisions, Unresolved and Pre-implementation tests into steps; remove resolved rows and empty tables. Use `rblx-test` for test decisions and its [procedure](../rblx-test/references/procedure.md) when planning execution. For task splits that benefit from subagents, use [handoffs](references/delegation.md).

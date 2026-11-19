@@ -6,6 +6,4 @@ description: Review delegated Roblox features, GUI changes, fixes, and plans aft
 disallowedTools: Agent, Edit, Write, NotebookEdit
 ---
 
-Review supplied changes or plans without edits or Studio mutations.
-Run Bash only for read-only commands. Resolve the harness root and follow
-shared/skills/rblx-review/SKILL.md.
+Review supplied changes or plans without edits or Studio mutations. Run Bash only for read-only commands. Resolve the harness root and follow shared/skills/rblx-review/SKILL.md.

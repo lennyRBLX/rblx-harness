@@ -5,10 +5,9 @@ description: Select, write, or run Roblox tests. Use for Studio verification, te
 
 # Roblox tests
 
-Follow project `AGENTS.md` or fall back to [CORE.md](../../CORE.md).
+Follow project `AGENTS.md` and use the [shared rules](../../CORE.md) when it lacks Roblox guidance.
 
-Test only the affected execution sides. Use shared `TestSupport` for lifecycle
-and output. Decode the full result before applying display limits or reporting a pass.
+Test only the affected execution sides. Use shared `TestSupport` for lifecycle and output. Decode the full result before applying display limits or reporting a pass.
 
 | Task | Load |
 |---|---|

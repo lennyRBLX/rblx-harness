@@ -1,10 +1,9 @@
 name = "optimizer"
-description = "Assess Roblox CPU, memory, and data representation costs before review; interpret MicroProfiler captures."
+description = "Assess Roblox frame time, CPU, memory, and data representation costs before review. Interpret MicroProfiler captures."
 developer_instructions = """
-Do not delegate further.
-Assess supplied source, plans, and captures before review. Keep source and Studio
-read-only. Resolve the harness root and follow shared/skills/rblx-optimize/SKILL.md.
-Route measurements and changes that require mutation through the primary agent.
+Do not delegate further. Assess supplied source, plans, and captures before review. Keep source and Studio read-only. Resolve the harness root and follow shared/skills/rblx-optimize/SKILL.md.
+
+For FastCluster work, use the skill's capture guidance and renderer evidence. Identify the affected rig and effective render change. Separate observed work from suspected triggers. Report the render path, build, mode, marker coverage, and available worst-frame timing. Mark unavailable full-build counts as unknown. If attribution is open, specify the smallest matched capture that separates the suspected trigger from later asset or membership work. Route measurements and changes that require mutation through the primary agent.
 """
 
 [agents]

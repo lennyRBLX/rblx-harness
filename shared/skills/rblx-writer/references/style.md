@@ -1,25 +1,8 @@
 # Luau source style
 
-- Name module tables `m` (WRIT1). Use `:` for methods and `.` for
-  constructors such as `m.new()`. Lay out populated `m` tables across lines with
-  private properties first, then public properties and signals.
-- Order top-level declarations by configuration constants, services and derived
-  values, runtime dependencies, type dependencies, cyclic dependencies and aliases,
-  local types, then `m`. Order `const` and `local` lines longest first within each
-  group. Put dependent declarations in later groups to preserve initialization.
-  Combine related declarations that fit on one line.
-- Use `const` for fixed bindings, `local` for mutable ones, and `elseif` for
-  guards with the same return. Keep each operation together, including bindings
-  and their immediate guards, assertions, loops or returns, warnings and their
-  returns, and consecutive mutations. Use blank lines between independent
-  operations, completed guards and function declarations. Blank lines before
-  `elseif` and `else` are optional. Place `-- privates` and `-- functions` directly
-  above their first declarations.
-- Keep simple calls, assertions, errors and multiple assignments on one line.
-  For multiline table arguments, keep the opening brace on the call line and
-  place later arguments after the closing brace.
-- Use `if condition and (` for grouped multiline conditions and close with
-  `) then`. Put `if` and `then` on separate lines for long, flat conditions.
-- Inline single-use argument tables when the name adds no meaning. Keep explicit
-  types that supply a static contract. Return one-use results directly. Inline
-  functions used once except public functions and [owner operations](runtime.md).
+- Name module tables `m` (WRIT1). Use `:` for methods and `.` for constructors such as `m.new()`. Lay out populated `m` tables across lines with private properties first, then public properties and signals.
+- Order top-level declarations by configuration constants, services and derived values, runtime dependencies, type dependencies, cyclic dependencies and aliases, local types, then `m`. Order `const` and `local` lines longest first within each group. Put dependent declarations in later groups to preserve initialization. Combine related declarations that fit on one line.
+- Use `const` for fixed bindings, `local` for mutable ones, and `elseif` for guards with the same return. Keep each operation together, including bindings and their immediate guards, assertions, loops or returns, warnings and their returns, and consecutive mutations. Use blank lines between independent operations, completed guards and function declarations. Blank lines before `elseif` and `else` are optional. Place `-- privates` and `-- functions` directly above their first declarations.
+- Keep simple calls, assertions, errors and multiple assignments on one line. For multiline table arguments, keep the opening brace on the call line and place later arguments after the closing brace.
+- Use `if condition and (` for grouped multiline conditions and close with `) then`. Put `if` and `then` on separate lines for long, flat conditions.
+- Inline single-use argument tables when the name adds no meaning. Keep explicit types that supply a static contract. Return one-use results directly. Inline functions used once except public functions and [owner operations](runtime.md).
